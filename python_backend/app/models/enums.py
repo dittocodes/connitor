@@ -1,0 +1,24 @@
+import enum
+
+
+class Role(str, enum.Enum):
+    SUPER_ADMIN = "SUPER_ADMIN"
+    CHAIN_ADMIN = "CHAIN_ADMIN"
+    BRANCH_ADMIN = "BRANCH_ADMIN"
+    SECURITY_SUPERVISOR = "SECURITY_SUPERVISOR"
+    SECURITY = "SECURITY"
+    STAFF = "STAFF"
+
+
+class VisitStatus(str, enum.Enum):
+    PENDING = "PENDING"
+    REQUEST_SENT = "REQUEST_SENT"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+    CHECKED_IN = "CHECKED_IN"
+    CHECKED_OUT = "CHECKED_OUT"
+
+
+class VisitCategory(str, enum.Enum):
+    MEETING = "MEETING"
+    DELIVERY = "DELIVERY"

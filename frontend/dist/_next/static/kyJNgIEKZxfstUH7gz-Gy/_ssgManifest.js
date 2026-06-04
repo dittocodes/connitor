@@ -1,0 +1,1 @@
+self.__SSG_MANIFEST=new Set(["\u002Fvisitor-registration\u002Fgate-pass\u002F[visitId]","\u002Fvisitor-registration\u002Fstatus\u002F[visitId]"]);self.__SSG_MANIFEST_CB&&self.__SSG_MANIFEST_CB()
