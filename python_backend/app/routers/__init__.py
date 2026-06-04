@@ -7,6 +7,7 @@ from app.routers import (
     branches,
     hospital_chains,
     notifications,
+    public_registration,
     public_visitors,
     public_visits,
     root,
@@ -27,6 +28,7 @@ api_router.include_router(staff.router, prefix="/staff", tags=["staff"])
 api_router.include_router(security.router, prefix="/security", tags=["security"])
 api_router.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
 api_router.include_router(visitors.router, prefix="/visitors", tags=["visitors"])
+api_router.include_router(public_registration.router, prefix="/public/registration", tags=["public-registration"])
 api_router.include_router(public_visitors.router, prefix="/public/visitors", tags=["public-visitors"])
 api_router.include_router(public_visits.router, prefix="/public/visits", tags=["public-visits"])
 api_router.include_router(analytics.router, prefix="/analytics", tags=["analytics"])

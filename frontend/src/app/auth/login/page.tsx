@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AuthEmailForm } from '@/components/auth/AuthEmailForm';
+import { AuthPageShell } from '@/components/auth/AuthPageShell';
 import { getDemoHomePath, IS_DEMO_MODE } from '@/lib/demo-config';
 import { useDemoRole } from '@/contexts/DemoRoleContext';
 
@@ -21,8 +22,8 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-200 flex items-center justify-center p-4">
+    <AuthPageShell>
       <AuthEmailForm />
-    </div>
+    </AuthPageShell>
   );
 }

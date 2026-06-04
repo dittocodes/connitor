@@ -262,6 +262,73 @@ export type UserFormData = z.infer<typeof UserFormSchema>;
 export type UserUpdateData = z.infer<typeof UserUpdateSchema>;
 export type User = z.infer<typeof UserResponseSchema>;
 
+export const SelfRegisterRoles = [
+  'CHAIN_ADMIN',
+  'BRANCH_ADMIN',
+  'SECURITY_SUPERVISOR',
+  'SECURITY',
+  'STAFF',
+] as const;
+
+const SelfRegisterBaseSchema = z.object({
+  name: z.string().min(1, 'Name is required.'),
+  phone: z.string().length(10, 'Phone must be 10 digits.'),
+  email: z.string().email('Invalid email format.'),
+});
+
+export const RegistrationProfileStepSchema = SelfRegisterBaseSchema;
+
+export type RegistrationProfileStepData = z.infer<typeof RegistrationProfileStepSchema>;
+
+export const SelfRegistrationFormSchema = z.discriminatedUnion('role', [
+  SelfRegisterBaseSchema.extend({
+    role: z.literal('CHAIN_ADMIN'),
+    hospitalChainId: z.string({ required_error: 'Hospital chain is required.' }),
+    branchId: z.string().optional(),
+  }),
+  SelfRegisterBaseSchema.extend({
+    role: z.literal('BRANCH_ADMIN'),
+    hospitalChainId: z.string({ required_error: 'Hospital chain is required.' }),
+    branchId: z.string({ required_error: 'Branch is required.' }),
+  }),
+  SelfRegisterBaseSchema.extend({
+    role: z.literal('STAFF'),
+    hospitalChainId: z.string({ required_error: 'Hospital chain is required.' }),
+    branchId: z.string({ required_error: 'Branch is required.' }),
+    userType: z.enum(UserTypes, { required_error: 'User type is required.' }),
+    department: z.enum(Departments, { required_error: 'Department is required.' }),
+    location: z.string().optional(),
+  }),
+  SelfRegisterBaseSchema.extend({
+    role: z.literal('SECURITY'),
+    hospitalChainId: z.string({ required_error: 'Hospital chain is required.' }),
+    branchId: z.string({ required_error: 'Branch is required.' }),
+    location: z.string().optional(),
+  }),
+  SelfRegisterBaseSchema.extend({
+    role: z.literal('SECURITY_SUPERVISOR'),
+    hospitalChainId: z.string({ required_error: 'Hospital chain is required.' }),
+    branchId: z.string({ required_error: 'Branch is required.' }),
+    location: z.string().optional(),
+  }),
+]);
+
+export type SelfRegistrationFormData = z.infer<typeof SelfRegistrationFormSchema>;
+
+export const PublicHospitalChainSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+});
+
+export const PublicBranchSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  hospitalChainId: z.string(),
+});
+
+export type PublicHospitalChain = z.infer<typeof PublicHospitalChainSchema>;
+export type PublicBranch = z.infer<typeof PublicBranchSchema>;
+
 // =================================================================
 // Visitor Schemas
 // =================================================================

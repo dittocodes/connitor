@@ -26,10 +26,13 @@ class AuthService:
         if not user:
             raise HTTPException(
                 status_code=404,
-                detail="User not found. Please contact admin to register your email.",
+                detail="User not found. Register first or contact your administrator.",
             )
         if not user.isActive:
-            raise HTTPException(status_code=403, detail="User account is inactive.")
+            raise HTTPException(
+                status_code=403,
+                detail="Account is not active. Complete email verification or contact your administrator.",
+            )
 
         settings = get_settings()
         fixed = get_fixed_otp(settings)

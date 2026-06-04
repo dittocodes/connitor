@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AuthOtpForm } from '@/components/auth/AuthOtpForm';
+import { AuthPageShell } from '@/components/auth/AuthPageShell';
 import { IS_DEMO_MODE } from '@/lib/demo-config';
 
 export default function VerifyOtpPage() {
@@ -19,8 +20,8 @@ export default function VerifyOtpPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-200 flex items-center justify-center p-4">
+    <AuthPageShell>
       <AuthOtpForm />
-    </div>
+    </AuthPageShell>
   );
 }

@@ -1,7 +1,10 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Loader2 } from 'lucide-react';
+
+import { HomePage } from '@/components/home/HomePage';
 import {
   DEFAULT_DEMO_USER_ID,
   DEMO_USER_ID_STORAGE_KEY,
@@ -12,6 +15,8 @@ import {
 
 export default function Home() {
   const router = useRouter();
+  const [checkingAuth, setCheckingAuth] = useState(true);
+  const [showHome, setShowHome] = useState(false);
 
   useEffect(() => {
     if (IS_DEMO_MODE) {
@@ -23,17 +28,22 @@ export default function Home() {
     }
 
     const token = localStorage.getItem('authToken');
-
     if (token) {
       router.replace('/dashboard');
-    } else {
-      router.replace('/auth/login');
+      return;
     }
+
+    setShowHome(true);
+    setCheckingAuth(false);
   }, [router]);
 
-  return (
-    <main className="flex min-h-screen items-center justify-center">
-      <p className="text-sm text-muted-foreground">Loading...</p>
-    </main>
-  );
+  if (checkingAuth && !showHome) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-teal-50 via-white to-emerald-50">
+        <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
+      </main>
+    );
+  }
+
+  return <HomePage />;
 }

@@ -191,7 +191,7 @@ export function AuthOtpForm() {
 
   if (!mounted || !email) {
     return (
-      <Card className="w-full max-w-lg min-h-[500px] mx-4 sm:mx-auto my-8 sm:my-16 shadow-xl">
+      <Card className="w-full max-w-lg min-h-[500px] shadow-xl border-teal-100/80">
         <CardContent className="flex items-center justify-center py-24">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </CardContent>
@@ -200,7 +200,7 @@ export function AuthOtpForm() {
   }
 
   return (
-    <Card className="w-full max-w-lg h-auto min-h-[500px] mx-4 sm:mx-auto my-8 sm:my-16 shadow-xl flex flex-col justify-between">
+    <Card className="w-full max-w-lg h-auto min-h-[500px] shadow-xl flex flex-col justify-between border-teal-100/80">
       <CardHeader className="text-center space-y-6">
         <div className="flex justify-center">
           <Image

@@ -7,7 +7,7 @@ import boto3
 import httpx
 
 from app.config import get_settings, is_test_mode_enabled
-from app.email_templates import build_login_otp_email
+from app.email_templates import build_login_otp_email, build_registration_otp_email
 
 logger = logging.getLogger(__name__)
 
@@ -94,6 +94,36 @@ class EmailService:
                 logger.warning("No email transport configured; OTP for %s: %s", to_email, otp)
         except Exception as exc:
             logger.error("Failed to send OTP email to %s: %s", to_email, exc)
+            raise
+
+    def send_registration_otp(self, to_email: str, otp: str) -> None:
+        settings = get_settings()
+        subject, text_body, html_body = build_registration_otp_email(
+            otp,
+            company_name=settings.email_from_name,
+            product_name=settings.email_product_name,
+            validity_minutes=10,
+        )
+
+        if is_test_mode_enabled(settings):
+            logger.info("[HVTS_TEST_MODE] Registration OTP to %s: %s", to_email, otp)
+            return
+
+        if not settings.smtp_from:
+            logger.warning("SMTP not configured; registration OTP for %s: %s", to_email, otp)
+            return
+
+        try:
+            if settings.zeptomail_api_url:
+                self._send_via_zeptomail_api(to_email, subject, text_body, html_body)
+            elif settings.smtp_host:
+                self._send_via_smtp(to_email, subject, text_body, html_body)
+            else:
+                logger.warning(
+                    "No email transport configured; registration OTP for %s: %s", to_email, otp
+                )
+        except Exception as exc:
+            logger.error("Failed to send registration OTP to %s: %s", to_email, exc)
             raise
 
 

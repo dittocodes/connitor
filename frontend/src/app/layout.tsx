@@ -21,8 +21,8 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: 'Visitor Tracking Software',
-  description: 'Hospital Visitor Tracking System',
+  title: 'Connitor — Hospital Visitor Tracking',
+  description: 'Smarter visitor tracking for modern hospitals. Sign in or register with email OTP.',
   icons: {
     icon: '/favicon.png',
   },

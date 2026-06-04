@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import Image from 'next/image';
+import Link from 'next/link';
 
 const EmailFormSchema = z.object({
   email: z.string().email('Enter a valid email address.'),
@@ -34,7 +35,7 @@ const EmailFormSchema = z.object({
 
 function LoginFormSkeleton() {
   return (
-    <Card className="w-full max-w-lg h-auto min-h-[500px] mx-4 sm:mx-auto my-8 sm:my-16 shadow-xl flex flex-col justify-between">
+    <Card className="w-full max-w-lg h-auto min-h-[500px] shadow-xl flex flex-col justify-between border-teal-100/80">
       <CardHeader className="text-center space-y-6">
         <div className="flex justify-center">
           <div className="h-20 w-[220px] rounded-md bg-muted animate-pulse" />
@@ -98,7 +99,7 @@ export function AuthEmailForm() {
   };
 
   return (
-    <Card className="w-full max-w-lg h-auto min-h-[500px] mx-4 sm:mx-auto my-8 sm:my-16 shadow-xl flex flex-col justify-between">
+    <Card className="w-full max-w-lg h-auto min-h-[500px] shadow-xl flex flex-col justify-between border-teal-100/80">
       <CardHeader className="text-center space-y-6">
         <div className="flex justify-center">
           <Image
@@ -166,6 +167,12 @@ export function AuthEmailForm() {
                 </>
               )}
             </Button>
+            <p className="text-center text-sm text-muted-foreground pt-2">
+              New to Connitor?{' '}
+              <Link href="/auth/register" className="text-teal-600 hover:underline font-medium">
+                Create an account
+              </Link>
+            </p>
           </form>
         </Form>
       </CardContent>
