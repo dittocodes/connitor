@@ -1,0 +1,101 @@
+import json
+import unittest
+from datetime import datetime, timedelta
+from unittest.mock import MagicMock, patch
+
+from fastapi import HTTPException
+
+from app.services.gate_pass_service import GatePassService
+
+
+def _visit(*, status: str = "APPROVED", is_code_used: bool = True):
+    visitor = MagicMock()
+    visitor.id = "visitor-1"
+    visitor.firstName = "Rahul"
+    visitor.lastName = "Mehta"
+    visitor.phone = "9123456701"
+    visitor.email = "rahul@example.com"
+    visitor.photo = None
+    visitor.company = None
+
+    staff = MagicMock()
+    staff.name = "Dr. Arjun"
+
+    visit = MagicMock()
+    visit.id = "visit-1"
+    visit.visitorId = "visitor-1"
+    visit.visitor = visitor
+    visit.staff = staff
+    visit.status = status
+    visit.visitCode = "654321"
+    visit.checkInOtp = "654321"
+    visit.checkInOtpExpiry = datetime.utcnow() + timedelta(hours=2)
+    visit.isCodeUsed = is_code_used
+    visit.branchId = "branch-1"
+    visit.visitCategory = "MEETING"
+    visit.appointmentDate = datetime.utcnow()
+    visit.idProofVerified = False
+    visit.purpose = "Consultation"
+    return visit
+
+
+class GatePassScanQrTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.db = MagicMock()
+        self.service = GatePassService(self.db)
+        self.service.notifications = MagicMock()
+
+    def test_parse_qr_json_payload(self) -> None:
+        payload = json.dumps({"visitId": "visit-1", "visitCode": "654321"})
+        visit_id, visit_code = self.service._parse_qr_payload(payload)
+        self.assertEqual(visit_id, "visit-1")
+        self.assertEqual(visit_code, "654321")
+
+    @patch("app.services.gate_pass_service.now_ist")
+    @patch("app.services.gate_pass_service.model_to_dict_visit", return_value={"id": "visit-1"})
+    def test_scan_check_in_qr_returns_visitor_details(
+        self, _mock_serialize: MagicMock, mock_now: MagicMock
+    ) -> None:
+        visit = _visit()
+        mock_now.return_value = datetime.utcnow()
+        query = MagicMock()
+        query.options.return_value = query
+        query.filter.return_value = query
+        query.first.return_value = visit
+        self.db.query.return_value = query
+        payload = json.dumps({"visitId": "visit-1", "visitCode": "654321"})
+        user = {"branchId": "branch-1", "id": "security-1"}
+
+        result = self.service.scan_check_in_qr(payload, user)
+
+        self.assertTrue(result["success"])
+        self.assertEqual(result["visitId"], "visit-1")
+        self.assertTrue(result["canCheckIn"])
+        self.assertFalse(result.get("canCheckOut"))
+
+    @patch("app.services.gate_pass_service.model_to_dict_visit", return_value={"id": "visit-1", "status": "CHECKED_IN"})
+    def test_scan_check_in_qr_checked_in_returns_checkout(self, _mock_serialize: MagicMock) -> None:
+        visit = _visit(status="CHECKED_IN")
+        query = MagicMock()
+        query.options.return_value = query
+        query.filter.return_value = query
+        query.first.return_value = visit
+        self.db.query.return_value = query
+        payload = json.dumps({"visitId": "visit-1", "visitCode": "654321"})
+        user = {"branchId": "branch-1", "id": "security-1"}
+
+        result = self.service.scan_check_in_qr(payload, user)
+
+        self.assertTrue(result["success"])
+        self.assertFalse(result["canCheckIn"])
+        self.assertTrue(result["canCheckOut"])
+
+    def test_scan_check_in_qr_invalid_payload(self) -> None:
+        with self.assertRaises(HTTPException) as ctx:
+            self.service.scan_check_in_qr("not-json-or-otp", {"branchId": "branch-1"})
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertEqual(ctx.exception.detail, "INVALID_QR_CODE")
+
+
+if __name__ == "__main__":
+    unittest.main()

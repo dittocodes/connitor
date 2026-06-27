@@ -1,0 +1,623 @@
+"""Transactional email templates for Connitor."""
+
+from html import escape
+
+
+def build_login_otp_email(
+    otp: str,
+    *,
+    company_name: str = "Connitor",
+    product_name: str = "Hospital Visitor Tracking System",
+    validity_minutes: int = 3,
+) -> tuple[str, str, str]:
+    """Return (subject, plain_text, html_body) for login OTP emails."""
+    safe_otp = escape(otp)
+    subject = f"{company_name} — Your sign-in code"
+
+    text_body = (
+        f"{company_name}\n"
+        f"{product_name}\n\n"
+        f"Your one-time sign-in code is: {otp}\n\n"
+        f"This code expires in {validity_minutes} minutes.\n"
+        "Do not share it with anyone. If you did not request this code, "
+        "you can safely ignore this email.\n\n"
+        f"— {company_name}"
+    )
+
+    html_body = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{escape(subject)}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f0f4f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#f0f4f8;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:520px;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(15,23,42,0.08);">
+          <!-- Header -->
+          <tr>
+            <td style="background:linear-gradient(135deg,#0d9488 0%,#0f766e 100%);padding:28px 32px;text-align:center;">
+              <p style="margin:0 0 6px;font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.85);">
+                Secure sign-in
+              </p>
+              <h1 style="margin:0;font-size:28px;font-weight:700;color:#ffffff;letter-spacing:-0.02em;">
+                {escape(company_name)}
+              </h1>
+              <p style="margin:10px 0 0;font-size:13px;color:rgba(255,255,255,0.9);">
+                {escape(product_name)}
+              </p>
+            </td>
+          </tr>
+          <!-- Body -->
+          <tr>
+            <td style="padding:36px 32px 28px;">
+              <p style="margin:0 0 8px;font-size:16px;line-height:1.5;color:#334155;">
+                Hello,
+              </p>
+              <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#64748b;">
+                Use the verification code below to complete your sign-in. This code is valid for
+                <strong style="color:#0f766e;">{validity_minutes} minutes</strong>.
+              </p>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td align="center" style="background-color:#f0fdfa;border:2px dashed #99f6e4;border-radius:10px;padding:24px 16px;">
+                    <p style="margin:0 0 8px;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#0d9488;">
+                      Your verification code
+                    </p>
+                    <p style="margin:0;font-size:36px;font-weight:700;letter-spacing:0.35em;color:#0f172a;font-family:'Courier New',Courier,monospace;padding-left:0.35em;">
+                      {safe_otp}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:24px 0 0;font-size:13px;line-height:1.6;color:#94a3b8;">
+                For your security, never share this code. {escape(company_name)} will never ask for it by phone or chat.
+              </p>
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="padding:20px 32px 28px;background-color:#f8fafc;border-top:1px solid #e2e8f0;">
+              <p style="margin:0 0 6px;font-size:12px;line-height:1.5;color:#94a3b8;text-align:center;">
+                Didn't request this? You can ignore this email — your account stays secure.
+              </p>
+              <p style="margin:0;font-size:11px;color:#cbd5e1;text-align:center;">
+                &copy; {escape(company_name)} &middot; {escape(product_name)}
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
+
+    return subject, text_body, html_body
+
+
+def build_registration_otp_email(
+    otp: str,
+    *,
+    company_name: str = "Connitor",
+    product_name: str = "Hospital Visitor Tracking System",
+    validity_minutes: int = 10,
+) -> tuple[str, str, str]:
+    """Return (subject, plain_text, html_body) for registration email verification."""
+    safe_otp = escape(otp)
+    subject = f"{company_name} — Verify your email to complete registration"
+
+    text_body = (
+        f"{company_name}\n"
+        f"{product_name}\n\n"
+        f"Your email verification code is: {otp}\n\n"
+        f"This code expires in {validity_minutes} minutes.\n"
+        "Enter it on the registration page to activate your account. "
+        "After that you can sign in with email OTP.\n\n"
+        f"— {company_name}"
+    )
+
+    html_body = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{escape(subject)}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f0f4f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#f0f4f8;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:520px;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(15,23,42,0.08);">
+          <tr>
+            <td style="background:linear-gradient(135deg,#0d9488 0%,#0f766e 100%);padding:28px 32px;text-align:center;">
+              <p style="margin:0 0 6px;font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.85);">
+                Email verification
+              </p>
+              <h1 style="margin:0;font-size:26px;font-weight:700;color:#ffffff;">{escape(company_name)}</h1>
+              <p style="margin:10px 0 0;font-size:13px;color:rgba(255,255,255,0.9);">Complete your registration</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:36px 32px 28px;">
+              <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#64748b;">
+                Enter this code on the registration page to verify your email and activate your account.
+                Valid for <strong style="color:#0f766e;">{validity_minutes} minutes</strong>.
+              </p>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td align="center" style="background-color:#f0fdfa;border:2px dashed #99f6e4;border-radius:10px;padding:24px 16px;">
+                    <p style="margin:0 0 8px;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#0d9488;">
+                      Verification code
+                    </p>
+                    <p style="margin:0;font-size:36px;font-weight:700;letter-spacing:0.35em;color:#0f172a;font-family:'Courier New',Courier,monospace;padding-left:0.35em;">
+                      {safe_otp}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:24px 0 0;font-size:13px;line-height:1.6;color:#94a3b8;">
+                For your security, never share this code. {escape(company_name)} will never ask for it by phone or chat.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:20px 32px 28px;background-color:#f8fafc;border-top:1px solid #e2e8f0;">
+              <p style="margin:0 0 6px;font-size:12px;line-height:1.5;color:#94a3b8;text-align:center;">
+                Didn't request this? You can ignore this email.
+              </p>
+              <p style="margin:0;font-size:11px;color:#cbd5e1;text-align:center;">
+                &copy; {escape(company_name)} &middot; {escape(product_name)}
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
+
+    return subject, text_body, html_body
+
+
+def build_notification_email(
+    title: str,
+    message: str,
+    *,
+    company_name: str = "Connitor",
+    product_name: str = "Hospital Visitor Tracking System",
+) -> tuple[str, str, str]:
+    """Return (subject, plain_text, html_body) for workflow notification emails."""
+    safe_title = escape(title)
+    safe_message = escape(message)
+    subject = f"{company_name} — {title}"
+
+    text_body = f"{company_name}\n{product_name}\n\n{title}\n\n{message}\n\n— {company_name}"
+
+    html_body = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{escape(subject)}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f0f4f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#f0f4f8;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:520px;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(15,23,42,0.08);">
+          <tr>
+            <td style="background:linear-gradient(135deg,#0d9488 0%,#0f766e 100%);padding:24px 32px;text-align:center;">
+              <h1 style="margin:0;font-size:22px;font-weight:700;color:#ffffff;">{escape(company_name)}</h1>
+              <p style="margin:8px 0 0;font-size:13px;color:rgba(255,255,255,0.9);">{escape(product_name)}</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px;">
+              <h2 style="margin:0 0 16px;font-size:18px;color:#0f172a;">{safe_title}</h2>
+              <p style="margin:0;font-size:15px;line-height:1.6;color:#475569;white-space:pre-line;">{safe_message}</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
+
+    return subject, text_body, html_body
+
+
+def build_account_credentials_email(
+    *,
+    name: str,
+    email: str,
+    password: str,
+    role_label: str,
+    login_url: str,
+    department_name: str | None = None,
+    company_name: str = "Connitor",
+    product_name: str = "Hospital Visitor Tracking System",
+) -> tuple[str, str, str]:
+    """Return (subject, plain_text, html_body) for new staff/admin account credentials."""
+    safe_name = escape(name)
+    safe_email = escape(email)
+    safe_password = escape(password)
+    safe_role = escape(role_label)
+    safe_login = escape(login_url)
+    dept_line = f"\nDepartment: {department_name}" if department_name else ""
+    safe_dept = (
+        f'<p style="margin:0 0 16px;font-size:14px;color:#64748b;">Department: <strong>{escape(department_name)}</strong></p>'
+        if department_name
+        else ""
+    )
+
+    subject = f"{company_name} — Your {role_label} account is ready"
+
+    text_body = (
+        f"{company_name}\n"
+        f"{product_name}\n\n"
+        f"Hello {name},\n\n"
+        f"An administrator created a {role_label} account for you.{dept_line}\n\n"
+        f"Login ID (email): {email}\n"
+        f"Password: {password}\n\n"
+        f"Sign in at: {login_url}\n\n"
+        "Change your password after your first sign-in if your organization requires it.\n"
+        "Do not share these credentials with anyone.\n\n"
+        f"— {company_name}"
+    )
+
+    html_body = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{escape(subject)}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f0f4f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#f0f4f8;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:520px;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(15,23,42,0.08);">
+          <tr>
+            <td style="background:linear-gradient(135deg,#0d9488 0%,#0f766e 100%);padding:28px 32px;text-align:center;">
+              <p style="margin:0 0 6px;font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.85);">
+                Account created
+              </p>
+              <h1 style="margin:0;font-size:24px;font-weight:700;color:#ffffff;">{escape(company_name)}</h1>
+              <p style="margin:10px 0 0;font-size:13px;color:rgba(255,255,255,0.9);">{escape(product_name)}</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:36px 32px 28px;">
+              <p style="margin:0 0 8px;font-size:16px;color:#334155;">Hello {safe_name},</p>
+              <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#64748b;">
+                Your <strong>{safe_role}</strong> account has been set up. Use the credentials below to sign in.
+              </p>
+              {safe_dept}
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
+                <tr>
+                  <td style="padding:20px;">
+                    <p style="margin:0 0 12px;font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#0d9488;">Login credentials</p>
+                    <p style="margin:0 0 8px;font-size:14px;color:#475569;"><strong>Login ID:</strong> {safe_email}</p>
+                    <p style="margin:0;font-size:14px;color:#475569;"><strong>Password:</strong> <span style="font-family:monospace;font-size:15px;color:#0f172a;">{safe_password}</span></p>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:24px 0 0;text-align:center;">
+                <a href="{safe_login}" style="display:inline-block;background:#0d9488;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 28px;border-radius:8px;">Sign in to Connitor</a>
+              </p>
+              <p style="margin:20px 0 0;font-size:13px;line-height:1.6;color:#94a3b8;">
+                Keep this email private. Contact your hospital administrator if you did not expect this account.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
+
+    return subject, text_body, html_body
+
+
+def build_check_in_otp_email(
+    otp: str,
+    *,
+    visitor_name: str,
+    doctor_name: str,
+    appointment_date: str,
+    doctor_feedback: str | None = None,
+    company_name: str = "Connitor",
+    product_name: str = "Hospital Visitor Tracking System",
+    validity_hours: int = 8,
+) -> tuple[str, str, str]:
+    """Email sent to visitors when their appointment is approved — includes check-in OTP."""
+    safe_otp = escape(otp)
+    feedback_block = ""
+    feedback_html = ""
+    if doctor_feedback and doctor_feedback.strip():
+        feedback_block = f"\n\nMessage from your doctor:\n{doctor_feedback.strip()}\n"
+        feedback_html = (
+            f'<p style="margin:0 0 20px;color:#475569;line-height:1.6;background:#f8fafc;'
+            f'border-left:4px solid #0d9488;padding:12px 16px;border-radius:6px;">'
+            f"<strong>Message from your doctor:</strong><br/>{escape(doctor_feedback.strip())}</p>"
+        )
+
+    subject = f"{company_name} — Appointment approved — your check-in code"
+
+    text_body = (
+        f"{company_name}\n{product_name}\n\n"
+        f"Hello {visitor_name},\n\n"
+        f"Your appointment with Dr. {doctor_name} on {appointment_date} has been approved.\n"
+        f"{feedback_block}\n"
+        f"Check-in OTP: {otp}\n"
+        f"Show this code at hospital security. Valid for {validity_hours} hours.\n\n"
+        f"— {company_name}"
+    )
+
+    html_body = f"""<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8" /><title>{escape(subject)}</title></head>
+<body style="margin:0;padding:0;background-color:#f0f4f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#f0f4f8;padding:32px 16px;">
+    <tr><td align="center">
+      <table role="presentation" width="100%" style="max-width:520px;background:#fff;border-radius:12px;overflow:hidden;">
+        <tr><td style="background:linear-gradient(135deg,#0d9488,#0f766e);padding:24px;text-align:center;">
+          <h1 style="margin:0;color:#fff;font-size:22px;">Appointment Approved</h1>
+        </td></tr>
+        <tr><td style="padding:32px;">
+          <p style="margin:0 0 12px;color:#334155;">Hello {escape(visitor_name)},</p>
+          <p style="margin:0 0 20px;color:#64748b;line-height:1.6;">
+            Your visit with <strong>Dr. {escape(doctor_name)}</strong> on
+            <strong>{escape(appointment_date)}</strong> is confirmed.
+          </p>
+          {feedback_html}
+          <div style="text-align:center;background:#f0fdfa;border:2px dashed #99f6e4;border-radius:10px;padding:20px;">
+            <p style="margin:0 0 8px;font-size:12px;color:#0d9488;font-weight:600;text-transform:uppercase;">Check-in OTP</p>
+            <p style="margin:0;font-size:34px;font-weight:700;letter-spacing:0.3em;font-family:monospace;color:#0f172a;">{safe_otp}</p>
+          </div>
+          <p style="margin:20px 0 0;font-size:13px;color:#94a3b8;">Show this code at hospital security. Valid {validity_hours} hours.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>"""
+    return subject, text_body, html_body
+
+
+def build_booking_confirmation_email(
+    *,
+    visitor_name: str,
+    doctor_name: str,
+    appointment_date: str,
+    hospital_name: str,
+    department_name: str | None = None,
+    purpose: str | None = None,
+    booking_id: str,
+    appointment_mode: str = "IN_PERSON",
+    company_name: str = "Connitor",
+    product_name: str = "Hospital Visitor Tracking System",
+) -> tuple[str, str, str]:
+    """Email sent when a visitor books an appointment (awaiting doctor approval)."""
+    dept_line = f"Department: {department_name}\n" if department_name else ""
+    purpose_line = f"Purpose: {purpose}\n" if purpose else ""
+    is_online = appointment_mode == "ONLINE"
+    mode_line = "Online video consultation\n" if is_online else "In-person hospital visit\n"
+    after_approval = (
+        "You will receive a Zoom meeting link by email and SMS once the doctor approves."
+        if is_online
+        else "You will receive a check-in QR code by email and SMS once the doctor approves."
+    )
+    subject = f"{company_name} — Appointment request received"
+
+    text_body = (
+        f"{company_name}\n{product_name}\n\n"
+        f"Hello {visitor_name},\n\n"
+        f"Your appointment request with Dr. {doctor_name} on {appointment_date} "
+        f"at {hospital_name} has been received.\n\n"
+        f"Visit type: {mode_line}"
+        f"{dept_line}{purpose_line}"
+        f"Booking reference: {booking_id}\n\n"
+        "Status: Awaiting doctor approval.\n"
+        f"{after_approval}\n\n"
+        f"— {company_name}"
+    )
+
+    dept_html = (
+        f"<p style='margin:0 0 8px;color:#64748b;'><strong>Department:</strong> {escape(department_name)}</p>"
+        if department_name
+        else ""
+    )
+    purpose_html = (
+        f"<p style='margin:0 0 8px;color:#64748b;'><strong>Purpose:</strong> {escape(purpose)}</p>"
+        if purpose
+        else ""
+    )
+    mode_label = "Online video consultation" if is_online else "In-person hospital visit"
+    mode_html = (
+        f"<p style='margin:0 0 8px;color:#64748b;'><strong>Visit type:</strong> {escape(mode_label)}</p>"
+    )
+    pending_html = (
+        "<strong>Pending doctor approval.</strong> You will receive a Zoom meeting link once approved."
+        if is_online
+        else "<strong>Pending doctor approval.</strong> You will receive a check-in QR code once approved."
+    )
+
+    html_body = f"""<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8" /><title>{escape(subject)}</title></head>
+<body style="margin:0;padding:0;background:#f0f4f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table role="presentation" width="100%" style="background:#f0f4f8;padding:32px 16px;"><tr><td align="center">
+    <table role="presentation" width="100%" style="max-width:520px;background:#fff;border-radius:12px;">
+      <tr><td style="background:linear-gradient(135deg,#0d9488,#0f766e);padding:24px;text-align:center;">
+        <h1 style="margin:0;color:#fff;font-size:22px;">Appointment Request Received</h1>
+      </td></tr>
+      <tr><td style="padding:32px;">
+        <p style="margin:0 0 12px;color:#334155;">Hello {escape(visitor_name)},</p>
+        <p style="margin:0 0 16px;color:#64748b;line-height:1.6;">
+          Your request to visit <strong>Dr. {escape(doctor_name)}</strong> on
+          <strong>{escape(appointment_date)}</strong> at <strong>{escape(hospital_name)}</strong>
+          has been submitted.
+        </p>
+        {dept_html}{purpose_html}{mode_html}
+        <p style="margin:16px 0 8px;color:#64748b;"><strong>Reference:</strong> {escape(booking_id)}</p>
+        <p style="margin:0;padding:12px 16px;background:#fef3c7;border-radius:8px;color:#92400e;font-size:14px;">
+          {pending_html}
+        </p>
+      </td></tr>
+    </table>
+  </td></tr></table>
+</body></html>"""
+
+    return subject, text_body, html_body
+
+
+def build_gate_pass_email(
+    *,
+    visitor_name: str,
+    doctor_name: str,
+    appointment_date: str,
+    check_in_otp: str,
+    doctor_feedback: str | None = None,
+    qr_cid: str | None = None,
+    company_name: str = "Connitor",
+    product_name: str = "Hospital Visitor Tracking System",
+    validity_hours: int = 8,
+) -> tuple[str, str, str]:
+    """Email with embedded QR image and OTP after doctor approval."""
+    feedback_html = ""
+    feedback_text = ""
+    if doctor_feedback and doctor_feedback.strip():
+        feedback_text = f"\n\nMessage from your doctor:\n{doctor_feedback.strip()}\n"
+        feedback_html = (
+            f'<p style="margin:0 0 20px;color:#475569;line-height:1.6;background:#f8fafc;'
+            f'border-left:4px solid #0d9488;padding:12px 16px;border-radius:6px;">'
+            f"<strong>Message from your doctor:</strong><br/>{escape(doctor_feedback.strip())}</p>"
+        )
+
+    qr_html = ""
+    qr_text = ""
+    if qr_cid:
+        qr_html = (
+            f'<div style="text-align:center;margin:20px 0;">'
+            f'<p style="margin:0 0 12px;font-size:12px;color:#0d9488;font-weight:600;text-transform:uppercase;">'
+            f"Scan at hospital security</p>"
+            f'<img src="cid:{escape(qr_cid)}" alt="Check-in QR code" width="200" height="200" '
+            f'style="border:2px solid #99f6e4;border-radius:8px;" />'
+            f"</div>"
+        )
+        qr_text = "\nShow the QR code in this email at the security desk.\n"
+
+    subject = f"{company_name} — Appointment approved — your check-in QR code"
+    text_body = (
+        f"{company_name}\n{product_name}\n\n"
+        f"Hello {visitor_name},\n\n"
+        f"Your appointment with Dr. {doctor_name} on {appointment_date} is confirmed."
+        f"{feedback_text}{qr_text}\n"
+        f"Check-in OTP (backup): {check_in_otp}\n"
+        f"Valid for {validity_hours} hours.\n\n"
+        f"— {company_name}"
+    )
+
+    html_body = f"""<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8" /><title>{escape(subject)}</title></head>
+<body style="margin:0;padding:0;background:#f0f4f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table role="presentation" width="100%" style="background:#f0f4f8;padding:32px 16px;"><tr><td align="center">
+    <table role="presentation" width="100%" style="max-width:520px;background:#fff;border-radius:12px;">
+      <tr><td style="background:linear-gradient(135deg,#0d9488,#0f766e);padding:24px;text-align:center;">
+        <h1 style="margin:0;color:#fff;font-size:22px;">Appointment Approved</h1>
+      </td></tr>
+      <tr><td style="padding:32px;">
+        <p style="margin:0 0 12px;color:#334155;">Hello {escape(visitor_name)},</p>
+        <p style="margin:0 0 20px;color:#64748b;line-height:1.6;">
+          Your visit with <strong>Dr. {escape(doctor_name)}</strong> on
+          <strong>{escape(appointment_date)}</strong> is confirmed.
+        </p>
+        {feedback_html}
+        {qr_html}
+        <div style="text-align:center;background:#f0fdfa;border:2px dashed #99f6e4;border-radius:10px;padding:20px;">
+          <p style="margin:0 0 8px;font-size:12px;color:#0d9488;font-weight:600;text-transform:uppercase;">Backup OTP</p>
+          <p style="margin:0;font-size:34px;font-weight:700;letter-spacing:0.3em;font-family:monospace;color:#0f172a;">{escape(check_in_otp)}</p>
+        </div>
+        <p style="margin:20px 0 0;font-size:13px;color:#94a3b8;">Present QR or OTP at security. Valid {validity_hours} hours.</p>
+      </td></tr>
+    </table>
+  </td></tr></table>
+</body></html>"""
+
+    return subject, text_body, html_body
+
+
+def build_online_appointment_email(
+    *,
+    recipient_name: str,
+    doctor_name: str,
+    appointment_date: str,
+    zoom_url: str,
+    doctor_feedback: str | None = None,
+    is_host: bool = False,
+    meeting_password: str | None = None,
+    company_name: str = "Connitor",
+    product_name: str = "Hospital Visitor Tracking System",
+) -> tuple[str, str, str]:
+    """Email with Zoom link after online appointment approval."""
+    feedback_html = ""
+    feedback_text = ""
+    if doctor_feedback and doctor_feedback.strip():
+        feedback_text = f"\n\nMessage from your doctor:\n{doctor_feedback.strip()}\n"
+        feedback_html = (
+            f'<p style="margin:0 0 20px;color:#475569;line-height:1.6;background:#f8fafc;'
+            f'border-left:4px solid #2563eb;padding:12px 16px;border-radius:6px;">'
+            f"<strong>Message from your doctor:</strong><br/>{escape(doctor_feedback.strip())}</p>"
+        )
+
+    role_line = "host the online consultation" if is_host else "join your online consultation"
+    subject = f"{company_name} — Online appointment approved — Zoom link"
+    pwd_line = f"\nMeeting password: {meeting_password}\n" if meeting_password else ""
+    pwd_html = (
+        f"<p style='margin:12px 0 0;color:#64748b;'><strong>Password:</strong> {escape(meeting_password)}</p>"
+        if meeting_password
+        else ""
+    )
+
+    text_body = (
+        f"{company_name}\n{product_name}\n\n"
+        f"Hello {recipient_name},\n\n"
+        f"Your online appointment with Dr. {doctor_name} on {appointment_date} is confirmed."
+        f"{feedback_text}\n"
+        f"Use this link to {role_line}:\n{zoom_url}{pwd_line}\n\n"
+        f"— {company_name}"
+    )
+
+    html_body = f"""<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8" /><title>{escape(subject)}</title></head>
+<body style="margin:0;padding:0;background:#f0f4f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table role="presentation" width="100%" style="background:#f0f4f8;padding:32px 16px;"><tr><td align="center">
+    <table role="presentation" width="100%" style="max-width:520px;background:#fff;border-radius:12px;">
+      <tr><td style="background:linear-gradient(135deg,#2563eb,#1d4ed8);padding:24px;text-align:center;">
+        <h1 style="margin:0;color:#fff;font-size:22px;">Online Appointment Approved</h1>
+      </td></tr>
+      <tr><td style="padding:32px;">
+        <p style="margin:0 0 12px;color:#334155;">Hello {escape(recipient_name)},</p>
+        <p style="margin:0 0 20px;color:#64748b;line-height:1.6;">
+          Your online visit with <strong>Dr. {escape(doctor_name)}</strong> on
+          <strong>{escape(appointment_date)}</strong> is confirmed. No physical check-in is required.
+        </p>
+        {feedback_html}
+        <div style="text-align:center;margin:24px 0;">
+          <a href="{escape(zoom_url)}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:14px 28px;border-radius:8px;font-weight:600;">
+            {'Start Zoom Meeting' if is_host else 'Join Zoom Meeting'}
+          </a>
+        </div>
+        {pwd_html}
+        <p style="margin:20px 0 0;font-size:13px;color:#94a3b8;word-break:break-all;">{escape(zoom_url)}</p>
+      </td></tr>
+    </table>
+  </td></tr></table>
+</body></html>"""
+
+    return subject, text_body, html_body
