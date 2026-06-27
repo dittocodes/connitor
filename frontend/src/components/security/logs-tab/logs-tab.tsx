@@ -4,6 +4,7 @@ import * as React from 'react';
 import { AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import apiClient from '@/lib/api';
+import { getApiErrorMessage } from '@/lib/api-errors';
 import { StatusFilterPills } from '@/components/visitors/logs/StatusFilterPills';
 import { VisitorList } from '@/app/dashboard/security/logs/VisitorList';
 import { LogsRefreshControl } from './logs-refresh-control';
@@ -119,7 +120,7 @@ function getFilterLabel(filter: StatusFilter): string {
  * Main component for the Security Dashboard Logs tab.
  * Displays visitor filters and list with polling support.
  */
-export function LogsTab({ branchId, authToken, className }: LogsTabProps): React.ReactElement {
+export function LogsTab({ branchId, className }: LogsTabProps): React.ReactElement {
   const [selectedFilter, setSelectedFilter] = React.useState<StatusFilter>('PENDING');
   const [counts, setCounts] = React.useState<VisitorCounts | null>(null);
   const [isLoadingCounts, setIsLoadingCounts] = React.useState(true);
@@ -173,7 +174,7 @@ export function LogsTab({ branchId, authToken, className }: LogsTabProps): React
       }
     } catch (error) {
       console.error('Failed to fetch counts:', error);
-      setCountsError('Network error. Please check connection.');
+      setCountsError(getApiErrorMessage(error, 'Unable to load visitor counts.'));
     } finally {
       setIsLoadingCounts(false);
     }
@@ -211,11 +212,7 @@ export function LogsTab({ branchId, authToken, className }: LogsTabProps): React
           setVisitorsError('Unable to load visitors');
         }
       } catch (error) {
-        const message =
-          error instanceof Error && error.message
-            ? error.message
-            : 'Network error. Please check connection.';
-        setVisitorsError(message);
+        setVisitorsError(getApiErrorMessage(error, 'Unable to load visitors.'));
       } finally {
         setIsLoadingVisitors(false);
       }
@@ -300,11 +297,7 @@ export function LogsTab({ branchId, authToken, className }: LogsTabProps): React
         setVisitorsError('Unable to load visitors');
       }
     } catch (error) {
-      const message =
-        error instanceof Error && error.message
-          ? error.message
-          : 'Network error. Please check connection.';
-      setVisitorsError(message);
+      setVisitorsError(getApiErrorMessage(error, 'Unable to load visitors.'));
     } finally {
       setIsLoadingVisitors(false);
     }

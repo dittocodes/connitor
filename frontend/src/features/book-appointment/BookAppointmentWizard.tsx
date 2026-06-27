@@ -545,13 +545,6 @@ export function BookAppointmentWizard({
                   Track this booking
                 </Link>
               </Button>
-              <Button asChild className="w-full">
-                <Link
-                  href={`/book-appointment/whatsapp-demo?bookingId=${result.bookingId}&phone=${phone}`}
-                >
-                  See WhatsApp approval demo
-                </Link>
-              </Button>
             </div>
           )}
         </CardContent>

@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from mangum import Mangum
 
-from app.config import get_settings, is_lambda_runtime, settings_summary, check_meta_whatsapp_health
+from app.config import get_settings, is_lambda_runtime, settings_summary, check_meta_whatsapp_health, get_cors_origins
 from app.routers import api_router
 
 logger = logging.getLogger(__name__)
@@ -60,11 +60,7 @@ settings = get_settings()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        settings.frontend_url.rstrip("/"),
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ],
+    allow_origins=get_cors_origins(settings),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

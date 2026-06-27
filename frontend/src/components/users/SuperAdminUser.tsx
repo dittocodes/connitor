@@ -133,11 +133,6 @@ const AddEditUserDialog = ({
   const watchDepartment = form.watch('departmentId');
   const isEditMode = !!userToEdit;
 
-  const filteredBranches = useMemo(() => {
-    if (!branches || !watchChain) return [];
-    return branches.filter((b) => b.hospitalChainId === watchChain);
-  }, [branches, watchChain]);
-
   useEffect(() => {
     if (userToEdit && open) {
       // Properly transform the user object to match the form's expected shape
@@ -245,13 +240,12 @@ const AddEditUserDialog = ({
           });
           break;
         default:
-          const baseValues = {
+          form.reset({
             name: userToEdit.name,
             email: userToEdit.email,
             phone: userToEdit.phone,
             role: userToEdit.role,
-          };
-          form.reset(baseValues);
+          } as z.infer<typeof UserFormSchema>);
       }
     } else if (!isEditMode && open) {
       form.reset({
@@ -267,7 +261,7 @@ const AddEditUserDialog = ({
         userType: undefined,
         department: undefined,
         location: '',
-      });
+      } as z.infer<typeof UserFormSchema> & { password?: string });
     }
   }, [userToEdit, open, form, isEditMode, defaultRole]);
 

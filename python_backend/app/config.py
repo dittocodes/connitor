@@ -100,6 +100,11 @@ class Settings(BaseSettings):
     )
     frontend_url: str = Field(default="http://localhost:3000", validation_alias="FRONTEND_URL")
     public_frontend_url: str | None = Field(default=None, validation_alias="PUBLIC_FRONTEND_URL")
+    cors_allowed_origins: str | None = Field(
+        default=None,
+        validation_alias="CORS_ALLOWED_ORIGINS",
+        description="Comma-separated extra browser origins allowed for CORS (e.g. Amplify staging URL)",
+    )
     public_api_base_url: str | None = Field(default=None, validation_alias="PUBLIC_API_BASE_URL")
     doctor_approval_link_url: str | None = Field(
         default=None, validation_alias="DOCTOR_APPROVAL_LINK_URL"
@@ -417,6 +422,30 @@ def get_public_frontend_url(settings: Settings | None = None) -> str:
     """Public URL for links in emails (falls back to FRONTEND_URL)."""
     s = settings or get_settings()
     return (s.public_frontend_url or s.frontend_url).rstrip("/")
+
+
+def get_cors_origins(settings: Settings | None = None) -> list[str]:
+    """Browser origins permitted for cross-origin API requests."""
+    s = settings or get_settings()
+    origins: list[str] = [
+        s.frontend_url.rstrip("/"),
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
+    if s.public_frontend_url:
+        origins.append(s.public_frontend_url.rstrip("/"))
+    if s.cors_allowed_origins:
+        for origin in s.cors_allowed_origins.split(","):
+            cleaned = origin.strip().rstrip("/")
+            if cleaned:
+                origins.append(cleaned)
+    seen: set[str] = set()
+    unique: list[str] = []
+    for origin in origins:
+        if origin not in seen:
+            seen.add(origin)
+            unique.append(origin)
+    return unique
 
 
 def get_public_api_base_url(settings: Settings | None = None) -> str | None:

@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { AppointmentService } from '@/lib/services/appointmentService';
@@ -26,6 +27,20 @@ const MODE_LABELS: Record<string, string> = {
 };
 
 export default function BookingStatusPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-muted/30 p-8 text-center text-muted-foreground">
+          Loading appointment status…
+        </div>
+      }
+    >
+      <BookingStatusContent />
+    </Suspense>
+  );
+}
+
+function BookingStatusContent() {
   const searchParams = useSearchParams();
   const [bookingId, setBookingId] = React.useState('');
   const [phone, setPhone] = React.useState('');

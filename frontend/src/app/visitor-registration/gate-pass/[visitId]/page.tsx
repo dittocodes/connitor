@@ -104,6 +104,7 @@ function transformToGatePassData(
   otp: string;
   validityTimestamp: Date;
   branchPhone?: string;
+  qrCodeDataUrl?: string | null;
 } {
   const isMeeting = response.visitCategory === 'MEETING';
   // Use type guard to safely access approvedAt (only exists on APPROVED visits)

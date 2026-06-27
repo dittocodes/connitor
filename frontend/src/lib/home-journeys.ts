@@ -129,9 +129,9 @@ export const VISITOR_FLOW_STEPS = [
     step: 3,
     title: 'Doctor approves',
     description:
-      'Your doctor receives a WhatsApp or SMS request and approves or declines your appointment.',
-    href: '/book-appointment/whatsapp-demo',
-    label: 'WhatsApp demo',
+      'Your doctor receives a WhatsApp message with appointment details and a secure one-time link to approve or decline.',
+    href: '/book-appointment/status',
+    label: 'Check status',
     status: 'APPROVED',
   },
   {

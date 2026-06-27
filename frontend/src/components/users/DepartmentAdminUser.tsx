@@ -77,7 +77,7 @@ function AddEditUserDialog({
         name: userToEdit.name,
         email: userToEdit.email,
         phone: userToEdit.phone,
-        role: userToEdit.role as z.infer<typeof UserFormSchema>['role'],
+        role: userToEdit.role,
         hospitalChainId: scope.hospitalChainId,
         branchId: scope.branchId,
         departmentId: userToEdit.departmentId ?? scope.departmentId,
@@ -85,7 +85,7 @@ function AddEditUserDialog({
         userType: userToEdit.userType ?? undefined,
         department: userToEdit.department ?? undefined,
         location: userToEdit.location ?? '',
-      });
+      } as z.infer<typeof UserFormSchema>);
       return;
     }
     form.reset({
