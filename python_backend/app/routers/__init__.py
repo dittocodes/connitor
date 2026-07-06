@@ -4,8 +4,10 @@ from app.routers import (
     all_branches,
     analytics,
     appointments,
+    attendant_passes,
     auth,
     branches,
+    delivery,
     departments,
     hospital_chains,
     notifications,
@@ -27,6 +29,7 @@ from app.routers import (
     whatsapp_webhooks,
     zoom_webhooks,
 )
+from app.config import get_settings
 
 api_router = APIRouter()
 api_router.include_router(root.router)
@@ -63,3 +66,8 @@ api_router.include_router(analytics.router, prefix="/analytics", tags=["analytic
 api_router.include_router(zoom_webhooks.router, prefix="/webhooks", tags=["webhooks"])
 api_router.include_router(twilio_webhooks.router, prefix="/webhooks", tags=["webhooks"])
 api_router.include_router(whatsapp_webhooks.router, prefix="/webhooks", tags=["webhooks"])
+
+_settings = get_settings()
+if _settings.delivery_module_enabled:
+    api_router.include_router(delivery.router, prefix="/delivery", tags=["delivery"])
+    api_router.include_router(attendant_passes.router, prefix="/attendant-passes", tags=["attendant-passes"])

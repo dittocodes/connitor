@@ -1,4 +1,4 @@
-"""Book a test appointment: visitor 8625877312 -> doctor 7676283924."""
+"""Book a test appointment: visitor 8625877312 -> doctor 6379983352."""
 from __future__ import annotations
 
 from datetime import timedelta
@@ -10,7 +10,7 @@ from app.services.appointments_service import AppointmentsService
 from app.utils.timezone import now_ist
 
 VISITOR_PHONE = "8625877312"
-DOCTOR_PHONE = "7676283924"
+DOCTOR_PHONE = "6379983352"
 
 
 def main() -> None:
@@ -46,7 +46,7 @@ def main() -> None:
 
         first_name = visitor["firstName"] if visitor else "Mohan"
         last_name = visitor["lastName"] if visitor else "Gola"
-        email = visitor["email"] if visitor and visitor["email"] else "mohan.gola.test@example.com"
+        email = visitor["email"] if visitor and visitor["email"] else "mohangola2202@gmail.com"
 
         appt_date = (now_ist() + timedelta(days=1)).replace(hour=11, minute=0, second=0, microsecond=0)
 

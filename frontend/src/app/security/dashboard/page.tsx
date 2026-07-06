@@ -6,6 +6,7 @@ import { CheckInTab } from './components/CheckInTab';
 import { TodayAppointmentsTab } from './components/TodayAppointmentsTab';
 import { OnSpotQrPanel } from './components/OnSpotQrPanel';
 import { LogsTab } from '@/components/security/logs-tab/logs-tab';
+import { DeliveryScanTab } from '@/features/delivery-management/DeliveryScanTab';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { getDashboardPathForRole } from '@/lib/auth-routing';
 import { DEMO_BRANCH_ID, IS_DEMO_MODE } from '@/lib/demo-config';
@@ -27,10 +28,15 @@ interface User {
   branch?: { name: string } | null;
 }
 
-type SecurityTab = 'check-in' | 'appointments' | 'logs';
+type SecurityTab = 'check-in' | 'appointments' | 'logs' | 'delivery-scan';
 
 function parseTab(value: string | null): SecurityTab {
-  if (value === 'appointments' || value === 'logs' || value === 'check-in') {
+  if (
+    value === 'appointments' ||
+    value === 'logs' ||
+    value === 'check-in' ||
+    value === 'delivery-scan'
+  ) {
     return value;
   }
   return 'check-in';
@@ -163,6 +169,8 @@ function SecurityDashboard(): React.ReactElement {
         <CheckInTab branchId={branchId} onCheckInSuccess={handleCheckInSuccess} />
       ) : activeTab === 'appointments' ? (
         <TodayAppointmentsTab branchId={branchId} refreshKey={appointmentsRefresh} />
+      ) : activeTab === 'delivery-scan' ? (
+        <DeliveryScanTab branchId={branchId} />
       ) : (
         <LogsTab branchId={branchId} authToken={authToken} />
       )}

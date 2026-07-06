@@ -82,6 +82,7 @@ function VisitorLoginContent() {
   const returnTo = searchParams.get('returnTo');
   const [mode, setMode] = useState<'password' | 'legacy-otp'>('password');
   const [step, setStep] = useState<'email' | 'otp'>('email');
+  const [legacyEmail, setLegacyEmail] = useState('');
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
@@ -97,15 +98,23 @@ function VisitorLoginContent() {
     }
   }, [router, postLoginPath]);
 
-  const emailForm = useForm<z.infer<typeof EmailSchema>>({
-    resolver: zodResolver(EmailSchema),
-    defaultValues: { email: '' },
-  });
-
   const passwordForm = useForm<z.infer<typeof PasswordLoginSchema>>({
     resolver: zodResolver(PasswordLoginSchema),
     defaultValues: { identifier: '', password: '' },
   });
+
+  const switchToLegacyOtp = () => {
+    setMode('legacy-otp');
+    setStep('email');
+    setLegacyEmail('');
+    setOtp('');
+  };
+
+  const switchToPassword = () => {
+    setMode('password');
+    setStep('email');
+    setOtp('');
+  };
 
   useEffect(() => {
     const identifier = searchParams.get('identifier')?.trim();
@@ -127,12 +136,18 @@ function VisitorLoginContent() {
     }
   };
 
-  const sendOtp = async (data: z.infer<typeof EmailSchema>) => {
+  const sendOtp = async () => {
+    const parsed = EmailSchema.safeParse({ email: legacyEmail.trim() });
+    if (!parsed.success) {
+      toast.error(parsed.error.issues[0]?.message ?? 'Enter a valid email address.');
+      return;
+    }
     setLoading(true);
     try {
-      const normalized = data.email.trim().toLowerCase();
+      const normalized = parsed.data.email.trim().toLowerCase();
       const result = await VisitorPortalService.requestOtp(normalized);
       setEmail(normalized);
+      setLegacyEmail(normalized);
       setStep('otp');
       if (result.testOtp) {
         toast.message(`Dev OTP: ${result.testOtp}`);
@@ -230,37 +245,43 @@ function VisitorLoginContent() {
                       <a href={VisitorAuthService.getLinkedInAuthUrl()}>Continue with LinkedIn</a>
                     </Button>
                   </div>
-                  <Button type="button" variant="link" className="w-full px-0" onClick={() => setMode('legacy-otp')}>
+                  <Button type="button" variant="link" className="w-full px-0" onClick={switchToLegacyOtp}>
                     Booked without a profile? Use email OTP
                   </Button>
                 </form>
               </Form>
             ) : step === 'email' ? (
-              <Form {...emailForm}>
-                <form onSubmit={emailForm.handleSubmit(sendOtp)} className="space-y-4">
-                  <FormField
-                    control={emailForm.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email address</FormLabel>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            type="email"
-                            autoComplete="email"
-                            placeholder="you@example.com"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+              <div className="space-y-4">
+                <div className="grid gap-2">
+                  <label htmlFor="visitor-legacy-email" className="text-sm font-medium">
+                    Email address
+                  </label>
+                  <Input
+                    id="visitor-legacy-email"
+                    name="visitor-legacy-email"
+                    type="email"
+                    inputMode="email"
+                    autoComplete="email"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    placeholder="you@example.com"
+                    value={legacyEmail}
+                    onChange={(e) => setLegacyEmail(e.target.value)}
                   />
-                  <Button type="submit" className="w-full" disabled={loading}>
-                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Send email OTP'}
-                  </Button>
-                </form>
-              </Form>
+                </div>
+                <Button
+                  type="button"
+                  className="w-full"
+                  disabled={loading || !legacyEmail.trim()}
+                  onClick={sendOtp}
+                >
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Send email OTP'}
+                </Button>
+                <Button type="button" variant="link" className="w-full px-0" onClick={switchToPassword}>
+                  Back to password sign in
+                </Button>
+              </div>
             ) : (
               <div className="space-y-4">
                 <p className="text-sm text-muted-foreground">
@@ -281,10 +302,17 @@ function VisitorLoginContent() {
                 <Button className="w-full" onClick={verifyOtp} disabled={loading || otp.length < 6}>
                   {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Verify & open dashboard'}
                 </Button>
-                <Button variant="ghost" className="w-full" onClick={() => setStep('email')}>
+                <Button
+                  variant="ghost"
+                  className="w-full"
+                  onClick={() => {
+                    setStep('email');
+                    setOtp('');
+                  }}
+                >
                   Use a different email
                 </Button>
-                <Button variant="link" className="w-full" onClick={() => setMode('password')}>
+                <Button variant="link" className="w-full" onClick={switchToPassword}>
                   Back to password sign in
                 </Button>
               </div>

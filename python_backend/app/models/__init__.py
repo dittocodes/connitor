@@ -19,6 +19,8 @@ from app.models.enums import (
     VisitStatus,
     VisitorAuthProvider,
     VisitorDocumentType,
+    DeliveryStatus,
+    DeliveryType,
 )
 from app.models.visitor_account_entities import (
     EmailVerificationToken,
@@ -26,6 +28,38 @@ from app.models.visitor_account_entities import (
     VisitorAccountAuditLog,
     VisitorAccountAuth,
     VisitorAccountDocument,
+)
+from app.models.permission_entities import Permission, RolePermission
+from app.models.delivery_entities import (  # noqa: F401 — register ORM tables
+    BranchDeliverySettings,
+    DeliveryGate,
+    DeliveryGateEntry,
+    DeliveryGateExit,
+    DeliveryQrCode,
+    DeliverySecurityScan,
+    DeliveryVisitorLog,
+    DeliveryAgent,
+    DeliveryVehicle,
+    Distributor,
+    DockAssignment,
+    GrnRecord,
+    InboundDelivery,
+    InboundDeliveryItem,
+    InboundDeliveryStatusHistory,
+    ReceivingDock,
+    ReceivingRecord,
+    VendorBranchMapping,
+    VendorWallet,
+    VisitDeliveryLink,
+    WalletTransaction,
+)
+from app.models.attendant_entities import (  # noqa: F401
+    Admission,
+    Attendant,
+    AttendantPass,
+    AttendantPassScan,
+    Patient,
+    PassPolicy,
 )
 
 __all__ = [
@@ -52,4 +86,8 @@ __all__ = [
     "GovtIdType",
     "VisitorAuthProvider",
     "VisitorDocumentType",
+    "Permission",
+    "RolePermission",
+    "DeliveryStatus",
+    "DeliveryType",
 ]

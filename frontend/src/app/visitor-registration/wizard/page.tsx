@@ -39,7 +39,7 @@ import { MeetingRegistrationForm } from '@/components/visitors/public/MeetingReg
 import { DeliveryDetailsStep } from '@/components/visitors/steps/DeliveryDetailsStep';
 import { MeetingDetailsStep } from '@/components/visitors/steps/MeetingDetailsStep';
 import { ConfirmationStep } from '@/components/visitors/steps/ConfirmationStep';
-import { VisitCategory } from '@/lib/constants/visit-constants';
+import { VisitCategory, mapDeliveryPlatformToSubType } from '@/lib/constants/visit-constants';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -684,7 +684,7 @@ function VisitorRegistrationWizardContent() {
       if (data.orderReference) {
         formData.append('orderReference', data.orderReference);
       }
-      formData.append('visitSubType', 'OTHER'); // Default - could be enhanced later
+      formData.append('visitSubType', mapDeliveryPlatformToSubType(data.platform));
       
       // Photo upload - CRITICAL: Append the File object directly to FormData
       formData.append('photo', visitorFormData.photo);
@@ -832,7 +832,7 @@ function VisitorRegistrationWizardContent() {
       formData.append('email', visitorFormData.email);
       formData.append('designation', visitorFormData.designation || 'Visitor');
       formData.append('purpose', data.purpose);
-      formData.append('visitSubType', 'OTHER'); // Default - could be enhanced later
+      formData.append('visitSubType', mapDeliveryPlatformToSubType(data.platform));
       
       // Meeting-specific optional fields
       if (visitorFormData.company) {

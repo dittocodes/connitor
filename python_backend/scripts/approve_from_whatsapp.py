@@ -10,7 +10,7 @@ from app.database import SessionLocal
 from app.services.messaging_service import SmsService
 from app.services.visit_approval_reply_service import VisitApprovalReplyService
 
-DOCTOR_PHONE = "7676283924"
+DOCTOR_PHONE = "6379983352"
 
 
 def latest_pending_code(db, doctor_phone: str) -> str | None:

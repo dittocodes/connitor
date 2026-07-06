@@ -4,7 +4,20 @@ from sqlalchemy import text
 from app.database import SessionLocal
 
 DOCTOR_NAME = "Mohan Gola Agra"
-NEW_PHONE = "7676283924"
+NEW_PHONE = "6379983352"
+
+
+def _run_update(sql: str, params: dict) -> int:
+    db = SessionLocal()
+    try:
+        result = db.execute(text(sql), params)
+        db.commit()
+        return result.rowcount
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
 
 
 def main() -> None:
@@ -26,19 +39,46 @@ def main() -> None:
             return
 
         doctor_id = doctor["id"]
+        old_phone = doctor["phone"]
         print(f"Found: {doctor['name']} ({doctor_id})")
-        print(f"Old phone: {doctor['phone']}")
+        print(f"Old phone: {old_phone}")
 
-        db.execute(
-            text("UPDATE User SET phone = :phone WHERE id = :id"),
-            {"phone": NEW_PHONE, "id": doctor_id},
+        conflict = (
+            db.execute(
+                text(
+                    "SELECT id, name, phone, role FROM User "
+                    "WHERE phone = :phone AND id != :id"
+                ),
+                {"phone": NEW_PHONE, "id": doctor_id},
+            )
+            .mappings()
+            .first()
         )
-        visit_count = db.execute(
-            text("UPDATE Visit SET staffPhone = :phone WHERE staffId = :id"),
-            {"phone": NEW_PHONE, "id": doctor_id},
-        ).rowcount
-        db.commit()
+    finally:
+        db.close()
 
+    if conflict:
+        placeholder = f"unassigned-{conflict['id'][:8]}"
+        print(
+            f"Phone {NEW_PHONE} in use by {conflict['name']} ({conflict['id']}); "
+            f"moving to placeholder {placeholder}"
+        )
+        _run_update(
+            "UPDATE User SET phone = :phone WHERE id = :id",
+            {"phone": placeholder, "id": conflict["id"]},
+        )
+
+    _run_update(
+        "UPDATE User SET phone = :phone WHERE id = :id",
+        {"phone": NEW_PHONE, "id": doctor_id},
+    )
+    visit_count = _run_update(
+        "UPDATE Visit SET staffPhone = :phone WHERE staffId = :id",
+        {"phone": NEW_PHONE, "id": doctor_id},
+    )
+
+    db = SessionLocal()
+    try:
         updated = (
             db.execute(
                 text("SELECT name, phone FROM User WHERE id = :id"),
@@ -49,9 +89,6 @@ def main() -> None:
         )
         print(f"New phone: {updated['phone']}")
         print(f"Updated {visit_count} visit(s) staffPhone")
-    except Exception:
-        db.rollback()
-        raise
     finally:
         db.close()
 

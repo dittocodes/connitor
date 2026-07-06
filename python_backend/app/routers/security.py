@@ -93,3 +93,17 @@ def confirmed_appointments(
     db: Annotated[Session, Depends(get_db)],
 ):
     return SecurityService(db).get_upcoming_confirmed_appointments(user)
+
+
+@router.get("/queue")
+def unified_security_queue(
+    user: Annotated[dict, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+    branchId: str = Query(...),
+):
+    from app.config import get_settings
+    from app.delivery.gate_service import DeliveryGateService
+
+    if not get_settings().delivery_module_enabled:
+        return {"walkInVisits": [], "vendorDeliveries": []}
+    return DeliveryGateService(db).unified_queue(user, branchId)

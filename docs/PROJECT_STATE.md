@@ -18,6 +18,7 @@
 | **F-004** User Mgmt       | 🏗 In Progress | Developer | Spec: `docs/specs/F-004-user-mgmt`       |
 | **Dept Hierarchy**        | 🟢 Live        | Developer | Spec: `docs/features/department-hierarchy/` |
 | **Hospital Admin Role**   | 🟢 Live        | Agent     | `docs/features/hospital-admin/` |
+| **Delivery Management**   | 🟢 Live        | Agent     | `docs/features/delivery-management/` |
 | **F-005** Visitor Mgmt    | 🏗 In Progress | Developer | Spec: `docs/specs/F-005-visitor-mgmt`    |
 | **Visitor Pre-Registration** | 🟢 Live     | Agent     | `docs/features/visitor-pre-registration/` |
 | **F-006** Navigation      | 🏗 In Progress | Developer | Spec: `docs/specs/F-006-navigation`      |

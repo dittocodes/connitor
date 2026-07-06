@@ -69,6 +69,7 @@ class AppointmentNotificationsTests(unittest.TestCase):
         self.service = NotificationsService(self.db)
         self.service.email = MagicMock()
         self.service.sms = MagicMock()
+        self.service.whatsapp = MagicMock()
         self.service.calendar = MagicMock()
 
     @patch.object(NotificationsService, "_send_calendar_invite")
@@ -112,10 +113,9 @@ class AppointmentNotificationsTests(unittest.TestCase):
         self.assertIn("Zoom", sms_text)
 
     @patch("app.services.visit_approval_link_service.VisitApprovalLinkService")
-    @patch("app.services.notifications_service.is_meta_whatsapp_configured", return_value=False)
     @patch("app.services.notifications_service.random.randint", return_value=482901)
     def test_booking_notifies_doctor_email_and_sms(
-        self, _mock_rand: MagicMock, _mock_meta: MagicMock, mock_link_cls: MagicMock
+        self, _mock_rand: MagicMock, mock_link_cls: MagicMock
     ) -> None:
         visit = _visit()
         visit.status = VisitStatus.REQUEST_SENT.value
@@ -126,7 +126,6 @@ class AppointmentNotificationsTests(unittest.TestCase):
             "tok",
             "http://localhost:3000/approve-visit?token=tok",
         )
-        self.service.sms._deliver_whatsapp = MagicMock(return_value=False)
 
         self.service.notify_staff_on_visit_request(visit, doctor, visitor)
 
@@ -135,25 +134,20 @@ class AppointmentNotificationsTests(unittest.TestCase):
         )
         email_text = self.service.email.send_notification.call_args[0][2]
         self.assertIn("approve-visit?token=tok", email_text)
-        self.service.sms.send_message.assert_called_once()
-        sms_phone, sms_text = self.service.sms.send_message.call_args[0]
+        self.service.sms.send_sms_only.assert_called_once()
+        sms_phone, sms_text = self.service.sms.send_sms_only.call_args[0]
         self.assertEqual(sms_phone, doctor.phone)
         self.assertIn("http://localhost:3000/approve-visit?token=tok", sms_text)
         self.assertIn("Purpose: Follow-up", sms_text)
-        self.assertIn("YES 482901", sms_text)
-        self.assertIn("NO 482901", sms_text)
+        self.assertIn("Approve or decline:", sms_text)
         self.assertEqual(visit.smsApprovalCode, "482901")
         self.db.commit.assert_called_once()
 
     @patch("app.services.visit_approval_link_service.VisitApprovalLinkService")
-    @patch("app.services.notifications_service.is_pywhatkit_configured", return_value=False)
-    @patch("app.services.notifications_service.is_meta_whatsapp_configured", return_value=True)
     @patch("app.services.notifications_service.random.randint", return_value=482901)
-    def test_booking_sends_whatsapp_buttons_when_meta_configured(
+    def test_booking_sends_doctor_approval_sms_with_link(
         self,
         _mock_rand: MagicMock,
-        _mock_meta: MagicMock,
-        _mock_pywhatkit: MagicMock,
         mock_link_cls: MagicMock,
     ) -> None:
         visit = _visit()
@@ -161,30 +155,22 @@ class AppointmentNotificationsTests(unittest.TestCase):
         visit.smsApprovalCode = None
         doctor = _doctor()
         visitor = _visitor()
-        self.service.whatsapp = MagicMock()
         mock_link_cls.return_value.create_link.return_value = (
             "tok",
-            "http://localhost:3000/approve-visit?token=tok",
+            "https://staging.example.com/approve-visit?token=tok",
         )
 
         self.service.notify_staff_on_visit_request(visit, doctor, visitor)
 
-        self.service.whatsapp.send_doctor_approval_details.assert_called_once()
-        details_args = self.service.whatsapp.send_doctor_approval_details.call_args[0]
-        self.assertEqual(details_args[0], doctor.phone)
-        self.assertIn("Purpose: Follow-up", details_args[1])
-        self.assertIn("http://localhost:3000/approve-visit?token=tok", details_args[1])
-
-        self.service.whatsapp.send_appointment_approval_buttons.assert_called_once_with(
+        self.service.sms.send_sms_only.assert_called_once_with(
             doctor.phone,
-            visitor_name="Rahul Mehta",
-            appointment_label=ANY,
-            approval_code="482901",
-            purpose="Follow-up",
-            approval_url="http://localhost:3000/approve-visit?token=tok",
+            ANY,
         )
-        self.service.sms.send_message.assert_not_called()
-        self.assertEqual(visit.smsApprovalCode, "482901")
+        sms_text = self.service.sms.send_sms_only.call_args[0][1]
+        self.assertIn("https://staging.example.com/approve-visit?token=tok", sms_text)
+        self.assertIn("Rahul Mehta", sms_text)
+        self.service.whatsapp.send_doctor_approval_details.assert_not_called()
+        self.service.whatsapp.send_appointment_approval_buttons.assert_not_called()
 
     def test_booking_notifies_security_email_and_sms(self) -> None:
         visit = _visit()

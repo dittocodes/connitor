@@ -5,20 +5,15 @@ import {
   IS_DEMO_MODE,
   USE_MOCK_API,
 } from '@/lib/demo-config';
+import { getBackendBaseUrl } from '@/lib/backend-url';
 import { getStoredAuthToken } from '@/lib/auth-storage';
 
-const configuredBackend = (process.env.NEXT_PUBLIC_BACKEND_API_URL ?? '').replace(
-  /\/$/,
-  '',
-);
-
-/** In dev, empty URL uses Next.js rewrite proxy (same origin). Production needs a full API URL. */
-const backendBaseUrl =
-  configuredBackend ||
-  (process.env.NODE_ENV === 'development' ? '' : 'http://127.0.0.1:8001');
+function resolveBaseUrl(): string {
+  return USE_MOCK_API ? '/' : getBackendBaseUrl();
+}
 
 const apiClient = axios.create({
-  baseURL: USE_MOCK_API ? '/' : backendBaseUrl,
+  baseURL: resolveBaseUrl(),
   headers: {
     'Content-Type': 'application/json',
   },
@@ -51,6 +46,7 @@ if (typeof window !== 'undefined') {
 
   apiClient.interceptors.request.use(
     (config) => {
+      config.baseURL = resolveBaseUrl();
       config.url = withApiTrailingSlash(config.url);
 
       const token = getStoredAuthToken();

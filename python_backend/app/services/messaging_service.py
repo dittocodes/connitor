@@ -790,6 +790,10 @@ class SmsService:
     def send_message(self, phone: str, message: str) -> None:
         self._deliver_notification(phone, message, require_delivery=False)
 
+    def send_sms_only(self, phone: str, message: str) -> None:
+        """Send via Twilio/SNS SMS only (skip WhatsApp), e.g. doctor approval links."""
+        self._deliver_sms(phone, message, require_delivery=False)
+
     def send_otp(self, phone: str, otp: str) -> None:
         message = (
             f"Login in HVTS: Your One-Time Password is {otp}. "

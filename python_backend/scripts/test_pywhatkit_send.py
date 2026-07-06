@@ -7,7 +7,7 @@ from app.services.messaging_service import SmsService
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
-TO_PHONE = "7676283924"
+TO_PHONE = "6379983352"
 MESSAGE = (
     "Connitor test (retry): PyWhatKit WhatsApp delivery check. "
     "Reply OK if you received this."
@@ -22,7 +22,7 @@ def main() -> None:
     print("Keep Chrome in focus; do not use the PC for ~45 seconds while sending...")
     sys.stdout.flush()
     SmsService().send_message(TO_PHONE, MESSAGE)
-    print("Done — check WhatsApp on +917676283924.")
+    print("Done — check WhatsApp on +916379983352.")
 
 
 if __name__ == "__main__":

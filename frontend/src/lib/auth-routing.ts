@@ -8,6 +8,10 @@ export const ROLE_DASHBOARD_PATHS: Record<string, string> = {
   SECURITY: '/security/dashboard/?tab=check-in',
   SECURITY_SUPERVISOR: '/security/dashboard/?tab=check-in',
   STAFF: '/dashboard/',
+  RECEIVING: '/dashboard/receiving',
+  PURCHASE: '/dashboard/delivery',
+  DISTRIBUTOR: '/vendor/deliveries',
+  WARD_ADMIN: '/dashboard/attendant-passes',
 };
 
 export function getDashboardPathForRole(role: string): string {

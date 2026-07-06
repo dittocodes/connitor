@@ -20,6 +20,8 @@ export const sidebarConfig = {
     { label: 'Users', href: '/dashboard/users', icon: 'users' },
     { label: 'Visitors', href: '/dashboard/visitors', icon: 'user-plus' },
     { label: 'Appointments', href: '/dashboard/appointments', icon: 'calendar' },
+    { label: 'Delivery', href: '/dashboard/delivery', icon: 'truck' },
+    { label: 'Attendant Passes', href: '/dashboard/attendant-passes', icon: 'id-card' },
     { label: 'Settings', href: '/dashboard/settings', icon: 'settings' },
   ],
   DEPARTMENT_ADMIN: [
@@ -71,6 +73,11 @@ export const sidebarConfig = {
       href: '/security/dashboard?tab=logs',
       icon: 'book',
     },
+    {
+      label: 'Delivery Scan',
+      href: '/security/dashboard?tab=delivery-scan',
+      icon: 'truck',
+    },
     { label: 'All Appointments', href: '/dashboard/appointments', icon: 'calendar' },
     { label: 'Settings', href: '/dashboard/settings', icon: 'settings' },
   ],
@@ -90,12 +97,34 @@ export const sidebarConfig = {
       href: '/security/dashboard?tab=logs',
       icon: 'book',
     },
+    {
+      label: 'Delivery Scan',
+      href: '/security/dashboard?tab=delivery-scan',
+      icon: 'truck',
+    },
     { label: 'All Appointments', href: '/dashboard/appointments', icon: 'calendar' },
     { label: 'Settings', href: '/dashboard/settings', icon: 'settings' },
   ],
   STAFF: [
     { label: 'Overview', href: '/dashboard', icon: 'dashboard' },
     { label: 'My Appointments', href: '/dashboard/my-visitors', icon: 'users' },
+    { label: 'Settings', href: '/dashboard/settings', icon: 'settings' },
+  ],
+  RECEIVING: [
+    { label: 'Receiving Dashboard', href: '/dashboard/receiving', icon: 'package' },
+    { label: 'Settings', href: '/dashboard/settings', icon: 'settings' },
+  ],
+  PURCHASE: [
+    { label: 'Delivery Overview', href: '/dashboard/delivery', icon: 'truck' },
+    { label: 'Settings', href: '/dashboard/settings', icon: 'settings' },
+  ],
+  DISTRIBUTOR: [
+    { label: 'My Deliveries', href: '/vendor/deliveries', icon: 'truck' },
+    { label: 'Wallet', href: '/vendor/wallet', icon: 'wallet' },
+    { label: 'Settings', href: '/dashboard/settings', icon: 'settings' },
+  ],
+  WARD_ADMIN: [
+    { label: 'Attendant Passes', href: '/dashboard/attendant-passes', icon: 'id-card' },
     { label: 'Settings', href: '/dashboard/settings', icon: 'settings' },
   ],
 };

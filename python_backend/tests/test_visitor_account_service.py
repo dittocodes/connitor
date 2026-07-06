@@ -126,12 +126,14 @@ class VisitorAccountServiceTests(unittest.TestCase):
         account.emailVerificationExpiry = datetime(2099, 1, 1)
         account.emailVerificationAttempts = 0
         account.profileStatus = ProfileStatus.PENDING_VERIFICATION.value
+        account.emailVerified = False
 
         self.db.get.return_value = account
-        self.db.query.return_value.filter.return_value.first.return_value = MagicMock()
 
         result = self.service.verify_email_otp("acct-1", "654321")
         self.assertTrue(result.get("emailVerified"))
+        self.assertTrue(result.get("activated"))
+        self.assertEqual(result["profileStatus"], ProfileStatus.ACTIVE.value)
 
     def test_verify_phone_auto_activates_when_ready(self) -> None:
         account = MagicMock()
@@ -141,13 +143,9 @@ class VisitorAccountServiceTests(unittest.TestCase):
         account.phoneVerificationAttempts = 0
         account.emailVerified = True
         account.phoneVerified = False
-        account.photoStorageKey = "photo-key"
-        account.companyName = "Acme"
-        account.jobTitle = "Engineer"
         account.profileStatus = ProfileStatus.PENDING_VERIFICATION.value
 
         self.db.get.return_value = account
-        self.db.query.return_value.filter.return_value.first.return_value = MagicMock()
 
         result = self.service.verify_phone_otp("acct-1", "123456")
         self.assertTrue(result.get("activated"))

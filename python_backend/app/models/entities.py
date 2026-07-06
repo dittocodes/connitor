@@ -31,6 +31,7 @@ class User(Base):
     branchId: Mapped[str | None] = mapped_column(String(36), ForeignKey("Branch.id"), nullable=True)
     departmentId: Mapped[str | None] = mapped_column(String(36), ForeignKey("Department.id"), nullable=True)
     subDepartmentId: Mapped[str | None] = mapped_column(String(36), ForeignKey("SubDepartment.id"), nullable=True)
+    distributorId: Mapped[str | None] = mapped_column(String(36), nullable=True)
     createdAt: Mapped[datetime] = mapped_column(DateTime, default=now_ist)
     updatedAt: Mapped[datetime] = mapped_column(DateTime, default=now_ist, onupdate=now_ist)
 

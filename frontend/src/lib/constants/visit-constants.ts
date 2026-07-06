@@ -73,7 +73,15 @@ export type MeetingSubTypeKey = keyof typeof MEETING_SUB_TYPES;
 export type DeliverySubTypeKey = keyof typeof DELIVERY_SUB_TYPES;
 export type DeliveryPlatform = (typeof DELIVERY_PLATFORMS)[number];
 
-// Helper to check if a visitor profile is complete for meeting visits
+const FOOD_PLATFORMS = new Set(['Swiggy', 'Zomato', 'Dominos', 'Uber Eats', 'Blinkit']);
+const PACKAGE_PLATFORMS = new Set(['Amazon', 'Flipkart', 'Blue Dart', 'DTDC', 'Delhivery', 'Shadowfax', 'Dunzo']);
+
+/** Map delivery platform chip to visitSubType for API persistence. */
+export function mapDeliveryPlatformToSubType(platform: string): DeliverySubTypeKey {
+  if (FOOD_PLATFORMS.has(platform)) return 'FOOD_DELIVERY';
+  if (PACKAGE_PLATFORMS.has(platform)) return 'PACKAGE_COURIER';
+  return 'PROFESSIONAL_GOODS';
+}
 export function isProfileCompleteForMeeting(visitor: {
   email?: string | null;
   company?: string | null;

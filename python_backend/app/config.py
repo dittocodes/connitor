@@ -165,6 +165,7 @@ class Settings(BaseSettings):
     smtp_use_ssl: bool = Field(default=False, validation_alias="SMTP_USE_SSL")
 
     hvts_test_mode: bool = Field(default=False, validation_alias="HVTS_TEST_MODE")
+    delivery_module_enabled: bool = Field(default=True, validation_alias="DELIVERY_MODULE_ENABLED")
     zeptomail_api_url: str | None = Field(default=None, validation_alias="ZEPTOMAIL_API_URL")
 
     whatsapp_api_url: str | None = Field(

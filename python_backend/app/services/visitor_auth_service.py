@@ -252,7 +252,7 @@ class VisitorAuthService:
                 )
             )
 
-        if account.profileStatus == ProfileStatus.PENDING_VERIFICATION.value and account.phoneVerified:
+        if account.profileStatus != ProfileStatus.ACTIVE.value and account.emailVerified:
             account.profileStatus = ProfileStatus.ACTIVE.value
 
         token = self._issue_jwt(account)

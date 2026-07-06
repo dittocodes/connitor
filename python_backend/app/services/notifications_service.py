@@ -5,7 +5,7 @@ import random
 
 from sqlalchemy.orm import Session
 
-from app.config import get_settings, is_meta_whatsapp_configured, is_pywhatkit_configured
+from app.config import get_settings
 from app.models import Branch, Department, Notification, SubDepartment, User, Visit, Visitor
 from app.models.enums import AppointmentMode, Role
 from app.services.calendar_service import AppointmentCalendarDetails, CalendarService
@@ -223,17 +223,16 @@ class NotificationsService:
         return code
 
     def notify_staff_on_visit_request(self, visit: Visit, staff: User, visitor: Visitor) -> None:
-        from app.services.messaging_service import build_doctor_approval_whatsapp_message
         from app.services.visit_approval_link_service import VisitApprovalLinkService
 
         name = self._visitor_name(visitor)
         appt = self._format_appt(visit)
         purpose = (visit.purpose or "").strip() or "Not specified"
-        approval_code = self._ensure_sms_approval_code(visit)
+        self._ensure_sms_approval_code(visit)
         _, approval_url = VisitApprovalLinkService(self.db).create_link(visit)
         dashboard_message = (
             f"New appointment from {name} on {appt}. Purpose: {purpose}. "
-            "Check WhatsApp or email for the one-time approval link."
+            "Approval link sent to doctor via SMS."
         )
         email_message = (
             f"You have a new appointment request from {name} for {appt}. "
@@ -243,50 +242,32 @@ class NotificationsService:
         self._add_notification(staff.id, visit.id, dashboard_message)
         self._email_user(staff, "New Appointment Request", email_message)
         if staff.phone:
-            whatsapp_body = build_doctor_approval_whatsapp_message(
-                visitor_name=name,
-                appointment_label=appt,
-                purpose=purpose,
-                approval_url=approval_url,
-                approval_code=approval_code,
+            sms_message = (
+                f"Connitor: New appointment from {name} on {appt}. "
+                f"Purpose: {purpose}. Approve or decline: {approval_url}"
             )
-            if is_meta_whatsapp_configured(get_settings()):
-                details_sent = False
-                try:
-                    self.whatsapp.send_doctor_approval_details(staff.phone, whatsapp_body)
-                    details_sent = True
-                except Exception as exc:
-                    logger.warning("Meta doctor approval details message failed: %s", exc)
-                try:
-                    self.whatsapp.send_appointment_approval_buttons(
-                        staff.phone,
-                        visitor_name=name,
-                        appointment_label=appt,
-                        approval_code=approval_code,
-                        purpose=purpose,
-                        approval_url=approval_url,
-                    )
-                except Exception as exc:
-                    logger.error(
-                        "Failed to send WhatsApp approval buttons to %s: %s",
-                        staff.phone,
-                        exc,
-                    )
-                    if not details_sent:
-                        self._sms_user(staff, whatsapp_body)
-                if not details_sent and is_pywhatkit_configured(get_settings()):
-                    try:
-                        self.sms._deliver_whatsapp(staff.phone, whatsapp_body)
-                    except Exception as exc:
-                        logger.warning("PyWhatKit approval link message failed: %s", exc)
-            else:
-                delivered = False
-                try:
-                    delivered = self.sms._deliver_whatsapp(staff.phone, whatsapp_body)
-                except Exception as exc:
-                    logger.warning("WhatsApp approval link delivery failed: %s", exc)
-                if not delivered:
-                    self._sms_user(staff, whatsapp_body)
+            try:
+                self.sms.send_sms_only(staff.phone, sms_message)
+            except Exception as exc:
+                logger.error("Failed to SMS doctor %s: %s", staff.phone, exc)
+        self.db.commit()
+
+    def notify_security_on_delivery_visit(self, visit: Visit, visitor: Visitor) -> None:
+        name = self._visitor_name(visitor)
+        platform = visit.deliveryPlatform or "Delivery"
+        recipient = visit.deliveryRecipient or "staff"
+        message = (
+            f"New delivery visit from {name} ({platform}) for {recipient}. "
+            "Pending security approval."
+        )
+        security_users = self._security_users(visit.branchId)
+        for security in security_users:
+            self._add_notification(security.id, visit.id, message)
+        self._email_users(security_users, "New Delivery Visit — Pending Approval", message)
+        self._sms_users(
+            security_users,
+            f"Connitor: Delivery from {name} ({platform}). Pending security approval.",
+        )
         self.db.commit()
 
     def notify_security_on_new_visit_request(self, visit: Visit, staff: User, visitor: Visitor) -> None:

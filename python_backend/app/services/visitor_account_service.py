@@ -56,45 +56,10 @@ class VisitorAccountService:
         return account
 
     def _get_activation_blockers(self, account: VisitorAccount) -> list[str]:
+        """Account activates once email is verified (other profile steps can continue later)."""
         blockers: list[str] = []
         if not account.emailVerified:
             blockers.append("Email must be verified")
-        if not account.phoneVerified:
-            blockers.append("Phone must be verified")
-        if not account.photoStorageKey:
-            blockers.append("Live photo is required")
-        govt_doc = (
-            self.db.query(VisitorAccountDocument)
-            .filter(
-                VisitorAccountDocument.visitorAccountId == account.id,
-                VisitorAccountDocument.docType == VisitorDocumentType.GOVT_ID.value,
-            )
-            .first()
-        )
-        if not govt_doc:
-            blockers.append("Government ID is required")
-        password_auth = (
-            self.db.query(VisitorAccountAuth)
-            .filter(
-                VisitorAccountAuth.visitorAccountId == account.id,
-                VisitorAccountAuth.provider == VisitorAuthProvider.PASSWORD.value,
-            )
-            .first()
-        )
-        oauth_auth = (
-            self.db.query(VisitorAccountAuth)
-            .filter(
-                VisitorAccountAuth.visitorAccountId == account.id,
-                VisitorAccountAuth.provider.in_(
-                    [VisitorAuthProvider.GOOGLE.value, VisitorAuthProvider.LINKEDIN.value]
-                ),
-            )
-            .first()
-        )
-        if not password_auth and not oauth_auth:
-            blockers.append("Password or social login required")
-        if not account.companyName or not account.jobTitle:
-            blockers.append("Professional details are required")
         return blockers
 
     def _activate_if_ready(self, account_id: str) -> dict[str, Any] | None:

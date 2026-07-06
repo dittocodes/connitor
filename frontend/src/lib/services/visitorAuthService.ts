@@ -1,4 +1,5 @@
 import apiClient from '@/lib/api';
+import { getBackendApiPrefix } from '@/lib/backend-url';
 import { getVisitorToken, setVisitorToken } from '@/lib/services/visitorPortalService';
 
 export interface VisitorAuthLoginResponse {
@@ -32,15 +33,11 @@ export const VisitorAuthService = {
   },
 
   getGoogleAuthUrl(): string {
-    const base = (process.env.NEXT_PUBLIC_BACKEND_API_URL ?? '').replace(/\/$/, '');
-    const prefix = base || (process.env.NODE_ENV === 'development' ? '' : 'http://127.0.0.1:8001');
-    return `${prefix}/api/public/visitor-auth/google`;
+    return `${getBackendApiPrefix()}/api/public/visitor-auth/google`;
   },
 
   getLinkedInAuthUrl(): string {
-    const base = (process.env.NEXT_PUBLIC_BACKEND_API_URL ?? '').replace(/\/$/, '');
-    const prefix = base || (process.env.NODE_ENV === 'development' ? '' : 'http://127.0.0.1:8001');
-    return `${prefix}/api/public/visitor-auth/linkedin`;
+    return `${getBackendApiPrefix()}/api/public/visitor-auth/linkedin`;
   },
 
   storeOAuthToken(token: string): void {

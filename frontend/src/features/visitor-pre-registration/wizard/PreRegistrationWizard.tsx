@@ -303,8 +303,8 @@ export function PreRegistrationWizard() {
     try {
       const updated = await VisitorAccountApi.getPreview(accountId);
       syncPreview(updated);
-      if (!updated.emailVerified || !updated.phoneVerified) {
-        toast.error('Complete email and phone verification first');
+      if (!updated.emailVerified) {
+        toast.error('Complete email verification first');
         return;
       }
       const result = await VisitorAccountApi.activate(accountId);

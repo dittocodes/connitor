@@ -368,6 +368,8 @@ class VisitorsService:
         )
         self.db.add(visit)
         self.db.commit()
+        self.db.refresh(visit)
+        self.notifications.notify_security_on_delivery_visit(visit, visitor)
         return {"message": "Delivery visit created. Pending security review.", "visit": model_to_dict(visit)}
 
     def create_meeting_visit_request(self, branch_id: str, data: dict) -> dict:
@@ -407,6 +409,12 @@ class VisitorsService:
         for field in ("firstName", "lastName", "email", "company", "designation", "purpose"):
             if data.get(field):
                 setattr(visitor, field, data[field])
+
+        photo_file = files.get("photo")
+        if photo_file and photo_file.filename:
+            self._validate_file(photo_file, IMAGE_TYPES, "photo")
+            visitor.photo = await self.gcp.upload_visitor_document(photo_file, visitor.id, "photo")
+
         self.db.commit()
         visit = Visit(
             visitCategory=data.get("visitCategory", VisitCategory.MEETING.value),
@@ -425,6 +433,24 @@ class VisitorsService:
         )
         self.db.add(visit)
         self.db.commit()
+        self.db.refresh(visit)
+
+        if visit.visitCategory == VisitCategory.DELIVERY.value:
+            self.notifications.notify_security_on_delivery_visit(visit, visitor)
+            try:
+                from app.config import get_settings
+                from app.models.delivery_entities import VisitDeliveryLink
+
+                if get_settings().delivery_module_enabled:
+                    self.db.add(VisitDeliveryLink(visitId=visit.id))
+                    self.db.commit()
+            except Exception:
+                pass
+        elif visit.staffId:
+            staff = self.db.get(User, visit.staffId)
+            if staff:
+                self.notifications.notify_staff_on_visit_request(visit, staff, visitor)
+
         return {
             "success": True,
             "message": "Visit request submitted successfully. Please wait for approval.",

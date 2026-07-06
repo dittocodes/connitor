@@ -6,7 +6,7 @@ import sys
 from app.config import check_meta_whatsapp_health, get_settings
 from app.services.messaging_service import WhatsAppService
 
-DOCTOR_PHONE = sys.argv[1] if len(sys.argv) > 1 else "7676283924"
+DOCTOR_PHONE = sys.argv[1] if len(sys.argv) > 1 else "6379983352"
 
 
 def main() -> None:

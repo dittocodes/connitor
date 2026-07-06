@@ -13,7 +13,7 @@ from app.services.visit_approval_reply_service import VisitApprovalReplyService
 from app.utils.timezone import now_ist
 
 VISITOR_PHONE = "8625877312"
-DOCTOR_PHONE = "7676283924"
+DOCTOR_PHONE = "6379983352"
 
 
 def book(db) -> dict:
