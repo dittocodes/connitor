@@ -130,6 +130,28 @@ class DeliveryGateService:
             .limit(50)
             .all()
         )
+        from app.models.delivery_entities import DeliveryAgent, DeliveryVehicle, Distributor
+
+        vendor_deliveries = []
+        for d in scheduled:
+            vendor = self.db.get(Distributor, d.vendorId)
+            agent = self.db.get(DeliveryAgent, d.agentId)
+            vehicle = self.db.get(DeliveryVehicle, d.vehicleId)
+            vendor_deliveries.append(
+                {
+                    "id": d.id,
+                    "type": "INBOUND_DELIVERY",
+                    "deliveryNumber": d.deliveryNumber,
+                    "status": d.status,
+                    "poNumber": d.poNumber,
+                    "goodsType": d.goodsType,
+                    "totalBoxes": d.totalBoxes,
+                    "expectedArrivalTime": d.expectedArrivalTime.isoformat() if d.expectedArrivalTime else None,
+                    "vendorName": vendor.vendorName if vendor else None,
+                    "agentName": agent.name if agent else None,
+                    "vehicleNumber": vehicle.registrationNumber if vehicle else None,
+                }
+            )
         return {
             "walkInVisits": [
                 {
@@ -142,14 +164,5 @@ class DeliveryGateService:
                 }
                 for v in pending_visits
             ],
-            "vendorDeliveries": [
-                {
-                    "id": d.id,
-                    "type": "INBOUND_DELIVERY",
-                    "deliveryNumber": d.deliveryNumber,
-                    "status": d.status,
-                    "poNumber": d.poNumber,
-                }
-                for d in scheduled
-            ],
+            "vendorDeliveries": vendor_deliveries,
         }

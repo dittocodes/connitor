@@ -27,6 +27,17 @@ export const ID_PROOF_TYPES = [
 
 export type IdProofType = (typeof ID_PROOF_TYPES)[number];
 
+export interface VisitorSecurityDetails {
+  visitId: string;
+  fullName: string;
+  govtIdUrl?: string | null;
+  govtIdType?: string | null;
+  hasGovernmentId?: boolean;
+  idProofVerified?: boolean;
+  idProofType?: string | null;
+  idProofNumber?: string | null;
+}
+
 export const SecurityAppointmentService = {
   async getPendingAppointments(): Promise<{ appointments: TodayAppointment[]; total: number }> {
     const response = await apiClient.get<{ appointments: TodayAppointment[]; total: number }>(
@@ -58,5 +69,12 @@ export const SecurityAppointmentService = {
       data,
     );
     return response.data;
+  },
+
+  async getVisitorDetails(visitId: string): Promise<VisitorSecurityDetails> {
+    const response = await apiClient.get<{ success: true; data: VisitorSecurityDetails }>(
+      `/api/security/visits/${visitId}/details`,
+    );
+    return response.data.data;
   },
 };

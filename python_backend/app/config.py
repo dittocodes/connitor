@@ -166,6 +166,7 @@ class Settings(BaseSettings):
 
     hvts_test_mode: bool = Field(default=False, validation_alias="HVTS_TEST_MODE")
     delivery_module_enabled: bool = Field(default=True, validation_alias="DELIVERY_MODULE_ENABLED")
+    delivery_wallet_enabled: bool = Field(default=False, validation_alias="DELIVERY_WALLET_ENABLED")
     zeptomail_api_url: str | None = Field(default=None, validation_alias="ZEPTOMAIL_API_URL")
 
     whatsapp_api_url: str | None = Field(

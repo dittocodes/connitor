@@ -35,10 +35,21 @@ export function DeliveryScanTab({ branchId }: DeliveryScanTabProps): React.React
 
   const handleScan = async () => {
     setError(null);
+    let payload = qrPayload;
+    let sig = signature;
+    try {
+      const parsed = JSON.parse(qrPayload) as { qrPayload?: string; signature?: string };
+      if (parsed.qrPayload && parsed.signature) {
+        payload = parsed.qrPayload;
+        sig = parsed.signature;
+      }
+    } catch {
+      // use manual fields
+    }
     try {
       const res = await apiClient.post('/api/delivery/security/scan-qr', {
-        qrPayload,
-        signature,
+        qrPayload: payload,
+        signature: sig,
       });
       setResult(res.data);
       void loadQueue();
@@ -93,7 +104,8 @@ export function DeliveryScanTab({ branchId }: DeliveryScanTabProps): React.React
           <ul className="list-disc pl-5">
             {(queue?.vendorDeliveries ?? []).slice(0, 5).map((d) => (
               <li key={String(d.id)}>
-                {String(d.deliveryNumber)} — {String(d.status)}
+                {String(d.deliveryNumber)} — {String(d.goodsType ?? d.status)} ·{' '}
+                {String(d.agentName ?? '')}
               </li>
             ))}
           </ul>

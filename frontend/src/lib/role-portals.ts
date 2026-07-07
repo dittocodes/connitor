@@ -74,3 +74,35 @@ export function findRolePortal(role: string | null | undefined): RolePortal | un
 export function isPortalRole(value: string | null): value is PortalRole {
   return HOSPITAL_ROLE_PORTALS.some((portal) => portal.role === value);
 }
+
+export interface DeliveryPortal {
+  id: 'DISTRIBUTOR' | 'DRIVER';
+  label: string;
+  description: string;
+  loginPath: string;
+  dashboardPath: string;
+  demoEmail?: string;
+}
+
+export const DELIVERY_PORTALS: DeliveryPortal[] = [
+  {
+    id: 'DISTRIBUTOR',
+    label: 'Distributor',
+    description: 'Book hospital deliveries, manage drivers and vehicles, and track shipments.',
+    loginPath: '/auth/login?role=DISTRIBUTOR',
+    dashboardPath: '/vendor/deliveries',
+    demoEmail: 'distributor@citygen.demo',
+  },
+  {
+    id: 'DRIVER',
+    label: 'Driver',
+    description: 'View your delivery assignment, hospital location, and check-in QR at the gate.',
+    loginPath: '/driver/login',
+    dashboardPath: '/driver/dashboard',
+  },
+];
+
+export function findDeliveryPortal(id: string | null | undefined): DeliveryPortal | undefined {
+  if (!id) return undefined;
+  return DELIVERY_PORTALS.find((portal) => portal.id === id);
+}

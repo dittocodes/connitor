@@ -17,6 +17,17 @@ class SecurityService:
         self.notifications = NotificationsService(db)
         self.gate_pass = GatePassService(db)
 
+    @staticmethod
+    def _resolve_document_url(stored: str | None) -> str | None:
+        if not stored:
+            return None
+        if stored.startswith(("http://", "https://", "data:")):
+            return stored
+        settings = get_settings()
+        if settings.gcp_public_url:
+            return f"{settings.gcp_public_url.rstrip('/')}/government-id/{stored}"
+        return stored
+
     def _assert_access(self, user: dict, branch_id: str | None = None) -> None:
         if user["role"] not in (Role.SECURITY.value, Role.SECURITY_SUPERVISOR.value):
             raise HTTPException(status_code=403, detail="You are not authorized to perform this action.")
@@ -283,8 +294,10 @@ class SecurityService:
                 photo_url = account_profile["photoUrl"]
             govt_id_type = account_profile.get("govtIdType")
             govt_id_url = account_profile.get("govtIdUrl")
-        elif photo_url and not photo_url.startswith("http") and settings.gcp_public_url:
-            photo_url = f"{settings.gcp_public_url}/photos/{photo_url}"
+        if not govt_id_url and visit.visitor.governmentIdDocument:
+            govt_id_url = self._resolve_document_url(visit.visitor.governmentIdDocument)
+        if photo_url and not photo_url.startswith("http") and settings.gcp_public_url:
+            photo_url = f"{settings.gcp_public_url.rstrip('/')}/photos/{photo_url}"
 
         approved_at = None
         if visit.status in (
@@ -309,6 +322,10 @@ class SecurityService:
                 "photoUrl": photo_url,
                 "govtIdType": govt_id_type,
                 "govtIdUrl": govt_id_url,
+                "hasGovernmentId": bool(govt_id_url),
+                "idProofVerified": visit.idProofVerified,
+                "idProofType": visit.idProofType,
+                "idProofNumber": visit.idProofNumber,
                 "visitType": visit.visitCategory,
                 "status": visit.status,
                 "purpose": visit.purpose,

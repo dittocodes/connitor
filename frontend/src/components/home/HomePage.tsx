@@ -1,5 +1,6 @@
 'use client';
 
+import { DeliveryPortalGrid } from '@/components/home/DeliveryPortalGrid';
 import { HomeFeatureGrid } from '@/components/home/HomeFeatureGrid';
 import { HomeHeader } from '@/components/home/HomeHeader';
 import { HomeHero } from '@/components/home/HomeHero';
@@ -26,6 +27,8 @@ export function HomePage() {
             description="Sign in with your work email and password to open your role dashboard."
           />
         </section>
+
+        <DeliveryPortalGrid />
       </main>
 
       <SiteFooter />

@@ -59,6 +59,8 @@ def get_current_user(
             "branchId": user.branchId,
             "departmentId": user.departmentId,
             "subDepartmentId": user.subDepartmentId,
+            "distributorId": user.distributorId,
+            "deliveryAgentId": user.deliveryAgentId,
             "isActive": user.isActive,
         }
 
@@ -96,3 +98,11 @@ require_user_manager = require_roles(
     "DEPARTMENT_ADMIN",
     "SUB_DEPARTMENT_ADMIN",
 )
+
+
+def get_current_driver(user: Annotated[dict, Depends(get_current_user)]) -> dict:
+    if user.get("role") != "DELIVERY_AGENT":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Driver access only")
+    if not user.get("deliveryAgentId"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Driver account not linked")
+    return user

@@ -305,6 +305,7 @@ class EmailService:
         password: str,
         role: str,
         department_name: str | None = None,
+        login_url: str | None = None,
     ) -> None:
         settings = get_settings()
         role_labels = {
@@ -317,15 +318,16 @@ class EmailService:
             "STAFF": "Staff",
             "SECURITY": "Security",
             "SECURITY_SUPERVISOR": "Security Supervisor",
+            "DELIVERY_AGENT": "Driver",
         }
         role_label = role_labels.get(role, role.replace("_", " ").title())
-        login_url = f"{settings.frontend_url.rstrip('/')}/auth/login"
+        resolved_login_url = login_url or f"{settings.frontend_url.rstrip('/')}/auth/login"
         subject, text_body, html_body = build_account_credentials_email(
             name=name,
             email=to_email,
             password=password,
             role_label=role_label,
-            login_url=login_url,
+            login_url=resolved_login_url,
             department_name=department_name,
             company_name=settings.email_from_name,
             product_name=settings.email_product_name,

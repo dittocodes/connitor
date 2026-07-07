@@ -731,6 +731,84 @@ class NotificationsService:
         self._email_user(staff, "Visit Rejected by Security", message)
         self.db.commit()
 
+    def notify_on_scheduled_delivery(self, delivery) -> None:
+        from app.models.delivery_entities import DeliveryAgent, DeliveryVehicle, Distributor
+
+        branch = self.db.get(Branch, delivery.branchId)
+        vendor = self.db.get(Distributor, delivery.vendorId)
+        agent = self.db.get(DeliveryAgent, delivery.agentId)
+        vehicle = self.db.get(DeliveryVehicle, delivery.vehicleId)
+        arrival = (
+            format_ist_datetime(delivery.expectedArrivalTime)
+            if delivery.expectedArrivalTime
+            else "unscheduled"
+        )
+        goods = delivery.goodsType or "Goods"
+        boxes = delivery.totalBoxes or 0
+        vendor_name = vendor.vendorName if vendor else "Distributor"
+        driver_name = agent.name if agent else "Driver"
+        vehicle_no = vehicle.registrationNumber if vehicle else "—"
+        branch_name = branch.name if branch else "Hospital"
+
+        message = (
+            f"New delivery scheduled: {vendor_name} — {goods} ({boxes} boxes). "
+            f"Driver: {driver_name}, Vehicle: {vehicle_no}. Arrival: {arrival}."
+        )
+        subject = f"New Scheduled Delivery — {delivery.deliveryNumber}"
+
+        security_users = self._security_users(delivery.branchId)
+        for security in security_users:
+            self._add_system_notification(security.id, message)
+        self._email_users(security_users, subject, message)
+
+        admin_recipients: list[User] = []
+        super_admins = (
+            self.db.query(User)
+            .filter(User.role == Role.SUPER_ADMIN.value, User.isActive == True)  # noqa: E712
+            .all()
+        )
+        for admin in super_admins:
+            self._add_system_notification(admin.id, message)
+            admin_recipients.append(admin)
+        for admin in self._hospital_admins_for_branch(delivery.branchId):
+            self._add_system_notification(admin.id, message)
+            admin_recipients.append(admin)
+        branch_admins = (
+            self.db.query(User)
+            .filter(
+                User.branchId == delivery.branchId,
+                User.role == Role.BRANCH_ADMIN.value,
+                User.isActive == True,  # noqa: E712
+            )
+            .all()
+        )
+        for admin in branch_admins:
+            self._add_system_notification(admin.id, message)
+            admin_recipients.append(admin)
+        self._email_users(admin_recipients, subject, message)
+
+        if agent and agent.email:
+            driver_msg = (
+                f"Hello {agent.name},\n\n"
+                f"You are assigned to delivery {delivery.deliveryNumber} at {branch_name}.\n"
+                f"Goods: {goods} ({boxes} boxes). Vehicle: {vehicle_no}. Arrival: {arrival}.\n"
+                f"Hospital phone: {branch.phone if branch else '—'}.\n"
+                "Sign in to your driver dashboard for check-in QR and full details."
+            )
+            try:
+                self.email.send_notification(
+                    agent.email,
+                    f"Delivery assignment — {delivery.deliveryNumber}",
+                    driver_msg,
+                )
+            except Exception as exc:
+                logger.error("Failed to email driver %s: %s", agent.email, exc)
+
+        self.db.commit()
+
+    def _add_system_notification(self, recipient_id: str, message: str) -> None:
+        self.db.add(Notification(recipientId=recipient_id, visitId=None, message=message))
+
     def _hospital_admins_for_branch(self, branch_id: str) -> list[User]:
         return (
             self.db.query(User)

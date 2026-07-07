@@ -70,4 +70,7 @@ api_router.include_router(whatsapp_webhooks.router, prefix="/webhooks", tags=["w
 _settings = get_settings()
 if _settings.delivery_module_enabled:
     api_router.include_router(delivery.router, prefix="/delivery", tags=["delivery"])
+    from app.routers import driver_auth
+
+    api_router.include_router(driver_auth.router, prefix="/delivery/driver-auth", tags=["driver-auth"])
     api_router.include_router(attendant_passes.router, prefix="/attendant-passes", tags=["attendant-passes"])

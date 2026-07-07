@@ -3,7 +3,7 @@
 import * as React from 'react';
 import useSWR from 'swr';
 import { toast } from 'sonner';
-import { Calendar, CheckCircle2, Hourglass, LogOut, RefreshCw, ShieldCheck, Video } from 'lucide-react';
+import { Calendar, CheckCircle2, Hourglass, IdCard, LogOut, RefreshCw, ShieldCheck, Video } from 'lucide-react';
 import {
   SecurityAppointmentService,
   type TodayAppointment,
@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/dialog';
 import { formatIstDateTime } from '@/lib/datetime';
 import { IdProofVerificationForm } from '@/components/security/IdProofVerificationForm';
+import { VisitorGovernmentIdDialog } from '@/components/security/VisitorGovernmentIdDialog';
 
 type Props = {
   branchId: string;
@@ -40,10 +41,12 @@ const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'outline' | 'dest
 function AppointmentCard({
   appt,
   onVerify,
+  onViewId,
   onCheckOut,
 }: {
   appt: TodayAppointment;
   onVerify: (appt: TodayAppointment) => void;
+  onViewId: (appt: TodayAppointment) => void;
   onCheckOut: (visitId: string, visitorName: string) => void;
 }) {
   const doctorConfirmed =
@@ -96,6 +99,11 @@ function AppointmentCard({
           </p>
         )}
         <div className="flex flex-wrap gap-2">
+          {!appt.isOnline && (
+            <Button size="sm" variant="ghost" onClick={() => onViewId(appt)}>
+              <IdCard className="h-4 w-4 mr-1" /> View ID
+            </Button>
+          )}
           {appt.status === 'REQUEST_SENT' ? (
             <p className="text-xs text-amber-700">
               Waiting for Dr. {appt.doctorName ?? '—'} to approve this booking.
@@ -146,6 +154,7 @@ function AppointmentCard({
 
 export function TodayAppointmentsTab({ className, refreshKey = 0 }: Props) {
   const [verifyVisit, setVerifyVisit] = React.useState<TodayAppointment | null>(null);
+  const [viewIdVisit, setViewIdVisit] = React.useState<TodayAppointment | null>(null);
   const { data: pendingData, isLoading: pendingLoading, mutate: mutatePending } = useSWR(
     ['/api/security/appointments/pending', refreshKey],
     () => SecurityAppointmentService.getPendingAppointments(),
@@ -220,6 +229,7 @@ export function TodayAppointmentsTab({ className, refreshKey = 0 }: Props) {
                 <AppointmentCard
                   appt={appt}
                   onVerify={setVerifyVisit}
+                  onViewId={setViewIdVisit}
                   onCheckOut={handleCheckOut}
                 />
               </li>
@@ -245,6 +255,7 @@ export function TodayAppointmentsTab({ className, refreshKey = 0 }: Props) {
                 <AppointmentCard
                   appt={appt}
                   onVerify={setVerifyVisit}
+                  onViewId={setViewIdVisit}
                   onCheckOut={handleCheckOut}
                 />
               </li>
@@ -264,12 +275,22 @@ export function TodayAppointmentsTab({ className, refreshKey = 0 }: Props) {
                 <AppointmentCard
                   appt={appt}
                   onVerify={setVerifyVisit}
+                  onViewId={setViewIdVisit}
                   onCheckOut={handleCheckOut}
                 />
               </li>
             ))}
           </ul>
         </>
+      )}
+
+      {viewIdVisit && (
+        <VisitorGovernmentIdDialog
+          visitId={viewIdVisit.visitId}
+          visitorName={viewIdVisit.visitorName}
+          open
+          onOpenChange={(o) => !o && setViewIdVisit(null)}
+        />
       )}
 
       {verifyVisit && (

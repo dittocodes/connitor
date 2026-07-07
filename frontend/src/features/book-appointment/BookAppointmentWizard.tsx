@@ -9,6 +9,10 @@ import {
   type PublicDoctor,
 } from '@/lib/services/appointmentService';
 import { todayIstDateIso } from '@/lib/datetime';
+import { VisitorAuthService } from '@/lib/services/visitorAuthService';
+import { getVisitorToken } from '@/lib/services/visitorPortalService';
+import { VisitorAccountApi } from '@/features/visitor-pre-registration/api/visitorAccountService';
+import type { VisitorPreviewData } from '@/features/visitor-pre-registration/schemas/visitorAccountSchema';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -115,30 +119,28 @@ export function BookAppointmentWizard({
   const [error, setError] = React.useState('');
   const [loadingHospitals, setLoadingHospitals] = React.useState(!initialBranchId);
   const [loadingDepartments, setLoadingDepartments] = React.useState(!!initialBranchId);
+  const [isRegisteredVisitor, setIsRegisteredVisitor] = React.useState(false);
+  const [visitorProfile, setVisitorProfile] = React.useState<VisitorPreviewData | null>(null);
 
   const displayStep = initialBranchId ? step - 1 : step;
 
   React.useEffect(() => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('visitorAuthToken') : null;
+    if (!VisitorAuthService.isAccountSession()) return;
+    const token = getVisitorToken();
     if (!token) return;
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1] ?? ''));
-      if (payload.sub && !String(payload.sub).includes('@')) {
-        import('@/features/visitor-pre-registration/api/visitorAccountService').then(
-          ({ VisitorAccountApi }) => {
-            VisitorAccountApi.getMyProfile(token).then((profile) => {
-              const parts = profile.fullName?.split(' ') ?? [];
-              setFirstName(profile.firstName ?? parts[0] ?? '');
-              setLastName(profile.lastName ?? parts.slice(1).join(' ') ?? '');
-              setPhone(profile.phone ?? '');
-              setEmail(profile.email ?? '');
-            }).catch(() => undefined);
-          },
-        );
-      }
-    } catch {
-      /* legacy token */
-    }
+
+    VisitorAccountApi.getMyProfile(token)
+      .then((profile) => {
+        if (profile.profileStatus !== 'ACTIVE') return;
+        const parts = profile.fullName?.split(' ') ?? [];
+        setFirstName(profile.firstName ?? parts[0] ?? '');
+        setLastName(profile.lastName ?? parts.slice(1).join(' ') ?? '');
+        setPhone(profile.phone ?? '');
+        setEmail(profile.email ?? '');
+        setVisitorProfile(profile);
+        setIsRegisteredVisitor(true);
+      })
+      .catch(() => undefined);
   }, []);
 
   React.useEffect(() => {
@@ -261,7 +263,21 @@ export function BookAppointmentWizard({
 
   const submit = async () => {
     const normalizedEmail = email.trim().toLowerCase();
-    if (phone.length !== 10 || !purpose.trim() || !slotId || !normalizedEmail.includes('@')) {
+    if (!purpose.trim() || !slotId) {
+      setError('Please select a time slot and enter the purpose of your visit.');
+      return;
+    }
+    if (isRegisteredVisitor) {
+      if (!firstName.trim() || !phone || phone.length !== 10 || !normalizedEmail.includes('@')) {
+        setError('Your profile is missing contact details. Update your profile and try again.');
+        return;
+      }
+    } else if (
+      phone.length !== 10 ||
+      !normalizedEmail.includes('@') ||
+      !firstName.trim() ||
+      !lastName.trim()
+    ) {
       setError('Please fill in all required fields, select a time slot, and use a valid 10-digit phone and email.');
       return;
     }
@@ -432,28 +448,60 @@ export function BookAppointmentWizard({
             <div className="space-y-4">
               <DoctorDetailCard doctor={selectedDoctor} />
 
-              <div>
-                <Label>First Name</Label>
-                <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
-              </div>
-              <div>
-                <Label>Last Name</Label>
-                <Input value={lastName} onChange={(e) => setLastName(e.target.value)} required />
-              </div>
-              <div>
-                <Label>Phone (10 digits)</Label>
-                <Input value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={10} required />
-              </div>
-              <div>
-                <Label>Email</Label>
-                <Input
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  type="email"
-                  required
-                  placeholder="Required for dashboard login"
-                />
-              </div>
+              {isRegisteredVisitor ? (
+                <div className="rounded-lg border bg-muted/40 p-4 text-sm space-y-1">
+                  <p className="font-medium">
+                    Booking as{' '}
+                    {visitorProfile?.fullName ||
+                      [firstName, lastName].filter(Boolean).join(' ') ||
+                      'your profile'}
+                  </p>
+                  {phone && email && (
+                    <p className="text-muted-foreground">
+                      +91 {phone} · {email}
+                    </p>
+                  )}
+                  <p className="text-xs text-muted-foreground pt-1">
+                    Your saved profile is used for this booking. The doctor will receive your name
+                    and visit purpose.
+                  </p>
+                  <Button variant="link" size="sm" className="h-auto p-0 text-xs" asChild>
+                    <Link href="/visitor/dashboard">Manage profile</Link>
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <Label>First Name</Label>
+                    <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
+                  </div>
+                  <div>
+                    <Label>Last Name</Label>
+                    <Input value={lastName} onChange={(e) => setLastName(e.target.value)} required />
+                  </div>
+                  <div>
+                    <Label>Phone (10 digits)</Label>
+                    <Input value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={10} required />
+                  </div>
+                  <div>
+                    <Label>Email</Label>
+                    <Input
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      type="email"
+                      required
+                      placeholder="Required for dashboard login"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Already registered?{' '}
+                    <Link href="/visitor/login?returnTo=/book-appointment" className="underline">
+                      Sign in
+                    </Link>{' '}
+                    to skip entering your details.
+                  </p>
+                </>
+              )}
 
               <div>
                 <Label>Appointment Date</Label>

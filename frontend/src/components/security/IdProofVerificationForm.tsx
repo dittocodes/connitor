@@ -19,6 +19,7 @@ import {
   SecurityAppointmentService,
   type IdProofType,
 } from '@/lib/services/securityAppointmentService';
+import { GovernmentIdPreview } from '@/components/security/GovernmentIdPreview';
 
 type Props = {
   visitId: string;
@@ -30,6 +31,31 @@ export function IdProofVerificationForm({ visitId, idProofVerified, onVerified }
   const [idProofType, setIdProofType] = React.useState<IdProofType>('AADHAAR');
   const [idProofNumber, setIdProofNumber] = React.useState('');
   const [loading, setLoading] = React.useState(false);
+  const [govtIdUrl, setGovtIdUrl] = React.useState<string | null>(null);
+  const [govtIdType, setGovtIdType] = React.useState<string | null>(null);
+  const [loadingId, setLoadingId] = React.useState(true);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    setLoadingId(true);
+    SecurityAppointmentService.getVisitorDetails(visitId)
+      .then((details) => {
+        if (cancelled) return;
+        setGovtIdUrl(details.govtIdUrl ?? null);
+        setGovtIdType(details.govtIdType ?? null);
+        const mapped = details.govtIdType?.toUpperCase().replace(/ /g, '_');
+        if (mapped && ID_PROOF_TYPES.includes(mapped as IdProofType)) {
+          setIdProofType(mapped as IdProofType);
+        }
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (!cancelled) setLoadingId(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [visitId]);
 
   if (idProofVerified) {
     return (
@@ -63,7 +89,13 @@ export function IdProofVerificationForm({ visitId, idProofVerified, onVerified }
   };
 
   return (
-    <div className="space-y-3 rounded-lg border border-amber-200 bg-amber-50 p-4">
+    <div className="space-y-4">
+      {loadingId ? (
+        <p className="text-sm text-muted-foreground">Loading uploaded ID...</p>
+      ) : (
+        <GovernmentIdPreview govtIdUrl={govtIdUrl} govtIdType={govtIdType} />
+      )}
+      <div className="space-y-3 rounded-lg border border-amber-200 bg-amber-50 p-4">
       <div className="flex items-center gap-2 text-sm font-medium text-amber-900">
         <ShieldCheck className="h-4 w-4" />
         Appointment — verify visitor ID before check-in
@@ -105,6 +137,7 @@ export function IdProofVerificationForm({ visitId, idProofVerified, onVerified }
           'Verify ID Proof'
         )}
       </Button>
+      </div>
     </div>
   );
 }

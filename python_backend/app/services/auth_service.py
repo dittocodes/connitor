@@ -83,6 +83,10 @@ class AuthService:
         if user.branch:
             payload["branchName"] = user.branch.name
             payload["branch"] = {"name": user.branch.name}
+        if user.distributorId:
+            payload["distributorId"] = user.distributorId
+        if user.deliveryAgentId:
+            payload["deliveryAgentId"] = user.deliveryAgentId
 
         token = jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
         return {"access_token": token}

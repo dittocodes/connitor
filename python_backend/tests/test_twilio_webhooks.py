@@ -171,7 +171,7 @@ class TwilioWebhookRouteTests(unittest.TestCase):
 
         response = self.client.post(
             "/api/webhooks/twilio/sms",
-            data={"Body": "YES 482901", "From": "+917003636111", "To": "+19284360201"},
+            data={"Body": "YES 482901", "From": "+917003636111", "To": "+16592267175"},
         )
 
         self.assertEqual(response.status_code, 200)

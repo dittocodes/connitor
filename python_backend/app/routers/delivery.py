@@ -7,9 +7,11 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.dependencies.auth import get_current_user
+from app.dependencies.auth import get_current_driver, get_current_user
 from app.dependencies.permissions import require_permission
+from app.delivery.agent_vehicle_service import AgentVehicleService
 from app.delivery.branch_delivery_service import BranchDeliveryService
+from app.delivery.delivery_slot_service import DeliverySlotService
 from app.delivery.distributor_service import DistributorService
 from app.delivery.gate_service import DeliveryGateService
 from app.delivery.inbound_delivery_service import InboundDeliveryService
@@ -55,6 +57,40 @@ class CourierRegisterBody(BaseModel):
     visitId: str | None = None
 
 
+class DeliveryBookBody(BaseModel):
+    branchId: str
+    slotId: str | None = None
+    expectedArrivalTime: str | None = None
+    goodsType: str
+    totalBoxes: int
+    vehicleId: str | None = None
+    vehicle: dict | None = None
+    agentId: str | None = None
+    agent: dict | None = None
+    remarks: str | None = None
+    deliveryType: str = "STANDARD"
+
+
+class AgentCreateBody(BaseModel):
+    name: str
+    email: str
+    phone: str | None = None
+    licenseNumber: str | None = None
+
+
+class VehicleCreateBody(BaseModel):
+    registrationNumber: str
+    vehicleType: str | None = None
+
+
+class SlotBulkCreateBody(BaseModel):
+    startDate: str
+    endDate: str
+    slotMinutes: int = 60
+    maxDeliveries: int = 1
+    windows: list[dict] | None = None
+
+
 @router.get("/deliveries")
 def list_deliveries(
     user: Annotated[dict, Depends(require_permission("VIEW_DELIVERY"))],
@@ -83,6 +119,109 @@ def get_delivery(
     db: Annotated[Session, Depends(get_db)],
 ):
     return InboundDeliveryService(db).get_delivery(delivery_id, user)
+
+
+@router.post("/deliveries/book", status_code=201)
+def book_delivery(
+    body: DeliveryBookBody,
+    user: Annotated[dict, Depends(require_permission("CREATE_DELIVERY"))],
+    db: Annotated[Session, Depends(get_db)],
+):
+    return InboundDeliveryService(db).book_delivery(user, body.model_dump())
+
+
+@router.get("/distributors/me/branches")
+def my_approved_branches(
+    user: Annotated[dict, Depends(require_permission("CREATE_DELIVERY"))],
+    db: Annotated[Session, Depends(get_db)],
+):
+    return AgentVehicleService(db).list_approved_branches(user)
+
+
+@router.get("/agents")
+def list_agents(
+    user: Annotated[dict, Depends(require_permission("CREATE_DELIVERY"))],
+    db: Annotated[Session, Depends(get_db)],
+):
+    return AgentVehicleService(db).list_agents(user)
+
+
+@router.post("/agents", status_code=201)
+def create_agent(
+    body: AgentCreateBody,
+    user: Annotated[dict, Depends(require_permission("CREATE_DELIVERY"))],
+    db: Annotated[Session, Depends(get_db)],
+):
+    return AgentVehicleService(db).create_agent(user, body.model_dump())
+
+
+@router.get("/vehicles")
+def list_vehicles(
+    user: Annotated[dict, Depends(require_permission("CREATE_DELIVERY"))],
+    db: Annotated[Session, Depends(get_db)],
+):
+    return AgentVehicleService(db).list_vehicles(user)
+
+
+@router.post("/vehicles", status_code=201)
+def create_vehicle(
+    body: VehicleCreateBody,
+    user: Annotated[dict, Depends(require_permission("CREATE_DELIVERY"))],
+    db: Annotated[Session, Depends(get_db)],
+):
+    return AgentVehicleService(db).create_vehicle(user, body.model_dump())
+
+
+@router.get("/branches/{branch_id}/slots")
+def list_branch_slots(
+    branch_id: str,
+    user: Annotated[dict, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+    date: str | None = Query(None),
+):
+    from datetime import date as date_type
+
+    slot_date = date_type.fromisoformat(date) if date else None
+    return DeliverySlotService(db).list_slots(branch_id, user, slot_date=slot_date)
+
+
+@router.post("/branches/{branch_id}/slots", status_code=201)
+def bulk_create_slots(
+    branch_id: str,
+    body: SlotBulkCreateBody,
+    user: Annotated[dict, Depends(require_permission("MANAGE_DELIVERY_SLOTS"))],
+    db: Annotated[Session, Depends(get_db)],
+):
+    return DeliverySlotService(db).bulk_create_slots(branch_id, user, body.model_dump())
+
+
+@router.patch("/slots/{slot_id}")
+def update_slot(
+    slot_id: str,
+    body: dict,
+    user: Annotated[dict, Depends(require_permission("MANAGE_DELIVERY_SLOTS"))],
+    db: Annotated[Session, Depends(get_db)],
+):
+    return DeliverySlotService(db).update_slot(slot_id, user, body)
+
+
+@router.delete("/slots/{slot_id}")
+def delete_slot(
+    slot_id: str,
+    user: Annotated[dict, Depends(require_permission("MANAGE_DELIVERY_SLOTS"))],
+    db: Annotated[Session, Depends(get_db)],
+):
+    return DeliverySlotService(db).delete_slot(slot_id, user)
+
+
+@router.get("/driver/assignments")
+def driver_assignments(
+    user: Annotated[dict, Depends(get_current_driver)],
+    db: Annotated[Session, Depends(get_db)],
+    status: str = Query("active"),
+):
+    active_only = status != "all"
+    return InboundDeliveryService(db).get_driver_assignments(user, active_only=active_only)
 
 
 @router.post("/deliveries", status_code=201)

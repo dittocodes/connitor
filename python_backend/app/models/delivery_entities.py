@@ -17,6 +17,23 @@ def _uuid() -> str:
     return str(uuid.uuid4())
 
 
+class BranchDeliverySlot(Base):
+    __tablename__ = "BranchDeliverySlot"
+    __table_args__ = (
+        UniqueConstraint("branchId", "slotStart", name="BranchDeliverySlot_branch_slot_key"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    branchId: Mapped[str] = mapped_column(String(36), ForeignKey("Branch.id"), index=True)
+    slotStart: Mapped[datetime] = mapped_column(DateTime, index=True)
+    slotEnd: Mapped[datetime] = mapped_column(DateTime)
+    maxDeliveries: Mapped[int] = mapped_column(Integer, default=1)
+    bookedCount: Mapped[int] = mapped_column(Integer, default=0)
+    isActive: Mapped[bool] = mapped_column(Boolean, default=True)
+    createdAt: Mapped[datetime] = mapped_column(DateTime, default=now_ist)
+    updatedAt: Mapped[datetime] = mapped_column(DateTime, default=now_ist, onupdate=now_ist)
+
+
 class BranchDeliverySettings(Base):
     __tablename__ = "BranchDeliverySettings"
 
@@ -97,8 +114,10 @@ class DeliveryAgent(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     distributorId: Mapped[str] = mapped_column(String(36), ForeignKey("Distributor.id"), index=True)
     name: Mapped[str] = mapped_column(String(255))
+    email: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
     phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
     licenseNumber: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    userId: Mapped[str | None] = mapped_column(String(36), ForeignKey("User.id"), nullable=True)
     isActive: Mapped[bool] = mapped_column(Boolean, default=True)
     createdAt: Mapped[datetime] = mapped_column(DateTime, default=now_ist)
 
@@ -147,6 +166,8 @@ class InboundDelivery(Base):
     vendorId: Mapped[str] = mapped_column(String(36), ForeignKey("Distributor.id"), index=True)
     vehicleId: Mapped[str] = mapped_column(String(36), ForeignKey("DeliveryVehicle.id"))
     agentId: Mapped[str] = mapped_column(String(36), ForeignKey("DeliveryAgent.id"))
+    slotId: Mapped[str | None] = mapped_column(String(36), ForeignKey("BranchDeliverySlot.id"), nullable=True)
+    goodsType: Mapped[str | None] = mapped_column(String(255), nullable=True)
     deliveryType: Mapped[str] = mapped_column(String(20), index=True)
     status: Mapped[str] = mapped_column(String(30), index=True, default="DRAFT")
     poNumber: Mapped[str | None] = mapped_column(String(100), nullable=True)

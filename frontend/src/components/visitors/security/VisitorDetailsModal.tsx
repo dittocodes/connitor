@@ -28,6 +28,7 @@ import { VisitCategory } from '@/lib/constants/visit-constants';
 import { VisitStatus } from '@/types/visitor';
 import { cn } from '@/lib/utils';
 import apiClient from '@/lib/api';
+import { GovernmentIdPreview } from '@/components/security/GovernmentIdPreview';
 
 export interface ActionResult {
   success: boolean;
@@ -45,6 +46,12 @@ export interface VisitorDetails {
   company?: string | null;
   designation?: string | null;
   photoUrl?: string | null;
+  govtIdUrl?: string | null;
+  govtIdType?: string | null;
+  hasGovernmentId?: boolean;
+  idProofVerified?: boolean;
+  idProofType?: string | null;
+  idProofNumber?: string | null;
   visitType: VisitCategory.MEETING | VisitCategory.DELIVERY;
   status: VisitStatus;
   purpose?: string | null;
@@ -416,6 +423,11 @@ export function VisitorDetailsModal({
                   </div>
                 )}
               </div>
+
+              <GovernmentIdPreview
+                govtIdUrl={data.govtIdUrl}
+                govtIdType={data.govtIdType}
+              />
 
               {/* Visit Details */}
               {(data.visitType === VisitCategory.MEETING &&

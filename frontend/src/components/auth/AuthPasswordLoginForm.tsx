@@ -17,7 +17,7 @@ import {
   getDashboardPathForRole,
   type DecodedUser,
 } from '@/lib/auth-routing';
-import { findRolePortal, isPortalRole } from '@/lib/role-portals';
+import { findDeliveryPortal, findRolePortal, isPortalRole } from '@/lib/role-portals';
 import { Badge } from '@/components/ui/badge';
 
 import {
@@ -69,6 +69,8 @@ export function AuthPasswordLoginForm() {
   const searchParams = useSearchParams();
   const roleParam = searchParams.get('role');
   const rolePortal = isPortalRole(roleParam) ? findRolePortal(roleParam) : undefined;
+  const deliveryPortal = !rolePortal ? findDeliveryPortal(roleParam) : undefined;
+  const portalLabel = rolePortal?.label ?? deliveryPortal?.label;
   const { login } = useAuth();
   const [error, setError] = useState<string | null>(null);
 
@@ -133,16 +135,22 @@ export function AuthPasswordLoginForm() {
         </div>
 
         <CardTitle className="text-3xl font-bold">
-          {rolePortal ? `Sign in — ${rolePortal.label}` : 'Sign in'}
+          {portalLabel ? `Sign in — ${portalLabel}` : 'Sign in'}
         </CardTitle>
         <CardDescription className="text-lg">
           {rolePortal
             ? `Use your work email and password to open the ${rolePortal.label.toLowerCase()} dashboard.`
-            : 'Use your hospital login ID (work email) and password to access your dashboard.'}
+            : deliveryPortal
+              ? `Use your email and password to open the ${deliveryPortal.label.toLowerCase()} dashboard.`
+              : 'Use your hospital login ID (work email) and password to access your dashboard.'}
         </CardDescription>
         {rolePortal ? (
           <Badge variant="secondary" className="mx-auto w-fit">
             After login → {rolePortal.dashboardPath.split('?')[0]}
+          </Badge>
+        ) : deliveryPortal ? (
+          <Badge variant="secondary" className="mx-auto w-fit">
+            After login → {deliveryPortal.dashboardPath}
           </Badge>
         ) : null}
       </CardHeader>
@@ -167,7 +175,9 @@ export function AuthPasswordLoginForm() {
                     <Input
                       data-testid="email-input"
                       type="email"
-                      placeholder={rolePortal?.demoEmail ?? 'you@hospital.com'}
+                      placeholder={
+                        rolePortal?.demoEmail ?? deliveryPortal?.demoEmail ?? 'you@hospital.com'
+                      }
                       autoComplete="username"
                       {...field}
                       disabled={isSubmitting}

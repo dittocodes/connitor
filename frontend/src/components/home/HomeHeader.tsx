@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { jwtDecode } from 'jwt-decode';
-import { CalendarCheck, LayoutDashboard, UserPlus } from 'lucide-react';
+import { CalendarCheck, LayoutDashboard, Truck, UserCircle, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getDashboardPathForRole } from '@/lib/auth-routing';
 import { getStoredAuthToken } from '@/lib/auth-storage';
@@ -58,11 +58,41 @@ export function HomeHeader() {
 
         <div className="flex items-center gap-2 sm:gap-3">
           <Link
+            href="#delivery-portals"
+            className="hidden text-sm text-amber-800 hover:text-amber-900 md:inline"
+          >
+            Delivery partners
+          </Link>
+          <Link
             href="#staff-portals"
             className="hidden text-sm text-teal-800 hover:text-teal-900 sm:inline"
           >
             Hospital staff
           </Link>
+
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="hidden border-amber-200 text-amber-900 md:inline-flex"
+          >
+            <Link href="/auth/login?role=DISTRIBUTOR">
+              <Truck className="mr-2 h-4 w-4" />
+              Distributor
+            </Link>
+          </Button>
+
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="hidden border-amber-200 text-amber-900 md:inline-flex"
+          >
+            <Link href="/driver/login">
+              <UserCircle className="mr-2 h-4 w-4" />
+              Driver
+            </Link>
+          </Button>
 
           {hasVisitorSession ? (
             <Button asChild variant="ghost" size="sm" className="text-teal-800">

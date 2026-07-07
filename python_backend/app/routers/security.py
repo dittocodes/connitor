@@ -95,6 +95,20 @@ def confirmed_appointments(
     return SecurityService(db).get_upcoming_confirmed_appointments(user)
 
 
+@router.get("/deliveries/today")
+def today_deliveries(
+    user: Annotated[dict, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+    branchId: str | None = Query(None),
+):
+    from app.config import get_settings
+    from app.delivery.inbound_delivery_service import InboundDeliveryService
+
+    if not get_settings().delivery_module_enabled:
+        return {"deliveries": [], "total": 0}
+    return InboundDeliveryService(db).list_today_deliveries(user, branchId)
+
+
 @router.get("/queue")
 def unified_security_queue(
     user: Annotated[dict, Depends(get_current_user)],

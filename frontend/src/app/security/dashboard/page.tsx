@@ -4,6 +4,7 @@ import * as React from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { CheckInTab } from './components/CheckInTab';
 import { TodayAppointmentsTab } from './components/TodayAppointmentsTab';
+import { TodayDeliveriesTab } from './components/TodayDeliveriesTab';
 import { OnSpotQrPanel } from './components/OnSpotQrPanel';
 import { LogsTab } from '@/components/security/logs-tab/logs-tab';
 import { DeliveryScanTab } from '@/features/delivery-management/DeliveryScanTab';
@@ -28,14 +29,15 @@ interface User {
   branch?: { name: string } | null;
 }
 
-type SecurityTab = 'check-in' | 'appointments' | 'logs' | 'delivery-scan';
+type SecurityTab = 'check-in' | 'appointments' | 'logs' | 'delivery-scan' | 'deliveries';
 
 function parseTab(value: string | null): SecurityTab {
   if (
     value === 'appointments' ||
     value === 'logs' ||
     value === 'check-in' ||
-    value === 'delivery-scan'
+    value === 'delivery-scan' ||
+    value === 'deliveries'
   ) {
     return value;
   }
@@ -63,13 +65,16 @@ function SecurityDashboard(): React.ReactElement {
   }, []);
 
   React.useEffect(() => {
-    if (sessionUser && sessionUser.role !== 'SECURITY') {
+    if (sessionUser && sessionUser.role !== 'SECURITY' && sessionUser.role !== 'SECURITY_SUPERVISOR') {
       router.replace(getDashboardPathForRole(sessionUser.role));
     }
   }, [sessionUser, router]);
 
   const activeTab = parseTab(searchParams.get('tab'));
-  const user = sessionUser?.role === 'SECURITY' ? sessionUser : null;
+  const user =
+    sessionUser?.role === 'SECURITY' || sessionUser?.role === 'SECURITY_SUPERVISOR'
+      ? sessionUser
+      : null;
   const authToken = IS_DEMO_MODE
     ? 'demo-mode'
     : typeof window !== 'undefined'
@@ -129,6 +134,20 @@ function SecurityDashboard(): React.ReactElement {
           </div>
         </section>
 
+        <section
+          className="bg-card rounded-lg border border-border shadow-sm"
+          aria-labelledby="deliveries-heading"
+        >
+          <div className="px-4 py-3 border-b border-border">
+            <h2 id="deliveries-heading" className="text-lg font-semibold text-card-foreground">
+              Scheduled Deliveries
+            </h2>
+          </div>
+          <div className="p-4">
+            <TodayDeliveriesTab branchId={branchId} />
+          </div>
+        </section>
+
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           <section
             className="bg-card rounded-lg border border-border shadow-sm"
@@ -171,6 +190,8 @@ function SecurityDashboard(): React.ReactElement {
         <TodayAppointmentsTab branchId={branchId} refreshKey={appointmentsRefresh} />
       ) : activeTab === 'delivery-scan' ? (
         <DeliveryScanTab branchId={branchId} />
+      ) : activeTab === 'deliveries' ? (
+        <TodayDeliveriesTab branchId={branchId} />
       ) : (
         <LogsTab branchId={branchId} authToken={authToken} />
       )}
