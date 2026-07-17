@@ -15,7 +15,13 @@ from app.delivery.branch_delivery_service import BranchDeliveryService
 from app.delivery.distributor_service import DistributorService
 from app.delivery.wallet_service import WalletService
 from app.models import User
-from app.models.delivery_entities import DeliveryAgent, DeliveryGate, DeliveryVehicle, ReceivingDock
+from app.models.delivery_entities import (
+    DeliveryAgent,
+    DeliveryGate,
+    DeliveryVehicle,
+    ReceivingDock,
+    VendorBranchMapping,
+)
 from app.utils.passwords import hash_password
 
 
@@ -50,6 +56,14 @@ def run() -> None:
             print("Created delivery gate GATE-01")
 
         dist_svc = DistributorService(db)
+        # Ensure any existing vendor↔branch mapping is APPROVED for demos/e2e
+        for mapping in (
+            db.query(VendorBranchMapping).filter(VendorBranchMapping.branchId == branch_id).all()
+        ):
+            if mapping.approvalStatus != "APPROVED":
+                mapping.approvalStatus = "APPROVED"
+                print(f"Approved vendor mapping {mapping.id}")
+
         existing = dist_svc.list_distributors(branch_id, limit=1)
         if existing["total"] == 0:
             vendor = dist_svc.create_distributor(
@@ -64,6 +78,17 @@ def run() -> None:
                 },
             )
             vendor_id = vendor["id"]
+            # Seed should be immediately bookable for demos/e2e
+            mapping = (
+                db.query(VendorBranchMapping)
+                .filter(
+                    VendorBranchMapping.vendorId == vendor_id,
+                    VendorBranchMapping.branchId == branch_id,
+                )
+                .first()
+            )
+            if mapping:
+                mapping.approvalStatus = "APPROVED"
             WalletService(db).recharge({"id": "seed"}, vendor_id, 50000)
             db.add(
                 DeliveryAgent(

@@ -11,7 +11,10 @@ import { Label } from '@/components/ui/label';
 
 function ApplyForm(): React.ReactElement {
   const params = useSearchParams();
-  const [branchId, setBranchId] = React.useState(params.get('branchId') ?? '');
+  // Default to Electronic City when ward share-link omits branchId
+  const [branchId, setBranchId] = React.useState(
+    params.get('branchId') ?? '11000000-0000-4000-8000-000000000002',
+  );
   const [mrn, setMrn] = React.useState('');
   const [lookup, setLookup] = React.useState<{
     admissionId: string;

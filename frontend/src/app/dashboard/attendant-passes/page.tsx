@@ -153,8 +153,12 @@ export default function AttendantPassesPage(): React.ReactElement {
       revokeExisting = true;
     }
     try {
-      await AttendantPassService.issuePass(attendant.id, revokeExisting);
-      toast.success('Pass issued — QR emailed to attendant');
+      const issued = await AttendantPassService.issuePass(attendant.id, revokeExisting);
+      if (issued.emailSent) {
+        toast.success('Pass issued — QR emailed to attendant');
+      } else {
+        toast.success('Pass issued — QR email was skipped (check SMTP / attendant email)');
+      }
       await refresh();
       setTab('passes');
     } catch (e: unknown) {

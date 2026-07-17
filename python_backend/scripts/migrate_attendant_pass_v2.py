@@ -62,9 +62,7 @@ def add_column_if_missing(conn, table: str, column: str, ddl: str) -> None:
 def run(*, dry_run: bool) -> None:
     with engine.begin() as conn:
         ensure_migration_table(conn)
-        if migration_applied(conn):
-            print(f"Migration {MIGRATION_ID} already applied")
-            return
+        already = migration_applied(conn)
 
         changes = [
             ("Attendant", "email", "email VARCHAR(255) NULL"),
@@ -78,8 +76,11 @@ def run(*, dry_run: bool) -> None:
             for table, column, ddl in changes:
                 exists = column_exists(conn, table, column)
                 print(f"[dry-run] {table}.{column}: {'exists' if exists else f'ADD {ddl}'}")
+            if already:
+                print(f"[dry-run] SchemaMigration already has {MIGRATION_ID}")
             return
 
+        # Always add any missing columns (safe if migration row was recorded early)
         for table, column, ddl in changes:
             add_column_if_missing(conn, table, column, ddl)
 
@@ -92,17 +93,20 @@ def run(*, dry_run: bool) -> None:
                 )
             )
 
-        conn.execute(
-            text(
-                "INSERT INTO SchemaMigration (id, appliedAt, notes) VALUES (:id, :at, :notes)"
-            ),
-            {
-                "id": MIGRATION_ID,
-                "at": now_ist(),
-                "notes": "Attendant email + signed QR + gov ID scan fields",
-            },
-        )
-        print(f"Applied {MIGRATION_ID}")
+        if not already:
+            conn.execute(
+                text(
+                    "INSERT INTO SchemaMigration (id, appliedAt, notes) VALUES (:id, :at, :notes)"
+                ),
+                {
+                    "id": MIGRATION_ID,
+                    "at": now_ist(),
+                    "notes": "Attendant email + signed QR + gov ID scan fields",
+                },
+            )
+            print(f"Applied {MIGRATION_ID}")
+        else:
+            print(f"Migration {MIGRATION_ID} already recorded; missing columns (if any) repaired")
 
 
 if __name__ == "__main__":

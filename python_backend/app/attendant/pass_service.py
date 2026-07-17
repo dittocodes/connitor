@@ -52,15 +52,25 @@ class AttendantPassService:
         return hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
 
     def _active_pass_for_admission(self, admission_id: str) -> AttendantPass | None:
-        return (
+        now = now_ist()
+        rows = (
             self.db.query(AttendantPass)
             .join(Attendant, Attendant.id == AttendantPass.attendantId)
             .filter(
                 Attendant.admissionId == admission_id,
                 AttendantPass.status == "ACTIVE",
             )
-            .first()
+            .all()
         )
+        for pass_row in rows:
+            expired_at = pass_row.expiresAt or pass_row.validTo
+            if expired_at and expired_at < now:
+                pass_row.status = "EXPIRED"
+                continue
+            return pass_row
+        if any(r.status == "EXPIRED" for r in rows):
+            self.db.commit()
+        return None
 
     def create_patient(self, user: dict, data: dict) -> dict:
         branch_id = data.get("branchId") or user.get("branchId")
@@ -181,8 +191,10 @@ class AttendantPassService:
         self.db.commit()
         self.db.refresh(pass_row)
 
-        self._email_pass(attendant, pass_row)
-        return self._serialize_pass(pass_row, full=True)
+        email_sent = self._email_pass(attendant, pass_row)
+        result = self._serialize_pass(pass_row, full=True)
+        result["emailSent"] = email_sent
+        return result
 
     def revoke_pass(self, user: dict, pass_id: str) -> dict:
         pass_row = self.db.get(AttendantPass, pass_id)
@@ -230,6 +242,14 @@ class AttendantPassService:
             pass_row.status = "EXPIRED"
             self.db.commit()
             raise bad_request("Pass expired")
+
+        user_branch = user.get("branchId")
+        if (
+            user_branch
+            and pass_row.branchId != user_branch
+            and user.get("role") not in ("SUPER_ADMIN", "HOSPITAL_ADMIN")
+        ):
+            raise bad_request("Pass belongs to another branch")
 
         if not govt_id_file or not govt_id_file.filename:
             raise bad_request("Government ID image is required")
@@ -325,10 +345,10 @@ class AttendantPassService:
             "branchId": admission.branchId,
         }
 
-    def _email_pass(self, attendant: Attendant, pass_row: AttendantPass) -> None:
+    def _email_pass(self, attendant: Attendant, pass_row: AttendantPass) -> bool:
         if not attendant.email or "@placeholder.local" in attendant.email:
             logger.warning("Skipping attendant pass email for %s (missing email)", attendant.id)
-            return
+            return False
         admission = attendant.admission or self.db.get(Admission, attendant.admissionId)
         patient = admission.patient if admission else None
         if admission and not patient:
@@ -355,8 +375,10 @@ class AttendantPassService:
                 qr_signature=pass_row.qrSignature,
                 qr_expires_at=format_ist_datetime(pass_row.expiresAt),
             )
+            return True
         except Exception as exc:
             logger.error("Failed to email attendant pass to %s: %s", attendant.email, exc)
+            return False
 
     def _serialize_admission(self, admission: Admission) -> dict:
         patient = admission.patient

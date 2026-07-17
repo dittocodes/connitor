@@ -28,39 +28,17 @@ class DeliveryGateService:
         self.db = db
         self.delivery_svc = InboundDeliveryService(db)
 
-    def scan_qr(self, user: dict, qr_payload: str, signature: str) -> dict:
-        secret = get_settings().jwt_secret
-        expected = hmac.new(secret.encode(), qr_payload.encode(), hashlib.sha256).hexdigest()
-        if not hmac.compare_digest(expected, signature):
-            raise bad_request("Invalid QR signature")
-
-        qr = self.db.query(DeliveryQrCode).filter(DeliveryQrCode.qrPayload == qr_payload).first()
-        if not qr:
-            raise not_found("QR code")
-        if qr.expiresAt < now_ist():
-            raise bad_request("QR code expired")
-
-        delivery = self.db.get(InboundDelivery, qr.deliveryId)
-        if not delivery:
-            raise not_found("Delivery")
-
-        self.db.add(
-            DeliverySecurityScan(
-                deliveryId=delivery.id,
-                scannedById=user["id"],
-                scanResult="VALID",
-            )
-        )
-        self.db.commit()
-        return {
-            "valid": True,
-            "delivery": self.delivery_svc._serialize(delivery, full=True),
-        }
-
     def allow_entry(self, user: dict, delivery_id: str, gate_id: str | None = None) -> dict:
         delivery = self.db.get(InboundDelivery, delivery_id)
         if not delivery:
             raise not_found("Delivery")
+        if delivery.status not in (
+            DeliveryStatus.SCHEDULED.value,
+            DeliveryStatus.APPROVED.value,
+        ):
+            raise bad_request(
+                f"Allow entry only for SCHEDULED/APPROVED deliveries (current: {delivery.status})"
+            )
         pass_number = f"PASS-{now_ist().year}-{delivery.deliveryNumber[-6:]}"
         self.db.add(
             DeliveryGateEntry(
@@ -79,14 +57,53 @@ class DeliveryGateService:
         delivery = self.db.get(InboundDelivery, delivery_id)
         if not delivery:
             raise not_found("Delivery")
+        if delivery.status != DeliveryStatus.RECEIVED.value:
+            raise bad_request(
+                f"Mark exit only after GRN (RECEIVED). Current status: {delivery.status}"
+            )
         self.db.add(
             DeliveryGateExit(
                 deliveryId=delivery.id,
                 markedById=user["id"],
             )
         )
-        self.delivery_svc.transition_status(delivery.id, user, DeliveryStatus.EXITED.value, "Exited gate")
-        return {"deliveryId": delivery.id, "status": delivery.status}
+        updated = self.delivery_svc.transition_status(
+            delivery.id, user, DeliveryStatus.EXITED.value, "Exited gate"
+        )
+        return {"deliveryId": delivery.id, "status": updated.get("status", DeliveryStatus.EXITED.value)}
+
+    def scan_qr(self, user: dict, qr_payload: str, signature: str) -> dict:
+        secret = get_settings().jwt_secret
+        expected = hmac.new(secret.encode(), qr_payload.encode(), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(expected, signature):
+            raise bad_request("Invalid QR signature")
+
+        qr = self.db.query(DeliveryQrCode).filter(DeliveryQrCode.qrPayload == qr_payload).first()
+        if not qr:
+            raise not_found("QR code")
+        if qr.expiresAt < now_ist():
+            raise bad_request("QR code expired")
+
+        delivery = self.db.get(InboundDelivery, qr.deliveryId)
+        if not delivery:
+            raise not_found("Delivery")
+
+        user_branch = user.get("branchId")
+        if user_branch and delivery.branchId != user_branch and user.get("role") != "SUPER_ADMIN":
+            raise bad_request("Delivery belongs to another branch")
+
+        self.db.add(
+            DeliverySecurityScan(
+                deliveryId=delivery.id,
+                scannedById=user["id"],
+                scanResult="VALID",
+            )
+        )
+        self.db.commit()
+        return {
+            "valid": True,
+            "delivery": self.delivery_svc._serialize_dashboard(delivery),
+        }
 
     def register_courier(self, user: dict, data: dict) -> dict:
         log = DeliveryVisitorLog(

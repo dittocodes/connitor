@@ -81,10 +81,17 @@ export function DeliveryScanTab({ branchId }: DeliveryScanTabProps): React.React
         `/api/delivery/security/allow-entry/${String(delivery.id)}`,
       );
       setPassNumber(String(res.data.passNumber));
+      setDelivery((prev) =>
+        prev ? { ...prev, status: 'ARRIVED_AT_GATE' } : prev,
+      );
       toast.success('Entry allowed');
       void loadQueue();
-    } catch {
-      toast.error('Allow entry failed');
+    } catch (e: unknown) {
+      const detail =
+        typeof e === 'object' && e && 'response' in e
+          ? String((e as { response?: { data?: { detail?: string } } }).response?.data?.detail ?? '')
+          : '';
+      toast.error(detail || 'Allow entry failed');
     }
   };
 
@@ -96,8 +103,12 @@ export function DeliveryScanTab({ branchId }: DeliveryScanTabProps): React.React
       setDelivery(null);
       setPassNumber(null);
       void loadQueue();
-    } catch {
-      toast.error('Mark exit failed');
+    } catch (e: unknown) {
+      const detail =
+        typeof e === 'object' && e && 'response' in e
+          ? String((e as { response?: { data?: { detail?: string } } }).response?.data?.detail ?? '')
+          : '';
+      toast.error(detail || 'Mark exit failed');
     }
   };
 
@@ -153,11 +164,25 @@ export function DeliveryScanTab({ branchId }: DeliveryScanTabProps): React.React
               </p>
             )}
             <div className="flex flex-wrap gap-2">
-              <Button onClick={() => void allowEntry()}>Allow entry</Button>
-              <Button variant="outline" onClick={() => void markExit()}>
-                Mark exit
-              </Button>
+              {(delivery.status === 'SCHEDULED' || delivery.status === 'APPROVED') && (
+                <Button onClick={() => void allowEntry()}>Allow entry</Button>
+              )}
+              {delivery.status === 'RECEIVED' && (
+                <Button variant="outline" onClick={() => void markExit()}>
+                  Mark exit
+                </Button>
+              )}
             </div>
+            {delivery.status === 'ARRIVED_AT_GATE' ||
+            delivery.status === 'GATE_VERIFIED' ||
+            delivery.status === 'IN_PROGRESS' ? (
+              <p className="text-muted-foreground">
+                Vehicle is inside — receiving must complete GRN before exit.
+              </p>
+            ) : null}
+            {delivery.status === 'EXITED' || delivery.status === 'CLOSED' ? (
+              <p className="text-muted-foreground">Delivery already exited.</p>
+            ) : null}
           </CardContent>
         </Card>
       )}

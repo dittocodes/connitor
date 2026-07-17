@@ -37,6 +37,16 @@ interface QueueDelivery {
   agentName?: string | null;
   vehicleNumber?: string | null;
   dockId?: string | null;
+  receivingStarted?: boolean;
+}
+
+function apiDetail(e: unknown): string {
+  if (typeof e === 'object' && e && 'response' in e) {
+    return String(
+      (e as { response?: { data?: { detail?: string } } }).response?.data?.detail ?? '',
+    );
+  }
+  return '';
 }
 
 const COLUMNS: Array<{ key: string; title: string; statuses: string[] }> = [
@@ -81,10 +91,10 @@ export default function ReceivingDashboardPage(): React.ReactElement {
         deliveryId: selected.id,
         dockId,
       });
-      toast.success('Dock assigned');
+      toast.success('Dock assigned — start receiving next');
       await load();
-    } catch {
-      toast.error('Assign dock failed');
+    } catch (e: unknown) {
+      toast.error(apiDetail(e) || 'Assign dock failed');
     }
   };
 
@@ -92,10 +102,10 @@ export default function ReceivingDashboardPage(): React.ReactElement {
     if (!selected) return;
     try {
       await apiClient.post('/api/delivery/receiving/start', { deliveryId: selected.id });
-      toast.success('Receiving started');
+      toast.success('Receiving started — you can generate GRN');
       await load();
-    } catch {
-      toast.error('Start receiving failed');
+    } catch (e: unknown) {
+      toast.error(apiDetail(e) || 'Start receiving failed');
     }
   };
 
@@ -107,8 +117,8 @@ export default function ReceivingDashboardPage(): React.ReactElement {
       });
       toast.success(`GRN ${res.data.grnNumber}`);
       await load();
-    } catch {
-      toast.error('GRN failed');
+    } catch (e: unknown) {
+      toast.error(apiDetail(e) || 'GRN failed');
     }
   };
 
@@ -239,16 +249,26 @@ export default function ReceivingDashboardPage(): React.ReactElement {
               )}
 
               {selected.status === 'IN_PROGRESS' && (
-                <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" onClick={() => void startReceiving()}>
-                    Start receiving
-                  </Button>
-                  <Button
-                    className="bg-teal-600 hover:bg-teal-700"
-                    onClick={() => void generateGrn()}
-                  >
-                    Generate GRN
-                  </Button>
+                <div className="space-y-2">
+                  <p className="text-muted-foreground">
+                    {selected.receivingStarted
+                      ? 'Receiving started. Generate GRN when goods are counted.'
+                      : 'Start receiving before generating GRN.'}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {!selected.receivingStarted && (
+                      <Button variant="outline" onClick={() => void startReceiving()}>
+                        Start receiving
+                      </Button>
+                    )}
+                    <Button
+                      className="bg-teal-600 hover:bg-teal-700"
+                      disabled={!selected.receivingStarted}
+                      onClick={() => void generateGrn()}
+                    >
+                      Generate GRN
+                    </Button>
+                  </div>
                 </div>
               )}
 

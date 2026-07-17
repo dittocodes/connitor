@@ -37,6 +37,40 @@ from app.utils.timezone import now_ist
 
 EDITABLE = {DeliveryStatus.DRAFT.value, DeliveryStatus.SCHEDULED.value}
 
+# Canonical happy-path: SCHEDULED → ARRIVED_AT_GATE → IN_PROGRESS → RECEIVED → EXITED
+# GATE_VERIFIED kept as a legacy synonym of "at gate" (same transitions as ARRIVED_AT_GATE).
+ALLOWED_TRANSITIONS: dict[str, set[str]] = {
+    DeliveryStatus.DRAFT.value: {DeliveryStatus.SCHEDULED.value, DeliveryStatus.REJECTED.value},
+    DeliveryStatus.SCHEDULED.value: {
+        DeliveryStatus.ARRIVED_AT_GATE.value,
+        DeliveryStatus.GATE_VERIFIED.value,
+        DeliveryStatus.REJECTED.value,
+    },
+    DeliveryStatus.APPROVED.value: {
+        DeliveryStatus.ARRIVED_AT_GATE.value,
+        DeliveryStatus.GATE_VERIFIED.value,
+        DeliveryStatus.REJECTED.value,
+    },
+    DeliveryStatus.ARRIVED_AT_GATE.value: {
+        DeliveryStatus.GATE_VERIFIED.value,
+        DeliveryStatus.IN_PROGRESS.value,
+        DeliveryStatus.REJECTED.value,
+    },
+    DeliveryStatus.GATE_VERIFIED.value: {
+        DeliveryStatus.IN_PROGRESS.value,
+        DeliveryStatus.REJECTED.value,
+    },
+    DeliveryStatus.IN_PROGRESS.value: {
+        DeliveryStatus.RECEIVED.value,
+        DeliveryStatus.REJECTED.value,
+    },
+    DeliveryStatus.RECEIVED.value: {DeliveryStatus.EXITED.value, DeliveryStatus.COMPLETED.value},
+    DeliveryStatus.COMPLETED.value: {DeliveryStatus.EXITED.value, DeliveryStatus.CLOSED.value},
+    DeliveryStatus.EXITED.value: {DeliveryStatus.CLOSED.value},
+    DeliveryStatus.REJECTED.value: set(),
+    DeliveryStatus.CLOSED.value: set(),
+}
+
 
 class InboundDeliveryService:
     def __init__(self, db: Session) -> None:
@@ -88,7 +122,7 @@ class InboundDeliveryService:
         delivery = self.db.get(InboundDelivery, delivery_id)
         if not delivery or not delivery.isActive:
             raise not_found("Delivery")
-        return self._serialize(delivery, full=True)
+        return self._serialize_dashboard(delivery)
 
     def create_delivery(self, user: dict, data: dict) -> dict:
         branch_id = data.get("branchId") or user.get("branchId")
@@ -347,13 +381,23 @@ class InboundDeliveryService:
         if not delivery:
             raise not_found("Delivery")
         old = delivery.status
+        if old == new_status:
+            return self._serialize_dashboard(delivery)
+        allowed = ALLOWED_TRANSITIONS.get(old)
+        if allowed is None:
+            raise bad_request(f"Unknown current status: {old}")
+        if new_status not in allowed:
+            raise bad_request(
+                f"Cannot transition delivery from {old} to {new_status}. "
+                f"Allowed: {', '.join(sorted(allowed)) or 'none'}"
+            )
         delivery.status = new_status
         if new_status == DeliveryStatus.ARRIVED_AT_GATE.value:
             delivery.actualArrivalTime = now_ist()
         self._history(delivery.id, old, new_status, user.get("id"), remarks)
         self.db.commit()
         self.db.refresh(delivery)
-        return self._serialize(delivery, full=True)
+        return self._serialize_dashboard(delivery)
 
     def dashboard_summary(self, user: dict, branch_id: str | None = None) -> dict:
         branch = resolve_branch_filter(user, branch_id)
@@ -379,6 +423,10 @@ class InboundDeliveryService:
             "createdAt": d.createdAt.isoformat() if d.createdAt else None,
         }
         if full:
+            branch = self.db.get(Branch, d.branchId)
+            vendor = self.db.get(Distributor, d.vendorId)
+            agent = self.db.get(DeliveryAgent, d.agentId) if d.agentId else None
+            vehicle = self.db.get(DeliveryVehicle, d.vehicleId) if d.vehicleId else None
             base.update(
                 {
                     "vehicleId": d.vehicleId,
@@ -401,6 +449,11 @@ class InboundDeliveryService:
                     ],
                     "hasQr": d.qrCode is not None,
                     "qr": self._qr_payload(d),
+                    "vendorName": vendor.vendorName if vendor else None,
+                    "agentName": agent.name if agent else None,
+                    "agentPhone": agent.phone if agent else None,
+                    "vehicleNumber": vehicle.registrationNumber if vehicle else None,
+                    "branchName": branch.name if branch else None,
                 }
             )
         return base

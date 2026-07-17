@@ -20,16 +20,50 @@ class ReceivingService:
         delivery = self.db.get(InboundDelivery, delivery_id)
         if not delivery:
             raise not_found("Delivery")
+        if delivery.status not in (
+            DeliveryStatus.ARRIVED_AT_GATE.value,
+            DeliveryStatus.GATE_VERIFIED.value,
+            DeliveryStatus.IN_PROGRESS.value,
+        ):
+            raise bad_request(
+                f"Assign dock only when delivery is at gate (current: {delivery.status})"
+            )
         dock = self.db.get(ReceivingDock, dock_id)
         if not dock or not dock.isActive:
             raise not_found("Dock")
-        self.db.add(DockAssignment(deliveryId=delivery_id, dockId=dock_id))
-        self.delivery_svc.transition_status(
-            delivery_id, user, DeliveryStatus.IN_PROGRESS.value, f"Dock {dock.dockCode} assigned"
+        existing = (
+            self.db.query(DockAssignment).filter(DockAssignment.deliveryId == delivery_id).first()
         )
+        if existing:
+            existing.dockId = dock_id
+        else:
+            self.db.add(DockAssignment(deliveryId=delivery_id, dockId=dock_id))
+        if delivery.status != DeliveryStatus.IN_PROGRESS.value:
+            self.delivery_svc.transition_status(
+                delivery_id, user, DeliveryStatus.IN_PROGRESS.value, f"Dock {dock.dockCode} assigned"
+            )
+        else:
+            self.db.commit()
         return {"deliveryId": delivery_id, "dockId": dock_id}
 
     def start_receiving(self, user: dict, delivery_id: str) -> dict:
+        delivery = self.db.get(InboundDelivery, delivery_id)
+        if not delivery:
+            raise not_found("Delivery")
+        dock = self.db.query(DockAssignment).filter(DockAssignment.deliveryId == delivery_id).first()
+        if not dock:
+            raise bad_request("Assign a dock before starting receiving")
+        if delivery.status in (
+            DeliveryStatus.ARRIVED_AT_GATE.value,
+            DeliveryStatus.GATE_VERIFIED.value,
+        ):
+            self.delivery_svc.transition_status(
+                delivery_id, user, DeliveryStatus.IN_PROGRESS.value, "Receiving started"
+            )
+        elif delivery.status != DeliveryStatus.IN_PROGRESS.value:
+            raise bad_request(
+                f"Start receiving only for at-gate / at-dock deliveries (current: {delivery.status})"
+            )
         record = self.db.query(ReceivingRecord).filter(ReceivingRecord.deliveryId == delivery_id).first()
         if not record:
             record = ReceivingRecord(deliveryId=delivery_id, status="IN_PROGRESS", startedAt=now_ist())
@@ -38,12 +72,19 @@ class ReceivingService:
             record.status = "IN_PROGRESS"
             record.startedAt = now_ist()
         self.db.commit()
-        return {"deliveryId": delivery_id, "status": record.status}
+        return {"deliveryId": delivery_id, "status": record.status, "deliveryStatus": DeliveryStatus.IN_PROGRESS.value}
 
     def generate_grn(self, user: dict, delivery_id: str) -> dict:
         delivery = self.db.get(InboundDelivery, delivery_id)
         if not delivery:
             raise not_found("Delivery")
+        if delivery.status != DeliveryStatus.IN_PROGRESS.value:
+            raise bad_request(
+                f"Generate GRN only while receiving is in progress (current: {delivery.status})"
+            )
+        record = self.db.query(ReceivingRecord).filter(ReceivingRecord.deliveryId == delivery_id).first()
+        if not record or not record.startedAt:
+            raise bad_request("Start receiving before generating GRN")
         existing = self.db.query(GrnRecord).filter(GrnRecord.deliveryId == delivery_id).first()
         if existing:
             return {"grnNumber": existing.grnNumber, "id": existing.id}
@@ -98,6 +139,15 @@ class ReceivingService:
             .filter(DockAssignment.deliveryId.in_([d.id for d in rows] or ["__none__"]))
             .all()
         }
+        started_ids = {
+            r.deliveryId
+            for r in self.db.query(ReceivingRecord)
+            .filter(
+                ReceivingRecord.deliveryId.in_([d.id for d in rows] or ["__none__"]),
+                ReceivingRecord.startedAt.isnot(None),
+            )
+            .all()
+        }
         items = []
         for d in rows:
             vendor = self.db.get(Distributor, d.vendorId)
@@ -117,6 +167,7 @@ class ReceivingService:
                     "agentName": agent.name if agent else None,
                     "vehicleNumber": vehicle.registrationNumber if vehicle else None,
                     "dockId": assignments.get(d.id),
+                    "receivingStarted": d.id in started_ids,
                 }
             )
         return {"docks": docks, "deliveries": items, "total": len(items)}

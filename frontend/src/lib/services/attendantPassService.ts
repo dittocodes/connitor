@@ -101,7 +101,10 @@ export const AttendantPassService = {
     return res.data.items ?? [];
   },
 
-  async issuePass(attendantId: string, revokeExisting = false): Promise<AttendantPassRow> {
+  async issuePass(
+    attendantId: string,
+    revokeExisting = false,
+  ): Promise<AttendantPassRow & { emailSent?: boolean }> {
     const res = await apiClient.post(`/api/attendant-passes/passes/${attendantId}/issue`, {
       revokeExisting,
     });
