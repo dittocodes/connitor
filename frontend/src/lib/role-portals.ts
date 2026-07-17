@@ -76,7 +76,7 @@ export function isPortalRole(value: string | null): value is PortalRole {
 }
 
 export interface DeliveryPortal {
-  id: 'DISTRIBUTOR' | 'DRIVER';
+  id: 'DISTRIBUTOR';
   label: string;
   description: string;
   loginPath: string;
@@ -92,13 +92,6 @@ export const DELIVERY_PORTALS: DeliveryPortal[] = [
     loginPath: '/auth/login?role=DISTRIBUTOR',
     dashboardPath: '/vendor/deliveries',
     demoEmail: 'distributor@citygen.demo',
-  },
-  {
-    id: 'DRIVER',
-    label: 'Driver',
-    description: 'View your delivery assignment, hospital location, and check-in QR at the gate.',
-    loginPath: '/driver/login',
-    dashboardPath: '/driver/dashboard',
   },
 ];
 

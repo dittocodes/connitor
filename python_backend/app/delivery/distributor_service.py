@@ -80,6 +80,26 @@ class DistributorService:
         self.db.commit()
         return {"id": mapping.id, "approvalStatus": mapping.approvalStatus}
 
+    def list_branch_mappings(self, branch_id: str) -> dict:
+        rows = (
+            self.db.query(VendorBranchMapping, Distributor)
+            .join(Distributor, Distributor.id == VendorBranchMapping.vendorId)
+            .filter(VendorBranchMapping.branchId == branch_id)
+            .order_by(VendorBranchMapping.createdAt.desc())
+            .all()
+        )
+        return {
+            "items": [
+                {
+                    "mappingId": m.id,
+                    "approvalStatus": m.approvalStatus,
+                    "branchId": m.branchId,
+                    "vendor": self._serialize(d),
+                }
+                for m, d in rows
+            ]
+        }
+
     def _serialize(self, d: Distributor) -> dict:
         return {
             "id": d.id,

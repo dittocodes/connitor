@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { jwtDecode } from 'jwt-decode';
-import { CalendarCheck, LayoutDashboard, Truck, UserCircle, UserPlus } from 'lucide-react';
+import { CalendarCheck, LayoutDashboard, Truck, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getDashboardPathForRole } from '@/lib/auth-routing';
 import { getStoredAuthToken } from '@/lib/auth-storage';
@@ -79,18 +79,6 @@ export function HomeHeader() {
             <Link href="/auth/login?role=DISTRIBUTOR">
               <Truck className="mr-2 h-4 w-4" />
               Distributor
-            </Link>
-          </Button>
-
-          <Button
-            asChild
-            variant="outline"
-            size="sm"
-            className="hidden border-amber-200 text-amber-900 md:inline-flex"
-          >
-            <Link href="/driver/login">
-              <UserCircle className="mr-2 h-4 w-4" />
-              Driver
             </Link>
           </Button>
 

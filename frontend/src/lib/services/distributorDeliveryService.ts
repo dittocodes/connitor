@@ -28,13 +28,27 @@ export interface DeliveryAgent {
   email: string | null;
   phone: string | null;
   licenseNumber: string | null;
-  hasLogin: boolean;
+  hasLogin?: boolean;
 }
 
 export interface DeliveryVehicle {
   id: string;
   registrationNumber: string;
   vehicleType: string | null;
+}
+
+export interface DeliveryListItem {
+  id: string;
+  deliveryNumber: string;
+  status: string;
+  goodsType?: string | null;
+  totalBoxes?: number | null;
+  expectedArrivalTime?: string | null;
+  vendorName?: string | null;
+  agentName?: string | null;
+  vehicleNumber?: string | null;
+  branchName?: string | null;
+  branchId?: string;
 }
 
 export interface BookDeliveryPayload {
@@ -78,9 +92,26 @@ export const DistributorDeliveryService = {
     return res.data.agents;
   },
 
+  async createAgent(data: {
+    name: string;
+    email: string;
+    phone?: string;
+  }): Promise<DeliveryAgent> {
+    const res = await apiClient.post('/api/delivery/agents', data);
+    return res.data;
+  },
+
   async listVehicles(): Promise<DeliveryVehicle[]> {
     const res = await apiClient.get<{ vehicles: DeliveryVehicle[] }>('/api/delivery/vehicles');
     return res.data.vehicles;
+  },
+
+  async createVehicle(data: {
+    registrationNumber: string;
+    vehicleType?: string;
+  }): Promise<DeliveryVehicle> {
+    const res = await apiClient.post('/api/delivery/vehicles', data);
+    return res.data;
   },
 
   async bookDelivery(payload: BookDeliveryPayload) {
@@ -88,8 +119,47 @@ export const DistributorDeliveryService = {
     return res.data;
   },
 
-  async listDeliveries() {
-    const res = await apiClient.get('/api/delivery/deliveries');
+  async listDeliveries(params?: { branchId?: string; limit?: number }) {
+    const res = await apiClient.get<{ items: DeliveryListItem[]; total?: number }>(
+      '/api/delivery/deliveries',
+      { params },
+    );
+    return res.data;
+  },
+
+  async getDelivery(id: string) {
+    const res = await apiClient.get(`/api/delivery/deliveries/${id}`);
+    return res.data;
+  },
+
+  async getSummary(branchId?: string) {
+    const res = await apiClient.get<{ total: number; byStatus: Record<string, number> }>(
+      '/api/delivery/deliveries/dashboard/summary',
+      { params: branchId ? { branchId } : {} },
+    );
+    return res.data;
+  },
+
+  async getWallet(vendorId: string) {
+    const res = await apiClient.get<{ balance: number }>(`/api/delivery/wallets/${vendorId}`);
+    return res.data;
+  },
+
+  async listWalletTransactions(vendorId: string) {
+    const res = await apiClient.get<{
+      items: Array<{
+        id: string;
+        amount: number;
+        transactionType: string;
+        referenceType: string;
+        createdAt?: string | null;
+      }>;
+    }>(`/api/delivery/wallets/${vendorId}/transactions`);
+    return res.data.items ?? [];
+  },
+
+  async rechargeWallet(vendorId: string, amount: number) {
+    const res = await apiClient.post('/api/delivery/wallets/recharge', { vendorId, amount });
     return res.data;
   },
 };

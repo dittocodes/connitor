@@ -552,6 +552,210 @@ def build_gate_pass_email(
     return subject, text_body, html_body
 
 
+def build_delivery_assignment_email(
+    *,
+    driver_name: str,
+    delivery_number: str,
+    goods_type: str,
+    total_boxes: int,
+    vehicle_number: str,
+    vendor_name: str,
+    arrival_label: str,
+    hospital_name: str,
+    hospital_address: str,
+    hospital_phone: str,
+    maps_url: str | None = None,
+    remarks: str | None = None,
+    qr_cid: str | None = None,
+    qr_expires_at: str | None = None,
+    company_name: str = "Connitor",
+    product_name: str = "Hospital Visitor Tracking System",
+) -> tuple[str, str, str]:
+    """Full delivery instructions email for drivers (no login/dashboard)."""
+    remarks_text = ""
+    remarks_html = ""
+    if remarks and remarks.strip():
+        remarks_text = f"\nInstructions: {remarks.strip()}\n"
+        remarks_html = (
+            f'<p style="margin:0 0 16px;color:#475569;line-height:1.6;background:#f8fafc;'
+            f'border-left:4px solid #0d9488;padding:12px 16px;border-radius:6px;">'
+            f"<strong>Delivery instructions:</strong><br/>{escape(remarks.strip())}</p>"
+        )
+
+    qr_html = ""
+    qr_text = ""
+    if qr_cid:
+        expiry_line = f" Valid until {qr_expires_at}." if qr_expires_at else ""
+        qr_html = (
+            f'<div style="text-align:center;margin:20px 0;">'
+            f'<p style="margin:0 0 12px;font-size:12px;color:#0d9488;font-weight:600;text-transform:uppercase;">'
+            f"Show at hospital security gate</p>"
+            f'<img src="cid:{escape(qr_cid)}" alt="Delivery check-in QR code" width="200" height="200" '
+            f'style="border:2px solid #99f6e4;border-radius:8px;" />'
+            f'<p style="margin:12px 0 0;font-size:13px;color:#94a3b8;">{escape(expiry_line.strip())}</p>'
+            f"</div>"
+        )
+        qr_text = f"\nShow the QR code in this email at the hospital security gate.{expiry_line}\n"
+
+    maps_text = f"\nMaps: {maps_url}\n" if maps_url else "\n"
+    maps_html = ""
+    if maps_url:
+        maps_html = (
+            f'<p style="margin:12px 0 0;text-align:center;">'
+            f'<a href="{escape(maps_url)}" style="display:inline-block;background:#0d9488;color:#ffffff;'
+            f'text-decoration:none;font-weight:600;font-size:14px;padding:10px 20px;border-radius:8px;">'
+            f"Open in Maps</a></p>"
+        )
+
+    subject = f"{company_name} — Delivery assignment — {delivery_number}"
+    text_body = (
+        f"{company_name}\n{product_name}\n\n"
+        f"Hello {driver_name},\n\n"
+        f"You are assigned to delivery {delivery_number}.\n\n"
+        f"Hospital: {hospital_name}\n"
+        f"Address: {hospital_address or '—'}\n"
+        f"Phone: {hospital_phone or '—'}"
+        f"{maps_text}"
+        f"Distributor: {vendor_name}\n"
+        f"Goods: {goods_type} ({total_boxes} boxes)\n"
+        f"Vehicle: {vehicle_number}\n"
+        f"Arrival: {arrival_label}\n"
+        f"{remarks_text}"
+        f"{qr_text}\n"
+        f"— {company_name}"
+    )
+
+    html_body = f"""<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8" /><title>{escape(subject)}</title></head>
+<body style="margin:0;padding:0;background:#f0f4f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table role="presentation" width="100%" style="background:#f0f4f8;padding:32px 16px;"><tr><td align="center">
+    <table role="presentation" width="100%" style="max-width:520px;background:#fff;border-radius:12px;">
+      <tr><td style="background:linear-gradient(135deg,#0d9488,#0f766e);padding:24px;text-align:center;">
+        <h1 style="margin:0;color:#fff;font-size:22px;">Delivery Assignment</h1>
+        <p style="margin:8px 0 0;color:#ccfbf1;font-size:14px;">{escape(delivery_number)}</p>
+      </td></tr>
+      <tr><td style="padding:32px;">
+        <p style="margin:0 0 12px;color:#334155;">Hello {escape(driver_name)},</p>
+        <p style="margin:0 0 20px;color:#64748b;line-height:1.6;">
+          You are assigned to deliver to <strong>{escape(hospital_name)}</strong>.
+          All check-in details are in this email — no app login required.
+        </p>
+        <table role="presentation" width="100%" style="margin:0 0 20px;border-collapse:collapse;">
+          <tr><td style="padding:8px 0;color:#64748b;font-size:13px;width:120px;">Address</td>
+              <td style="padding:8px 0;color:#0f172a;font-size:14px;">{escape(hospital_address or "—")}</td></tr>
+          <tr><td style="padding:8px 0;color:#64748b;font-size:13px;">Phone</td>
+              <td style="padding:8px 0;color:#0f172a;font-size:14px;">{escape(hospital_phone or "—")}</td></tr>
+          <tr><td style="padding:8px 0;color:#64748b;font-size:13px;">Distributor</td>
+              <td style="padding:8px 0;color:#0f172a;font-size:14px;">{escape(vendor_name)}</td></tr>
+          <tr><td style="padding:8px 0;color:#64748b;font-size:13px;">Goods</td>
+              <td style="padding:8px 0;color:#0f172a;font-size:14px;">{escape(goods_type)} ({total_boxes} boxes)</td></tr>
+          <tr><td style="padding:8px 0;color:#64748b;font-size:13px;">Vehicle</td>
+              <td style="padding:8px 0;color:#0f172a;font-size:14px;">{escape(vehicle_number)}</td></tr>
+          <tr><td style="padding:8px 0;color:#64748b;font-size:13px;">Arrival</td>
+              <td style="padding:8px 0;color:#0f172a;font-size:14px;">{escape(arrival_label)}</td></tr>
+        </table>
+        {maps_html}
+        {remarks_html}
+        {qr_html}
+        <p style="margin:20px 0 0;font-size:13px;color:#94a3b8;">Present this QR at security when you arrive.</p>
+      </td></tr>
+    </table>
+  </td></tr></table>
+</body></html>"""
+
+    return subject, text_body, html_body
+
+
+def build_attendant_pass_email(
+    *,
+    attendant_name: str,
+    pass_number: str,
+    patient_first_name: str,
+    hospital_name: str,
+    hospital_address: str,
+    hospital_phone: str,
+    valid_until: str,
+    ward_name: str | None = None,
+    room_number: str | None = None,
+    qr_cid: str | None = None,
+    qr_expires_at: str | None = None,
+    company_name: str = "Connitor",
+    product_name: str = "Hospital Visitor Tracking System",
+) -> tuple[str, str, str]:
+    """Family visit pass email with embedded QR — bring government ID to security."""
+    location_bits = [b for b in (ward_name, f"Room {room_number}" if room_number else None) if b]
+    location = ", ".join(location_bits) if location_bits else "as directed by ward staff"
+
+    qr_html = ""
+    qr_text = ""
+    if qr_cid:
+        expiry_line = f" Valid until {qr_expires_at or valid_until}."
+        qr_html = (
+            f'<div style="text-align:center;margin:20px 0;">'
+            f'<p style="margin:0 0 12px;font-size:12px;color:#0d9488;font-weight:600;text-transform:uppercase;">'
+            f"Show at hospital security</p>"
+            f'<img src="cid:{escape(qr_cid)}" alt="Attendant pass QR code" width="200" height="200" '
+            f'style="border:2px solid #99f6e4;border-radius:8px;" />'
+            f'<p style="margin:12px 0 0;font-size:13px;color:#94a3b8;">{escape(expiry_line.strip())}</p>'
+            f"</div>"
+        )
+        qr_text = (
+            f"\nShow the QR code in this email at hospital security.{expiry_line}\n"
+            "Bring a government ID card — security will scan your QR and photograph your ID.\n"
+        )
+
+    subject = f"{company_name} — Attendant pass — {pass_number}"
+    text_body = (
+        f"{company_name}\n{product_name}\n\n"
+        f"Hello {attendant_name},\n\n"
+        f"Your visit pass {pass_number} to see {patient_first_name} has been issued.\n"
+        f"Hospital: {hospital_name}\n"
+        f"Address: {hospital_address or '—'}\n"
+        f"Phone: {hospital_phone or '—'}\n"
+        f"Location: {location}\n"
+        f"Valid until: {valid_until}\n"
+        f"{qr_text}\n"
+        f"— {company_name}"
+    )
+
+    html_body = f"""<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8" /><title>{escape(subject)}</title></head>
+<body style="margin:0;padding:0;background:#f0f4f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table role="presentation" width="100%" style="background:#f0f4f8;padding:32px 16px;"><tr><td align="center">
+    <table role="presentation" width="100%" style="max-width:520px;background:#fff;border-radius:12px;">
+      <tr><td style="background:linear-gradient(135deg,#0d9488,#0f766e);padding:24px;text-align:center;">
+        <h1 style="margin:0;color:#fff;font-size:22px;">Attendant Visit Pass</h1>
+        <p style="margin:8px 0 0;color:#ccfbf1;font-size:14px;">{escape(pass_number)}</p>
+      </td></tr>
+      <tr><td style="padding:32px;">
+        <p style="margin:0 0 12px;color:#334155;">Hello {escape(attendant_name)},</p>
+        <p style="margin:0 0 20px;color:#64748b;line-height:1.6;">
+          Your pass to visit <strong>{escape(patient_first_name)}</strong> at
+          <strong>{escape(hospital_name)}</strong> is ready.
+          Only one visitor may hold an active pass at a time for this patient.
+        </p>
+        <table role="presentation" width="100%" style="margin:0 0 20px;border-collapse:collapse;">
+          <tr><td style="padding:8px 0;color:#64748b;font-size:13px;width:120px;">Location</td>
+              <td style="padding:8px 0;color:#0f172a;font-size:14px;">{escape(location)}</td></tr>
+          <tr><td style="padding:8px 0;color:#64748b;font-size:13px;">Address</td>
+              <td style="padding:8px 0;color:#0f172a;font-size:14px;">{escape(hospital_address or "—")}</td></tr>
+          <tr><td style="padding:8px 0;color:#64748b;font-size:13px;">Phone</td>
+              <td style="padding:8px 0;color:#0f172a;font-size:14px;">{escape(hospital_phone or "—")}</td></tr>
+          <tr><td style="padding:8px 0;color:#64748b;font-size:13px;">Valid until</td>
+              <td style="padding:8px 0;color:#0f172a;font-size:14px;">{escape(valid_until)}</td></tr>
+        </table>
+        {qr_html}
+        <p style="margin:16px 0 0;padding:12px 16px;background:#fff7ed;border-radius:8px;color:#9a3412;font-size:14px;line-height:1.5;">
+          Bring a government ID card. Security will scan this QR and capture a photo of your ID at the gate.
+        </p>
+      </td></tr>
+    </table>
+  </td></tr></table>
+</body></html>"""
+
+    return subject, text_body, html_body
+
+
 def build_online_appointment_email(
     *,
     recipient_name: str,

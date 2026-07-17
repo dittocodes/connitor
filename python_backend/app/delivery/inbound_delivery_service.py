@@ -276,27 +276,6 @@ class InboundDeliveryService:
         )
         return {"deliveries": [self._serialize_dashboard(d) for d in rows], "total": len(rows)}
 
-    def get_driver_assignments(self, user: dict, *, active_only: bool = True) -> dict:
-        agent_id = user.get("deliveryAgentId")
-        if not agent_id:
-            raise bad_request("Driver account not linked")
-        q = self.db.query(InboundDelivery).filter(
-            InboundDelivery.agentId == agent_id,
-            InboundDelivery.isActive.is_(True),
-        )
-        if active_only:
-            q = q.filter(
-                InboundDelivery.status.in_(
-                    [
-                        DeliveryStatus.SCHEDULED.value,
-                        DeliveryStatus.ARRIVED_AT_GATE.value,
-                        DeliveryStatus.GATE_VERIFIED.value,
-                    ]
-                )
-            )
-        rows = q.order_by(InboundDelivery.expectedArrivalTime.asc()).all()
-        return {"assignments": [self._serialize_driver(d) for d in rows]}
-
     def _qr_payload(self, delivery: InboundDelivery) -> dict | None:
         if not delivery.qrCode:
             return None
@@ -324,36 +303,6 @@ class InboundDeliveryService:
             }
         )
         return base
-
-    def _serialize_driver(self, d: InboundDelivery) -> dict:
-        branch = self.db.get(Branch, d.branchId)
-        vendor = self.db.get(Distributor, d.vendorId)
-        vehicle = self.db.get(DeliveryVehicle, d.vehicleId)
-        address = ", ".join(
-            p for p in (branch.street, branch.city, branch.state, branch.pinCode) if branch and p
-        )
-        return {
-            "id": d.id,
-            "deliveryNumber": d.deliveryNumber,
-            "status": d.status,
-            "goodsType": d.goodsType,
-            "totalBoxes": d.totalBoxes,
-            "remarks": d.remarks,
-            "expectedArrivalTime": d.expectedArrivalTime.isoformat() if d.expectedArrivalTime else None,
-            "vehicleNumber": vehicle.registrationNumber if vehicle else None,
-            "vendorName": vendor.vendorName if vendor else None,
-            "hospital": {
-                "name": branch.name if branch else None,
-                "phone": branch.phone if branch else None,
-                "email": branch.email if branch else None,
-                "address": address,
-                "street": branch.street if branch else None,
-                "city": branch.city if branch else None,
-                "state": branch.state if branch else None,
-                "pinCode": branch.pinCode if branch else None,
-            },
-            "qr": self._qr_payload(d),
-        }
 
     def _deduct_wallet(self, vendor_id: str, amount: Decimal, delivery_id: str, user_id: str | None) -> None:
         wallet = self.db.query(VendorWallet).filter(VendorWallet.vendorId == vendor_id).first()

@@ -788,18 +788,34 @@ class NotificationsService:
         self._email_users(admin_recipients, subject, message)
 
         if agent and agent.email:
-            driver_msg = (
-                f"Hello {agent.name},\n\n"
-                f"You are assigned to delivery {delivery.deliveryNumber} at {branch_name}.\n"
-                f"Goods: {goods} ({boxes} boxes). Vehicle: {vehicle_no}. Arrival: {arrival}.\n"
-                f"Hospital phone: {branch.phone if branch else '—'}.\n"
-                "Sign in to your driver dashboard for check-in QR and full details."
-            )
+            address = self._branch_address(branch) if branch else ""
+            maps_url = None
+            if address:
+                from urllib.parse import quote
+
+                maps_url = f"https://www.google.com/maps/search/?api=1&query={quote(address)}"
+            qr = delivery.qrCode
+            qr_expires = None
+            if qr and qr.expiresAt:
+                qr_expires = format_ist_datetime(qr.expiresAt)
             try:
-                self.email.send_notification(
+                self.email.send_delivery_assignment_email(
                     agent.email,
-                    f"Delivery assignment — {delivery.deliveryNumber}",
-                    driver_msg,
+                    driver_name=agent.name or "Driver",
+                    delivery_number=delivery.deliveryNumber,
+                    goods_type=goods,
+                    total_boxes=boxes,
+                    vehicle_number=vehicle_no,
+                    vendor_name=vendor_name,
+                    arrival_label=arrival,
+                    hospital_name=branch_name,
+                    hospital_address=address,
+                    hospital_phone=(branch.phone if branch else "") or "",
+                    maps_url=maps_url,
+                    remarks=delivery.remarks,
+                    qr_payload=qr.qrPayload if qr else None,
+                    qr_signature=qr.signature if qr else None,
+                    qr_expires_at=qr_expires,
                 )
             except Exception as exc:
                 logger.error("Failed to email driver %s: %s", agent.email, exc)

@@ -1,76 +1,108 @@
 'use client';
 
 import * as React from 'react';
-import { DeliveryBookingWizard } from '@/features/distributor-delivery/DeliveryBookingWizard';
+import Link from 'next/link';
+import { Plus } from 'lucide-react';
+import { toast } from 'sonner';
+import { useAuthSession } from '@/hooks/useAuthSession';
+import {
+  DistributorDeliveryService,
+  type DeliveryListItem,
+} from '@/lib/services/distributorDeliveryService';
+import { formatIstDateTime } from '@/lib/datetime';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import apiClient from '@/lib/api';
+import {
+  DeliveryEmptyState,
+  DeliveryKpiStrip,
+  DeliveryPageShell,
+  DeliveryStatusBadge,
+} from '@/features/delivery-management/ui';
 
 export default function VendorDeliveriesPage(): React.ReactElement {
-  const [items, setItems] = React.useState<Array<Record<string, unknown>>>([]);
-  const [showWizard, setShowWizard] = React.useState(false);
+  const user = useAuthSession<{ branchId?: string; distributorId?: string }>();
+  const [items, setItems] = React.useState<DeliveryListItem[]>([]);
+  const [summary, setSummary] = React.useState<{ total: number; byStatus: Record<string, number> }>({
+    total: 0,
+    byStatus: {},
+  });
 
-  const load = React.useCallback(() => {
-    apiClient
-      .get('/api/delivery/deliveries')
-      .then((res) => setItems(res.data.items ?? []))
-      .catch(() => setItems([]));
-  }, []);
+  const load = React.useCallback(async () => {
+    try {
+      const [list, sum] = await Promise.all([
+        DistributorDeliveryService.listDeliveries({ limit: 50 }),
+        DistributorDeliveryService.getSummary(user?.branchId),
+      ]);
+      setItems(list.items ?? []);
+      setSummary({ total: sum.total ?? 0, byStatus: sum.byStatus ?? {} });
+    } catch {
+      toast.error('Could not load deliveries');
+    }
+  }, [user?.branchId]);
 
   React.useEffect(() => {
-    load();
+    void load();
   }, [load]);
 
-  if (showWizard) {
-    return (
-      <div className="p-6 space-y-4">
-        <button
-          type="button"
-          className="text-sm text-teal-700 underline"
-          onClick={() => {
-            setShowWizard(false);
-            load();
-          }}
-        >
-          ← Back to deliveries
-        </button>
-        <h1 className="text-2xl font-bold">Book delivery</h1>
-        <DeliveryBookingWizard />
-      </div>
-    );
-  }
-
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">My Deliveries</h1>
-        <button
-          type="button"
-          className="rounded-md bg-teal-600 px-4 py-2 text-sm font-medium text-white"
-          onClick={() => setShowWizard(true)}
-        >
-          Book delivery
-        </button>
-      </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent deliveries</CardTitle>
+    <DeliveryPageShell
+      title="My deliveries"
+      subtitle="Track bookings, drivers, and gate status. Drivers receive QR instructions by email."
+      actions={
+        <Button asChild className="bg-amber-600 hover:bg-amber-700">
+          <Link href="/vendor/deliveries/book">
+            <Plus className="mr-2 h-4 w-4" />
+            Book delivery
+          </Link>
+        </Button>
+      }
+    >
+      <DeliveryKpiStrip total={summary.total} byStatus={summary.byStatus} />
+
+      <Card className="border-amber-100/80 bg-white/90 shadow-sm">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-lg">Recent deliveries</CardTitle>
+          <Button asChild variant="outline" size="sm">
+            <Link href="/vendor/fleet">Manage fleet</Link>
+          </Button>
         </CardHeader>
         <CardContent>
-          <ul className="text-sm space-y-2">
-            {items.length === 0 && (
-              <li className="text-muted-foreground">No deliveries yet. Book your first delivery.</li>
-            )}
-            {items.map((d) => (
-              <li key={String(d.id)} className="flex justify-between border-b pb-2">
-                <span>
-                  {String(d.deliveryNumber)} — {String(d.goodsType ?? 'Goods')}
-                </span>
-                <span className="text-muted-foreground">{String(d.status)}</span>
-              </li>
-            ))}
-          </ul>
+          {items.length === 0 ? (
+            <DeliveryEmptyState
+              title="No deliveries yet"
+              description="Book a hospital delivery to get started. Your driver will get the gate QR by email."
+              actionLabel="Book delivery"
+              onAction={() => {
+                window.location.href = '/vendor/deliveries/book';
+              }}
+            />
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {items.map((d) => (
+                <li key={d.id}>
+                  <Link
+                    href={`/vendor/deliveries/${d.id}`}
+                    className="flex flex-wrap items-center justify-between gap-3 py-3 transition-colors hover:bg-amber-50/50"
+                  >
+                    <div>
+                      <p className="font-semibold text-slate-900">{d.deliveryNumber}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {d.goodsType ?? 'Goods'}
+                        {d.totalBoxes != null ? ` · ${d.totalBoxes} boxes` : ''}
+                        {d.branchName ? ` · ${d.branchName}` : ''}
+                        {d.expectedArrivalTime
+                          ? ` · ${formatIstDateTime(d.expectedArrivalTime)}`
+                          : ''}
+                      </p>
+                    </div>
+                    <DeliveryStatusBadge status={d.status} />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
         </CardContent>
       </Card>
-    </div>
+    </DeliveryPageShell>
   );
 }

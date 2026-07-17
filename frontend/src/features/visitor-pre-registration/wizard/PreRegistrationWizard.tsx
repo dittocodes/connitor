@@ -262,14 +262,11 @@ export function PreRegistrationWizard() {
     setLoading(true);
     try {
       const result = await VisitorAccountApi.verifyEmail(accountId, emailOtp);
-      syncPreview({ emailVerified: true });
+      syncPreview({ emailVerified: true, profileStatus: result.profileStatus ?? 'ACTIVE' });
       if (finishIfActivated(result)) return;
-      toast.success('Email verified');
-      const updated = await VisitorAccountApi.getPreview(accountId);
-      syncPreview(updated);
-      if (updated.profileStatus === 'ACTIVE') {
-        finishIfActivated({ profileStatus: 'ACTIVE' });
-      }
+      toast.success('Email verified — your account is active. Sign in to continue.');
+      sessionStorage.removeItem(STORAGE_KEY);
+      router.push(loginPath);
     } catch (error) {
       toast.error(getApiErrorMessage(error, 'Invalid email OTP'));
     } finally {
@@ -292,28 +289,6 @@ export function PreRegistrationWizard() {
       }
     } catch (error) {
       toast.error(getApiErrorMessage(error, 'Invalid OTP'));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const activate = async () => {
-    if (!accountId) return;
-    setLoading(true);
-    try {
-      const updated = await VisitorAccountApi.getPreview(accountId);
-      syncPreview(updated);
-      if (!updated.emailVerified) {
-        toast.error('Complete email verification first');
-        return;
-      }
-      const result = await VisitorAccountApi.activate(accountId);
-      if (!finishIfActivated(result)) {
-        toast.success('Account activated! Sign in to continue.');
-        router.push(loginPath);
-      }
-    } catch (error) {
-      toast.error(getApiErrorMessage(error, 'Activation failed'));
     } finally {
       setLoading(false);
     }
@@ -550,7 +525,7 @@ export function PreRegistrationWizard() {
                 <p className="font-medium">Email verification</p>
                 <p className="text-sm text-muted-foreground">
                   {emailSent
-                    ? 'Enter the 6-digit code sent to your email.'
+                    ? 'Enter the 6-digit code sent to your email. Your account activates as soon as email is verified.'
                     : 'Sending verification code…'}
                 </p>
                 <InputOTP maxLength={6} value={emailOtp} onChange={setEmailOtp}>
@@ -568,7 +543,10 @@ export function PreRegistrationWizard() {
                 </Button>
               </div>
               <div className="rounded-lg border p-4 space-y-3">
-                <p className="font-medium">Phone verification</p>
+                <p className="font-medium">Phone verification (optional)</p>
+                <p className="text-sm text-muted-foreground">
+                  You can verify your mobile now or complete it later from your profile.
+                </p>
                 <InputOTP maxLength={6} value={phoneOtp} onChange={setPhoneOtp}>
                   <InputOTPGroup>
                     {[0, 1, 2, 3, 4, 5].map((i) => (
@@ -580,10 +558,6 @@ export function PreRegistrationWizard() {
                   Verify phone
                 </Button>
               </div>
-              <Button type="button" onClick={activate} disabled={loading} className="w-full">
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Activate account
-              </Button>
             </div>
           )}
 

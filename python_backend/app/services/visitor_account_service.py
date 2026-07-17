@@ -62,6 +62,21 @@ class VisitorAccountService:
             blockers.append("Email must be verified")
         return blockers
 
+    def _activate_on_email_verified(self, account: VisitorAccount) -> dict[str, Any]:
+        """Mark account active as soon as email is verified."""
+        account.emailVerified = True
+        activated = account.profileStatus != ProfileStatus.ACTIVE.value
+        if activated:
+            account.profileStatus = ProfileStatus.ACTIVE.value
+            self._audit(account.id, "ACCOUNT_ACTIVATED")
+        return {
+            "accountId": account.id,
+            "profileStatus": account.profileStatus,
+            "emailVerified": True,
+            "activated": True,
+            "message": "Account activated" if activated else "Account already active",
+        }
+
     def _activate_if_ready(self, account_id: str) -> dict[str, Any] | None:
         account = self._get_account(account_id)
         if account.profileStatus == ProfileStatus.ACTIVE.value:
@@ -328,17 +343,13 @@ class VisitorAccountService:
             self.db.commit()
             raise HTTPException(status_code=400, detail="INVALID_OTP")
 
-        account.emailVerified = True
         account.emailVerificationOtpHash = None
         account.emailVerificationExpiry = None
         account.emailVerificationAttempts = 0
         self._audit(account_id, "EMAIL_VERIFIED")
+        result = self._activate_on_email_verified(account)
         self.db.commit()
-
-        result: dict[str, Any] = {"message": "Email verified", "emailVerified": True}
-        activation = self._activate_if_ready(account_id)
-        if activation:
-            result.update(activation)
+        result["message"] = "Email verified"
         return result
 
     def verify_email_token(self, token: str) -> dict[str, str]:
@@ -354,19 +365,10 @@ class VisitorAccountService:
             raise HTTPException(status_code=400, detail="Verification link expired")
 
         account = self._get_account(row.visitorAccountId)
-        account.emailVerified = True
         row.usedAt = now_ist()
         self._audit(account.id, "EMAIL_VERIFIED")
+        result = self._activate_on_email_verified(account)
         self.db.commit()
-
-        result: dict[str, Any] = {
-            "message": "Email verified",
-            "accountId": account.id,
-            "emailVerified": True,
-        }
-        activation = self._activate_if_ready(account.id)
-        if activation:
-            result.update(activation)
         return result
 
     def activate(self, account_id: str) -> dict[str, Any]:

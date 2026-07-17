@@ -66,7 +66,14 @@ class VisitorAuthService:
         if not account:
             raise HTTPException(status_code=401, detail="Invalid credentials")
         if account.profileStatus != ProfileStatus.ACTIVE.value:
-            raise HTTPException(status_code=403, detail="Account is not active. Complete registration first.")
+            if account.emailVerified:
+                self.accounts._activate_if_ready(account.id)
+                self.db.refresh(account)
+            if account.profileStatus != ProfileStatus.ACTIVE.value:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Account is not active. Verify your email to continue.",
+                )
 
         auth = (
             self.db.query(VisitorAccountAuth)

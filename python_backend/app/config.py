@@ -483,5 +483,6 @@ def settings_summary(settings: Settings | None = None) -> dict[str, object]:
         "whatsapp_notifications": resolves_to_whatsapp_notifications(s),
         "zoom_configured": is_zoom_configured(s),
         "zoom_webhook_configured": is_zoom_webhook_configured(s),
+        "delivery_module_enabled": s.delivery_module_enabled,
         "env_file_used": _ENV_FILE.is_file() and not is_lambda_runtime(),
     }

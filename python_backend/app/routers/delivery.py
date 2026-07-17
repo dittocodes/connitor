@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.dependencies.auth import get_current_driver, get_current_user
+from app.dependencies.auth import get_current_user
 from app.dependencies.permissions import require_permission
 from app.delivery.agent_vehicle_service import AgentVehicleService
 from app.delivery.branch_delivery_service import BranchDeliveryService
@@ -214,16 +214,6 @@ def delete_slot(
     return DeliverySlotService(db).delete_slot(slot_id, user)
 
 
-@router.get("/driver/assignments")
-def driver_assignments(
-    user: Annotated[dict, Depends(get_current_driver)],
-    db: Annotated[Session, Depends(get_db)],
-    status: str = Query("active"),
-):
-    active_only = status != "all"
-    return InboundDeliveryService(db).get_driver_assignments(user, active_only=active_only)
-
-
 @router.post("/deliveries", status_code=201)
 def create_delivery(
     body: DeliveryCreateBody,
@@ -379,3 +369,40 @@ def recharge_wallet(
     db: Annotated[Session, Depends(get_db)],
 ):
     return WalletService(db).recharge(user, body["vendorId"], float(body["amount"]))
+
+
+@router.get("/wallets/{vendor_id}/transactions")
+def list_wallet_transactions(
+    vendor_id: str,
+    user: Annotated[dict, Depends(require_permission("VIEW_WALLET"))],
+    db: Annotated[Session, Depends(get_db)],
+    limit: int = Query(50, ge=1, le=200),
+):
+    return {"items": WalletService(db).list_transactions(vendor_id, limit)}
+
+
+@router.get("/receiving/queue")
+def receiving_queue(
+    user: Annotated[dict, Depends(require_permission("VIEW_RECEIVING"))],
+    db: Annotated[Session, Depends(get_db)],
+    branchId: str = Query(...),
+):
+    return ReceivingService(db).receiving_queue(branchId)
+
+
+@router.get("/vendor-mappings")
+def list_vendor_mappings(
+    user: Annotated[dict, Depends(require_permission("VIEW_VENDOR"))],
+    db: Annotated[Session, Depends(get_db)],
+    branchId: str = Query(...),
+):
+    return DistributorService(db).list_branch_mappings(branchId)
+
+
+@router.post("/vendor-mappings/{mapping_id}/approve")
+def approve_vendor_mapping(
+    mapping_id: str,
+    user: Annotated[dict, Depends(require_permission("APPROVE_VENDOR"))],
+    db: Annotated[Session, Depends(get_db)],
+):
+    return DistributorService(db).approve_vendor_branch(mapping_id, user)

@@ -70,3 +70,53 @@ class ReceivingService:
             {"id": d.id, "dockName": d.dockName, "dockCode": d.dockCode, "branchId": d.branchId}
             for d in rows
         ]
+
+    def receiving_queue(self, branch_id: str) -> dict:
+        """Board data: docks + deliveries in gate/receiving statuses."""
+        from app.models.delivery_entities import DeliveryAgent, DeliveryVehicle, Distributor
+
+        docks = self.list_docks(branch_id)
+        statuses = [
+            DeliveryStatus.ARRIVED_AT_GATE.value,
+            DeliveryStatus.GATE_VERIFIED.value,
+            DeliveryStatus.IN_PROGRESS.value,
+            DeliveryStatus.RECEIVED.value,
+        ]
+        rows = (
+            self.db.query(InboundDelivery)
+            .filter(
+                InboundDelivery.branchId == branch_id,
+                InboundDelivery.isActive.is_(True),
+                InboundDelivery.status.in_(statuses),
+            )
+            .order_by(InboundDelivery.expectedArrivalTime.asc())
+            .all()
+        )
+        assignments = {
+            a.deliveryId: a.dockId
+            for a in self.db.query(DockAssignment)
+            .filter(DockAssignment.deliveryId.in_([d.id for d in rows] or ["__none__"]))
+            .all()
+        }
+        items = []
+        for d in rows:
+            vendor = self.db.get(Distributor, d.vendorId)
+            agent = self.db.get(DeliveryAgent, d.agentId) if d.agentId else None
+            vehicle = self.db.get(DeliveryVehicle, d.vehicleId) if d.vehicleId else None
+            items.append(
+                {
+                    "id": d.id,
+                    "deliveryNumber": d.deliveryNumber,
+                    "status": d.status,
+                    "goodsType": d.goodsType,
+                    "totalBoxes": d.totalBoxes,
+                    "expectedArrivalTime": d.expectedArrivalTime.isoformat()
+                    if d.expectedArrivalTime
+                    else None,
+                    "vendorName": vendor.vendorName if vendor else None,
+                    "agentName": agent.name if agent else None,
+                    "vehicleNumber": vehicle.registrationNumber if vehicle else None,
+                    "dockId": assignments.get(d.id),
+                }
+            )
+        return {"docks": docks, "deliveries": items, "total": len(items)}

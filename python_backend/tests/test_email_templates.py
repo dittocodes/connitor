@@ -1,8 +1,10 @@
 import unittest
 
 from app.email_templates import (
+    build_attendant_pass_email,
     build_booking_confirmation_email,
     build_check_in_otp_email,
+    build_delivery_assignment_email,
     build_gate_pass_email,
     build_notification_email,
 )
@@ -51,6 +53,46 @@ class EmailTemplateTests(unittest.TestCase):
         self.assertIn("654321", text)
         self.assertIn("654321", html)
         self.assertIn('src="cid:checkin-qr"', html)
+
+    def test_delivery_assignment_email_includes_address_and_qr(self) -> None:
+        subject, text, html = build_delivery_assignment_email(
+            driver_name="Ravi",
+            delivery_number="DEL-0001",
+            goods_type="Medical supplies",
+            total_boxes=4,
+            vehicle_number="KA01AB1234",
+            vendor_name="City Pharma",
+            arrival_label="16 Jul 2026 10:00",
+            hospital_name="Apollo Chennai",
+            hospital_address="100 Mount Road, Chennai, TN, 600002",
+            hospital_phone="0441234567",
+            maps_url="https://www.google.com/maps/search/?api=1&query=Apollo",
+            remarks="Call security on arrival",
+            qr_cid="delivery-checkin-qr",
+            qr_expires_at="18 Jul 2026 10:00",
+        )
+        self.assertIn("DEL-0001", subject)
+        self.assertIn("100 Mount Road", text)
+        self.assertIn("Call security on arrival", text)
+        self.assertIn("no app login required", html.lower())
+        self.assertIn('src="cid:delivery-checkin-qr"', html)
+        self.assertNotIn("driver dashboard", text.lower())
+        self.assertNotIn("driver dashboard", html.lower())
+
+    def test_attendant_pass_email_includes_govt_id_instruction(self) -> None:
+        subject, text, html = build_attendant_pass_email(
+            attendant_name="Anita",
+            pass_number="AP-9",
+            patient_first_name="Ravi",
+            hospital_name="Apollo",
+            hospital_address="Mount Road",
+            hospital_phone="044",
+            valid_until="17 Jul 2026 12:00",
+            qr_cid="attendant-pass-qr",
+        )
+        self.assertIn("AP-9", subject)
+        self.assertIn("government id", text.lower())
+        self.assertIn('src="cid:attendant-pass-qr"', html)
 
 
 if __name__ == "__main__":

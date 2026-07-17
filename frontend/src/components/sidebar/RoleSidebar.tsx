@@ -26,6 +26,10 @@ import {
   Calendar,
   Layers,
   GitBranch,
+  IdCard,
+  Truck,
+  Package,
+  Wallet,
 } from 'lucide-react';
 import { useResponsive } from '@/hooks/use-mobile';
 import { MobileBottomNav } from './mobile-bottom-nav';
@@ -42,6 +46,10 @@ const iconMap = {
   calendar: Calendar,
   layers: Layers,
   'git-branch': GitBranch,
+  'id-card': IdCard,
+  truck: Truck,
+  package: Package,
+  wallet: Wallet,
 };
 
 // Define User Profile structure from API

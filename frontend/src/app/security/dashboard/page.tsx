@@ -8,6 +8,7 @@ import { TodayDeliveriesTab } from './components/TodayDeliveriesTab';
 import { OnSpotQrPanel } from './components/OnSpotQrPanel';
 import { LogsTab } from '@/components/security/logs-tab/logs-tab';
 import { DeliveryScanTab } from '@/features/delivery-management/DeliveryScanTab';
+import { AttendantPassScanTab } from '@/features/attendant-passes/AttendantPassScanTab';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { getDashboardPathForRole } from '@/lib/auth-routing';
 import { DEMO_BRANCH_ID, IS_DEMO_MODE } from '@/lib/demo-config';
@@ -29,7 +30,13 @@ interface User {
   branch?: { name: string } | null;
 }
 
-type SecurityTab = 'check-in' | 'appointments' | 'logs' | 'delivery-scan' | 'deliveries';
+type SecurityTab =
+  | 'check-in'
+  | 'appointments'
+  | 'logs'
+  | 'delivery-scan'
+  | 'deliveries'
+  | 'attendant-scan';
 
 function parseTab(value: string | null): SecurityTab {
   if (
@@ -37,7 +44,8 @@ function parseTab(value: string | null): SecurityTab {
     value === 'logs' ||
     value === 'check-in' ||
     value === 'delivery-scan' ||
-    value === 'deliveries'
+    value === 'deliveries' ||
+    value === 'attendant-scan'
   ) {
     return value;
   }
@@ -134,19 +142,35 @@ function SecurityDashboard(): React.ReactElement {
           </div>
         </section>
 
-        <section
-          className="bg-card rounded-lg border border-border shadow-sm"
-          aria-labelledby="deliveries-heading"
-        >
-          <div className="px-4 py-3 border-b border-border">
-            <h2 id="deliveries-heading" className="text-lg font-semibold text-card-foreground">
-              Scheduled Deliveries
-            </h2>
-          </div>
-          <div className="p-4">
-            <TodayDeliveriesTab branchId={branchId} />
-          </div>
-        </section>
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          <section
+            className="bg-card rounded-lg border border-border shadow-sm"
+            aria-labelledby="delivery-scan-heading"
+          >
+            <div className="px-4 py-3 border-b border-border">
+              <h2 id="delivery-scan-heading" className="text-lg font-semibold text-card-foreground">
+                Delivery Scan
+              </h2>
+            </div>
+            <div className="p-4">
+              <DeliveryScanTab branchId={branchId} />
+            </div>
+          </section>
+
+          <section
+            className="bg-card rounded-lg border border-border shadow-sm"
+            aria-labelledby="deliveries-heading"
+          >
+            <div className="px-4 py-3 border-b border-border">
+              <h2 id="deliveries-heading" className="text-lg font-semibold text-card-foreground">
+                Today&apos;s Deliveries
+              </h2>
+            </div>
+            <div className="p-4">
+              <TodayDeliveriesTab branchId={branchId} />
+            </div>
+          </section>
+        </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           <section
@@ -165,6 +189,20 @@ function SecurityDashboard(): React.ReactElement {
 
           <section
             className="bg-card rounded-lg border border-border shadow-sm"
+            aria-labelledby="attendant-scan-heading"
+          >
+            <div className="px-4 py-3 border-b border-border">
+              <h2 id="attendant-scan-heading" className="text-lg font-semibold text-card-foreground">
+                Attendant Pass Scan
+              </h2>
+            </div>
+            <div className="p-4">
+              <AttendantPassScanTab branchId={branchId} />
+            </div>
+          </section>
+
+          <section
+            className="bg-card rounded-lg border border-border shadow-sm xl:col-span-2"
             aria-labelledby="logs-heading"
           >
             <div className="px-4 py-3 border-b border-border">
@@ -190,6 +228,8 @@ function SecurityDashboard(): React.ReactElement {
         <TodayAppointmentsTab branchId={branchId} refreshKey={appointmentsRefresh} />
       ) : activeTab === 'delivery-scan' ? (
         <DeliveryScanTab branchId={branchId} />
+      ) : activeTab === 'attendant-scan' ? (
+        <AttendantPassScanTab branchId={branchId} />
       ) : activeTab === 'deliveries' ? (
         <TodayDeliveriesTab branchId={branchId} />
       ) : (

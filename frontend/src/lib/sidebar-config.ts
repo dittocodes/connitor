@@ -13,6 +13,7 @@ export const sidebarConfig = {
     { label: 'Appointments', href: '/dashboard/appointments', icon: 'calendar' },
     { label: 'Delivery', href: '/dashboard/delivery', icon: 'truck' },
     { label: 'Delivery Slots', href: '/dashboard/delivery-slots', icon: 'calendar' },
+    { label: 'Vendors', href: '/dashboard/delivery/vendors', icon: 'users' },
     { label: 'Settings', href: '/dashboard/settings', icon: 'settings' },
   ],
   HOSPITAL_ADMIN: [
@@ -24,6 +25,7 @@ export const sidebarConfig = {
     { label: 'Appointments', href: '/dashboard/appointments', icon: 'calendar' },
     { label: 'Delivery', href: '/dashboard/delivery', icon: 'truck' },
     { label: 'Delivery Slots', href: '/dashboard/delivery-slots', icon: 'calendar' },
+    { label: 'Vendors', href: '/dashboard/delivery/vendors', icon: 'users' },
     { label: 'Attendant Passes', href: '/dashboard/attendant-passes', icon: 'id-card' },
     { label: 'Settings', href: '/dashboard/settings', icon: 'settings' },
   ],
@@ -82,7 +84,12 @@ export const sidebarConfig = {
       icon: 'truck',
     },
     {
-      label: 'Scheduled Deliveries',
+      label: 'Attendant Pass Scan',
+      href: '/security/dashboard?tab=attendant-scan',
+      icon: 'id-card',
+    },
+    {
+      label: "Today's Deliveries",
       href: '/security/dashboard?tab=deliveries',
       icon: 'package',
     },
@@ -111,7 +118,12 @@ export const sidebarConfig = {
       icon: 'truck',
     },
     {
-      label: 'Scheduled Deliveries',
+      label: 'Attendant Pass Scan',
+      href: '/security/dashboard?tab=attendant-scan',
+      icon: 'id-card',
+    },
+    {
+      label: "Today's Deliveries",
       href: '/security/dashboard?tab=deliveries',
       icon: 'package',
     },
@@ -132,7 +144,9 @@ export const sidebarConfig = {
     { label: 'Settings', href: '/dashboard/settings', icon: 'settings' },
   ],
   DISTRIBUTOR: [
-    { label: 'Book Delivery', href: '/vendor/deliveries', icon: 'truck' },
+    { label: 'Deliveries', href: '/vendor/deliveries', icon: 'package' },
+    { label: 'Book', href: '/vendor/deliveries/book', icon: 'truck' },
+    { label: 'Fleet', href: '/vendor/fleet', icon: 'users' },
     { label: 'Wallet', href: '/vendor/wallet', icon: 'wallet' },
     { label: 'Settings', href: '/dashboard/settings', icon: 'settings' },
   ],

@@ -1,8 +1,8 @@
-"""Tests for distributor booking, delivery slots, and driver auth."""
+"""Tests for distributor booking, delivery slots, and email-only drivers."""
 
 import uuid
-from datetime import datetime, timedelta
-from unittest.mock import patch
+from datetime import timedelta
+from unittest.mock import MagicMock, patch
 
 import pytest
 from sqlalchemy import create_engine
@@ -10,6 +10,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.database import Base
+from app.delivery.agent_vehicle_service import AgentVehicleService
 from app.delivery.delivery_slot_service import DeliverySlotService
 from app.delivery.inbound_delivery_service import InboundDeliveryService
 from app.models import Branch, HospitalChain, User
@@ -21,7 +22,6 @@ from app.models.delivery_entities import (
     Distributor,
     VendorBranchMapping,
 )
-from app.services.driver_auth_service import DriverAuthService
 import app.models.delivery_entities  # noqa: F401
 import app.models.attendant_entities  # noqa: F401
 import app.models.permission_entities  # noqa: F401
@@ -152,24 +152,62 @@ def test_delivery_slot_booking(db):
     assert slot.bookedCount == 1
 
 
-def test_driver_password_login(db):
-    agent_id = str(uuid.uuid4())
-    user = User(
+def test_create_agent_does_not_create_user_account(db):
+    branch = db.query(Branch).first()
+    dist, user = _seed_vendor(db, branch.id)
+    user_dict = {"id": user.id, "role": "DISTRIBUTOR", "distributorId": dist.id}
+
+    result = AgentVehicleService(db).create_agent(
+        user_dict,
+        {"name": "Driver Two", "email": "driver2@test.com", "phone": "9333333333"},
+    )
+
+    assert result["email"] == "driver2@test.com"
+    assert "credentialsSent" not in result
+    agent_users = db.query(User).filter(User.email == "driver2@test.com").all()
+    assert agent_users == []
+    assert db.query(User).filter(User.role == "DELIVERY_AGENT").count() == 0
+
+
+def test_book_delivery_sends_driver_assignment_email(db):
+    branch = db.query(Branch).first()
+    dist, user = _seed_vendor(db, branch.id)
+    vehicle = DeliveryVehicle(
         id=str(uuid.uuid4()),
-        name="Driver",
-        phone="9222222222",
-        email="driver2@test.com",
-        role="DELIVERY_AGENT",
-        deliveryAgentId=agent_id,
-        passwordHash=hash_password("DriverPass1"),
+        distributorId=dist.id,
+        registrationNumber="KA01MAIL",
         isActive=True,
     )
-    db.add(user)
+    agent = DeliveryAgent(
+        id=str(uuid.uuid4()),
+        distributorId=dist.id,
+        name="Mail Driver",
+        email="maildriver@test.com",
+        isActive=True,
+    )
+    db.add_all([vehicle, agent])
     db.commit()
 
-    with patch("app.services.auth_service.EmailService"):
-        token = DriverAuthService(db).login_with_password("driver2@test.com", "DriverPass1")
-    assert "access_token" in token
+    user_dict = {"id": user.id, "role": "DISTRIBUTOR", "distributorId": dist.id}
+    mock_notify = MagicMock()
+    with patch(
+        "app.delivery.inbound_delivery_service.NotificationsService",
+        return_value=mock_notify,
+    ):
+        InboundDeliveryService(db).book_delivery(
+            user_dict,
+            {
+                "branchId": branch.id,
+                "expectedArrivalTime": (now_ist() + timedelta(hours=2)).isoformat(),
+                "goodsType": "Pharmaceuticals",
+                "totalBoxes": 3,
+                "vehicleId": vehicle.id,
+                "agentId": agent.id,
+                "remarks": "Use loading bay B",
+            },
+        )
+
+    mock_notify.notify_on_scheduled_delivery.assert_called_once()
 
 
 def test_bulk_create_slots(db):

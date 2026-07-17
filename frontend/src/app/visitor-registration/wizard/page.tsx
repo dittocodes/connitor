@@ -832,7 +832,6 @@ function VisitorRegistrationWizardContent() {
       formData.append('email', visitorFormData.email);
       formData.append('designation', visitorFormData.designation || 'Visitor');
       formData.append('purpose', data.purpose);
-      formData.append('visitSubType', mapDeliveryPlatformToSubType(data.platform));
       
       // Meeting-specific optional fields
       if (visitorFormData.company) {

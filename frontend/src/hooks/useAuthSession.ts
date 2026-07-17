@@ -13,7 +13,7 @@ interface UseAuthSessionOptions {
   redirectTo?: string;
 }
 
-export function useAuthSession<T extends { role?: string }>(
+export function useAuthSession<T extends object = { role?: string }>(
   options: UseAuthSessionOptions = {},
 ) {
   const { requiredRole, redirectTo = '/auth/login' } = options;
@@ -37,15 +37,16 @@ export function useAuthSession<T extends { role?: string }>(
 
     if (token) {
       try {
-        const decodedUser = jwtDecode<T>(token);
+        const decodedUser = jwtDecode<T & { role?: string }>(token);
+        const role = decodedUser.role;
 
-        if (requiredRole && decodedUser.role !== requiredRole) {
-          router.replace(getDashboardPathForRole(decodedUser.role ?? ''));
+        if (requiredRole && role !== requiredRole) {
+          router.replace(getDashboardPathForRole(role ?? ''));
           setReady(true);
           return;
         }
 
-        setUser(decodedUser);
+        setUser(decodedUser as T);
         setReady(true);
         return;
       } catch (error) {

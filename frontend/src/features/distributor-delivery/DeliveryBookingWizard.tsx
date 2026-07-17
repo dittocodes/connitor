@@ -11,6 +11,7 @@ import {
   type DeliveryVehicle,
 } from '@/lib/services/distributorDeliveryService';
 import { todayIstDateIso, formatIstDateTime } from '@/lib/datetime';
+import { DeliveryStepper } from '@/features/delivery-management/ui';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -25,6 +26,8 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 
 type Step = 1 | 2 | 3 | 4 | 5 | 6;
+
+const WIZARD_STEPS = ['Hospital', 'Slot', 'Goods', 'Vehicle', 'Driver', 'Review'];
 
 const GOODS_TYPES = [
   'Medical supplies',
@@ -120,32 +123,41 @@ export function DeliveryBookingWizard(): React.ReactElement {
 
   if (success) {
     return (
-      <Card>
-        <CardContent className="pt-8 text-center space-y-4">
-          <CheckCircle2 className="h-12 w-12 text-emerald-600 mx-auto" />
-          <h2 className="text-xl font-semibold">Delivery booked</h2>
+      <Card className="border-emerald-200 bg-gradient-to-br from-emerald-50 to-white">
+        <CardContent className="space-y-4 pt-8 text-center">
+          <CheckCircle2 className="mx-auto h-12 w-12 text-emerald-600" />
+          <h2 className="text-xl font-semibold text-slate-900">Delivery booked</h2>
           <p className="text-muted-foreground">
             Reference: <strong>{success.deliveryNumber}</strong>
           </p>
-          <p className="text-sm text-muted-foreground">
-            Security and hospital admins have been notified. The driver will receive assignment
-            details by email.
+          <p className="mx-auto max-w-md text-sm text-muted-foreground">
+            Security and hospital admins have been notified. The driver will receive full delivery
+            instructions and the gate check-in QR by email — no app login needed.
           </p>
-          <Button onClick={() => window.location.reload()}>Book another delivery</Button>
+          <div className="flex flex-wrap justify-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                window.location.href = '/vendor/deliveries';
+              }}
+            >
+              View deliveries
+            </Button>
+            <Button
+              className="bg-amber-600 hover:bg-amber-700"
+              onClick={() => window.location.reload()}
+            >
+              Book another
+            </Button>
+          </div>
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <div className="space-y-4 max-w-2xl">
-      <div className="flex gap-2 text-xs text-muted-foreground">
-        {([1, 2, 3, 4, 5, 6] as Step[]).map((s) => (
-          <span key={s} className={step === s ? 'font-semibold text-foreground' : ''}>
-            {s}. {['Hospital', 'Slot', 'Goods', 'Vehicle', 'Driver', 'Review'][s - 1]}
-          </span>
-        ))}
-      </div>
+    <div className="mx-auto max-w-2xl space-y-4">
+      <DeliveryStepper steps={WIZARD_STEPS} current={step} />
 
       {step === 1 && (
         <Card>
@@ -413,7 +425,8 @@ export function DeliveryBookingWizard(): React.ReactElement {
                   onChange={(e) => setAgentPhone(e.target.value)}
                 />
                 <p className="text-xs text-muted-foreground">
-                  New drivers receive login email and password automatically.
+                  The driver will receive full delivery instructions and the gate check-in QR by
+                  email when you book.
                 </p>
               </>
             )}

@@ -13,6 +13,7 @@ from app.routers import (
     notifications,
     public_appointment_approval,
     public_appointments,
+    public_attendant_passes,
     public_registration,
     public_visitors,
     public_visits,
@@ -29,7 +30,6 @@ from app.routers import (
     whatsapp_webhooks,
     zoom_webhooks,
 )
-from app.config import get_settings
 
 api_router = APIRouter()
 api_router.include_router(root.router)
@@ -62,15 +62,14 @@ api_router.include_router(visitors.router, prefix="/visitors", tags=["visitors"]
 api_router.include_router(public_registration.router, prefix="/public/registration", tags=["public-registration"])
 api_router.include_router(public_visitors.router, prefix="/public/visitors", tags=["public-visitors"])
 api_router.include_router(public_visits.router, prefix="/public/visits", tags=["public-visits"])
+api_router.include_router(
+    public_attendant_passes.router,
+    prefix="/public/attendant-passes",
+    tags=["public-attendant-passes"],
+)
 api_router.include_router(analytics.router, prefix="/analytics", tags=["analytics"])
 api_router.include_router(zoom_webhooks.router, prefix="/webhooks", tags=["webhooks"])
 api_router.include_router(twilio_webhooks.router, prefix="/webhooks", tags=["webhooks"])
 api_router.include_router(whatsapp_webhooks.router, prefix="/webhooks", tags=["webhooks"])
-
-_settings = get_settings()
-if _settings.delivery_module_enabled:
-    api_router.include_router(delivery.router, prefix="/delivery", tags=["delivery"])
-    from app.routers import driver_auth
-
-    api_router.include_router(driver_auth.router, prefix="/delivery/driver-auth", tags=["driver-auth"])
-    api_router.include_router(attendant_passes.router, prefix="/attendant-passes", tags=["attendant-passes"])
+api_router.include_router(delivery.router, prefix="/delivery", tags=["delivery"])
+api_router.include_router(attendant_passes.router, prefix="/attendant-passes", tags=["attendant-passes"])

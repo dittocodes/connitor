@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { LogIn, Truck, UserCircle } from 'lucide-react';
+import { LogIn, Truck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -14,7 +14,6 @@ import { DELIVERY_PORTALS } from '@/lib/role-portals';
 
 const ICONS = {
   DISTRIBUTOR: Truck,
-  DRIVER: UserCircle,
 } as const;
 
 export function DeliveryPortalGrid() {
@@ -23,8 +22,8 @@ export function DeliveryPortalGrid() {
       <div className="space-y-1">
         <h2 className="text-xl font-semibold text-slate-900">Delivery partners</h2>
         <p className="text-sm text-slate-600 max-w-3xl">
-          Distributors schedule inbound deliveries to hospitals. Drivers sign in to view assignments
-          and check-in QR codes at the security gate.
+          Distributors schedule inbound deliveries to hospitals. Drivers receive full delivery
+          instructions and the gate check-in QR by email — no separate login required.
         </p>
       </div>
 
