@@ -232,15 +232,31 @@ class NotificationsService:
         _, approval_url = VisitApprovalLinkService(self.db).create_link(visit)
         dashboard_message = (
             f"New appointment from {name} on {appt}. Purpose: {purpose}. "
-            "Approval link sent to doctor via SMS."
-        )
-        email_message = (
-            f"You have a new appointment request from {name} for {appt}. "
-            f"Purpose: {purpose}. "
-            f"Approve in one tap (no login required): {approval_url}"
+            "Approval link sent to doctor via email (and SMS if available)."
         )
         self._add_notification(staff.id, visit.id, dashboard_message)
-        self._email_user(staff, "New Appointment Request", email_message)
+
+        if staff.email:
+            try:
+                self.email.send_doctor_approval_request_email(
+                    staff.email,
+                    doctor_name=staff.name or "Doctor",
+                    visitor_name=name,
+                    appointment_date=appt,
+                    purpose=purpose,
+                    approval_url=approval_url,
+                )
+            except Exception as exc:
+                logger.error(
+                    "Failed to email doctor approval link to %s: %s", staff.email, exc
+                )
+        else:
+            logger.warning(
+                "Doctor %s has no email — cannot send approval link by mail (visit %s)",
+                staff.id,
+                visit.id,
+            )
+
         if staff.phone:
             sms_message = (
                 f"Connitor: New appointment from {name} on {appt}. "

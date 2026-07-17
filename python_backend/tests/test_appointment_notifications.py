@@ -129,11 +129,14 @@ class AppointmentNotificationsTests(unittest.TestCase):
 
         self.service.notify_staff_on_visit_request(visit, doctor, visitor)
 
-        self.service.email.send_notification.assert_called_once_with(
-            doctor.email, "New Appointment Request", ANY
+        self.service.email.send_doctor_approval_request_email.assert_called_once_with(
+            doctor.email,
+            doctor_name=doctor.name,
+            visitor_name="Rahul Mehta",
+            appointment_date=ANY,
+            purpose="Follow-up",
+            approval_url="http://localhost:3000/approve-visit?token=tok",
         )
-        email_text = self.service.email.send_notification.call_args[0][2]
-        self.assertIn("approve-visit?token=tok", email_text)
         self.service.sms.send_sms_only.assert_called_once()
         sms_phone, sms_text = self.service.sms.send_sms_only.call_args[0]
         self.assertEqual(sms_phone, doctor.phone)

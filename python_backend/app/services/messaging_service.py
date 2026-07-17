@@ -29,6 +29,7 @@ from app.email_templates import (
     build_booking_confirmation_email,
     build_check_in_otp_email,
     build_delivery_assignment_email,
+    build_doctor_approval_request_email,
     build_gate_pass_email,
     build_login_otp_email,
     build_notification_email,
@@ -375,6 +376,39 @@ class EmailService:
             )
         except Exception as exc:
             logger.error("Failed to send notification email to %s: %s", to_email, exc)
+            raise
+
+    def send_doctor_approval_request_email(
+        self,
+        to_email: str,
+        *,
+        doctor_name: str,
+        visitor_name: str,
+        appointment_date: str,
+        purpose: str,
+        approval_url: str,
+    ) -> None:
+        """Send doctor a one-tap approval link by email (works when SMS/WhatsApp are down)."""
+        settings = get_settings()
+        subject, text_body, html_body = build_doctor_approval_request_email(
+            doctor_name=doctor_name,
+            visitor_name=visitor_name,
+            appointment_date=appointment_date,
+            purpose=purpose,
+            approval_url=approval_url,
+            company_name=settings.email_from_name,
+            product_name=settings.email_product_name,
+        )
+        try:
+            self._deliver_email(
+                to_email,
+                subject,
+                text_body,
+                html_body,
+                context="doctor approval request",
+            )
+        except Exception as exc:
+            logger.error("Failed to send doctor approval email to %s: %s", to_email, exc)
             raise
 
     def send_notification_with_attachment(

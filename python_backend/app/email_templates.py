@@ -825,3 +825,82 @@ def build_online_appointment_email(
 </body></html>"""
 
     return subject, text_body, html_body
+
+
+def build_doctor_approval_request_email(
+    *,
+    doctor_name: str,
+    visitor_name: str,
+    appointment_date: str,
+    purpose: str,
+    approval_url: str,
+    company_name: str = "Connitor",
+    product_name: str = "Hospital Visitor Tracking System",
+) -> tuple[str, str, str]:
+    """Email to doctor with one-tap approval link (primary channel when SMS/WhatsApp fail)."""
+    subject = f"{company_name} — Approve appointment request"
+    purpose_line = purpose.strip() or "Not specified"
+
+    text_body = (
+        f"{company_name}\n{product_name}\n\n"
+        f"Hello Dr. {doctor_name},\n\n"
+        f"You have a new appointment request from {visitor_name}.\n"
+        f"When: {appointment_date}\n"
+        f"Purpose: {purpose_line}\n\n"
+        f"Approve or decline (one-time secure link, no login):\n{approval_url}\n\n"
+        f"— {company_name}"
+    )
+
+    html_body = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{escape(subject)}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f0f4f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#f0f4f8;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:520px;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(15,23,42,0.08);">
+          <tr>
+            <td style="background:linear-gradient(135deg,#0d9488 0%,#0f766e 100%);padding:24px 32px;text-align:center;">
+              <h1 style="margin:0;font-size:22px;font-weight:700;color:#ffffff;">Appointment approval needed</h1>
+              <p style="margin:8px 0 0;font-size:13px;color:rgba(255,255,255,0.9);">{escape(product_name)}</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px;">
+              <p style="margin:0 0 12px;font-size:15px;color:#334155;">Hello Dr. {escape(doctor_name)},</p>
+              <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#64748b;">
+                <strong style="color:#0f172a;">{escape(visitor_name)}</strong> requested an appointment.
+              </p>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fafc;border-radius:8px;margin:0 0 24px;">
+                <tr>
+                  <td style="padding:16px 18px;font-size:14px;line-height:1.7;color:#475569;">
+                    <strong style="color:#0f172a;">When:</strong> {escape(appointment_date)}<br/>
+                    <strong style="color:#0f172a;">Purpose:</strong> {escape(purpose_line)}
+                  </td>
+                </tr>
+              </table>
+              <div style="text-align:center;margin:8px 0 20px;">
+                <a href="{escape(approval_url)}" style="display:inline-block;background:#0d9488;color:#ffffff;text-decoration:none;padding:14px 28px;border-radius:8px;font-weight:600;font-size:15px;">
+                  Review &amp; approve
+                </a>
+              </div>
+              <p style="margin:0;font-size:12px;line-height:1.6;color:#94a3b8;word-break:break-all;">
+                Or open this one-time link:<br/>{escape(approval_url)}
+              </p>
+              <p style="margin:16px 0 0;font-size:12px;color:#94a3b8;">
+                This link does not require login and can be used only once.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
+
+    return subject, text_body, html_body
