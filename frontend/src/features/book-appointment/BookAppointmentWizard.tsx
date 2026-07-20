@@ -155,7 +155,7 @@ export function BookAppointmentWizard({
           );
         }
       })
-      .catch(() => setError('Failed to load hospitals. Is the backend running on port 8001?'))
+      .catch(() => setError('Failed to load hospitals. Is the backend running on port 8002?'))
       .finally(() => setLoadingHospitals(false));
   }, [initialBranchId]);
 

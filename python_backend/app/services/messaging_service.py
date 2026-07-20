@@ -35,6 +35,7 @@ from app.email_templates import (
     build_notification_email,
     build_online_appointment_email,
     build_registration_otp_email,
+    build_ward_attendant_approval_request_email,
 )
 
 logger = logging.getLogger(__name__)
@@ -409,6 +410,51 @@ class EmailService:
             )
         except Exception as exc:
             logger.error("Failed to send doctor approval email to %s: %s", to_email, exc)
+            raise
+
+    def send_ward_attendant_approval_request_email(
+        self,
+        to_email: str,
+        *,
+        ward_name: str,
+        attendant_name: str,
+        attendant_phone: str,
+        attendant_email: str,
+        relationship: str,
+        patient_name: str,
+        patient_mrn: str,
+        ward_name_label: str,
+        room_number: str,
+        hospital_name: str,
+        approval_url: str,
+    ) -> None:
+        """Send ward admin a one-tap approval link for a family visit-pass request."""
+        settings = get_settings()
+        subject, text_body, html_body = build_ward_attendant_approval_request_email(
+            ward_name=ward_name,
+            attendant_name=attendant_name,
+            attendant_phone=attendant_phone,
+            attendant_email=attendant_email,
+            relationship=relationship,
+            patient_name=patient_name,
+            patient_mrn=patient_mrn,
+            ward_name_label=ward_name_label,
+            room_number=room_number,
+            hospital_name=hospital_name,
+            approval_url=approval_url,
+            company_name=settings.email_from_name,
+            product_name=settings.email_product_name,
+        )
+        try:
+            self._deliver_email(
+                to_email,
+                subject,
+                text_body,
+                html_body,
+                context="ward attendant approval request",
+            )
+        except Exception as exc:
+            logger.error("Failed to send ward attendant approval email to %s: %s", to_email, exc)
             raise
 
     def send_notification_with_attachment(

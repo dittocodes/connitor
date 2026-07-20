@@ -41,6 +41,27 @@ export interface AttendantPassRow {
   attendant?: AttendantRow | null;
 }
 
+export interface AttendantPassBranch {
+  id: string;
+  name: string;
+  city: string;
+  state: string;
+  hospitalChainId: string;
+  hospitalChainName?: string | null;
+}
+
+export interface AttendantAdmissionLookup {
+  admissionId: string;
+  patientFirstName: string;
+  patientLastName?: string;
+  patientName?: string;
+  mrn?: string;
+  wardName?: string | null;
+  roomNumber?: string | null;
+  hasActivePass: boolean;
+  branchId: string;
+}
+
 export const AttendantPassService = {
   async listAdmissions(branchId: string): Promise<AttendantAdmission[]> {
     const res = await apiClient.get('/api/attendant-passes/admissions', {
@@ -116,14 +137,22 @@ export const AttendantPassService = {
     return res.data;
   },
 
-  async lookupAdmission(branchId: string, mrn: string): Promise<{
-    admissionId: string;
-    patientFirstName: string;
-    wardName?: string | null;
-    roomNumber?: string | null;
-    hasActivePass: boolean;
-    branchId: string;
-  }> {
+  async listPublicBranches(): Promise<AttendantPassBranch[]> {
+    const res = await apiClient.get('/api/public/attendant-passes/branches');
+    return res.data ?? [];
+  },
+
+  async searchAdmissionsByName(
+    branchId: string,
+    query: string,
+  ): Promise<AttendantAdmissionLookup[]> {
+    const res = await apiClient.get('/api/public/attendant-passes/admissions/search', {
+      params: { branchId, q: query },
+    });
+    return res.data.items ?? [];
+  },
+
+  async lookupAdmission(branchId: string, mrn: string): Promise<AttendantAdmissionLookup> {
     const res = await apiClient.get('/api/public/attendant-passes/admissions/lookup', {
       params: { branchId, mrn },
     });

@@ -1,5 +1,5 @@
 /** Local Python API (uvicorn default). Used for OAuth redirects and SSR. */
-export const LOCAL_BACKEND_URL = 'http://127.0.0.1:8001';
+export const LOCAL_BACKEND_URL = 'http://127.0.0.1:8002';
 
 function trimUrl(url: string | undefined): string {
   return (url ?? '').trim().replace(/\/$/, '');

@@ -904,3 +904,100 @@ def build_doctor_approval_request_email(
 </html>"""
 
     return subject, text_body, html_body
+
+
+def build_ward_attendant_approval_request_email(
+    *,
+    ward_name: str,
+    attendant_name: str,
+    attendant_phone: str,
+    attendant_email: str,
+    relationship: str,
+    patient_name: str,
+    patient_mrn: str,
+    ward_name_label: str,
+    room_number: str,
+    hospital_name: str,
+    approval_url: str,
+    company_name: str = "Connitor",
+    product_name: str = "Hospital Visitor Tracking System",
+) -> tuple[str, str, str]:
+    """Email to ward admin with one-tap approval link for a family visit-pass request."""
+    subject = f"{company_name} — Approve attendant visit pass request"
+    relationship_line = relationship.strip() or "Not specified"
+    location_bits = [p for p in (ward_name_label, f"Room {room_number}" if room_number else "") if p]
+    location_line = " · ".join(location_bits) if location_bits else "Not listed"
+
+    text_body = (
+        f"{company_name}\n{product_name}\n\n"
+        f"Hello {ward_name},\n\n"
+        f"A family member requested an attendant visit pass.\n\n"
+        f"Hospital: {hospital_name}\n"
+        f"Visitor: {attendant_name}\n"
+        f"Phone: {attendant_phone}\n"
+        f"Email: {attendant_email}\n"
+        f"Relationship: {relationship_line}\n"
+        f"Patient: {patient_name} (MRN {patient_mrn})\n"
+        f"Location: {location_line}\n\n"
+        f"Approve or decline (one-time secure link, no login):\n{approval_url}\n\n"
+        f"— {company_name}"
+    )
+
+    html_body = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{escape(subject)}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f0f4f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#f0f4f8;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:520px;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(15,23,42,0.08);">
+          <tr>
+            <td style="background:linear-gradient(135deg,#0d9488 0%,#0f766e 100%);padding:24px 32px;text-align:center;">
+              <h1 style="margin:0;font-size:22px;font-weight:700;color:#ffffff;">Attendant pass approval needed</h1>
+              <p style="margin:8px 0 0;font-size:13px;color:rgba(255,255,255,0.9);">{escape(product_name)}</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px;">
+              <p style="margin:0 0 12px;font-size:15px;color:#334155;">Hello {escape(ward_name)},</p>
+              <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#64748b;">
+                <strong style="color:#0f172a;">{escape(attendant_name)}</strong> requested a family visit pass
+                for an admitted patient at <strong style="color:#0f172a;">{escape(hospital_name)}</strong>.
+              </p>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fafc;border-radius:8px;margin:0 0 24px;">
+                <tr>
+                  <td style="padding:16px 18px;font-size:14px;line-height:1.7;color:#475569;">
+                    <strong style="color:#0f172a;">Visitor:</strong> {escape(attendant_name)}<br/>
+                    <strong style="color:#0f172a;">Phone:</strong> {escape(attendant_phone)}<br/>
+                    <strong style="color:#0f172a;">Email:</strong> {escape(attendant_email)}<br/>
+                    <strong style="color:#0f172a;">Relationship:</strong> {escape(relationship_line)}<br/>
+                    <strong style="color:#0f172a;">Patient:</strong> {escape(patient_name)} (MRN {escape(patient_mrn)})<br/>
+                    <strong style="color:#0f172a;">Location:</strong> {escape(location_line)}
+                  </td>
+                </tr>
+              </table>
+              <div style="text-align:center;margin:8px 0 20px;">
+                <a href="{escape(approval_url)}" style="display:inline-block;background:#0d9488;color:#ffffff;text-decoration:none;padding:14px 28px;border-radius:8px;font-weight:600;font-size:15px;">
+                  Review &amp; approve
+                </a>
+              </div>
+              <p style="margin:0;font-size:12px;line-height:1.6;color:#94a3b8;word-break:break-all;">
+                Or open this one-time link:<br/>{escape(approval_url)}
+              </p>
+              <p style="margin:16px 0 0;font-size:12px;color:#94a3b8;">
+                This link does not require login and can be used only once. Approving issues the visit pass QR to the visitor by email.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
+
+    return subject, text_body, html_body

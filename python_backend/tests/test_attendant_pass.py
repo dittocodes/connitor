@@ -92,15 +92,17 @@ def _seed_admission(db, branch_id: str) -> Admission:
 def test_public_apply_creates_pending(db):
     branch = db.query(Branch).first()
     admission = _seed_admission(db, branch.id)
-    result = AttendantPassService(db).public_apply(
-        {
-            "admissionId": admission.id,
-            "name": "Anita",
-            "email": "anita@example.com",
-            "phone": "9222222222",
-            "relationship": "Sister",
-        }
-    )
+    with patch("app.attendant.approval_link_service.AttendantApprovalLinkService.notify_ward_admins") as notify:
+        notify.return_value = {"approvalUrl": "http://example/x", "emailsSent": 0, "recipients": []}
+        result = AttendantPassService(db).public_apply(
+            {
+                "admissionId": admission.id,
+                "name": "Anita",
+                "email": "anita@example.com",
+                "phone": "9222222222",
+                "relationship": "Sister",
+            }
+        )
     assert result["status"] == "PENDING"
     assert result["email"] == "anita@example.com"
 
@@ -279,3 +281,21 @@ def test_lookup_by_mrn(db):
     result = AttendantPassService(db).lookup_admission_by_mrn(branch.id, "MRN-100")
     assert result["patientFirstName"] == "Ravi"
     assert result["hasActivePass"] is False
+
+
+def test_list_public_branches(db):
+    branch = db.query(Branch).first()
+    rows = AttendantPassService(db).list_public_branches()
+    assert len(rows) == 1
+    assert rows[0]["id"] == branch.id
+    assert rows[0]["name"] == branch.name
+    assert rows[0]["hospitalChainName"] == "Test Chain"
+
+
+def test_search_admissions_by_name(db):
+    branch = db.query(Branch).first()
+    _seed_admission(db, branch.id)
+    rows = AttendantPassService(db).search_admissions_by_name(branch.id, "ravi")
+    assert len(rows["items"]) == 1
+    assert rows["items"][0]["patientFirstName"] == "Ravi"
+    assert rows["items"][0]["mrn"] == "MRN-100"

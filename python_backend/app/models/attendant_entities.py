@@ -59,6 +59,9 @@ class Attendant(Base):
     phone: Mapped[str] = mapped_column(String(20))
     relationship: Mapped[str | None] = mapped_column(String(50), nullable=True)
     status: Mapped[str] = mapped_column(String(30), default="PENDING")
+    approvalLinkTokenHash: Mapped[str | None] = mapped_column(String(191), nullable=True, index=True)
+    approvalLinkExpiresAt: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    approvalLinkUsedAt: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     createdAt: Mapped[datetime] = mapped_column(DateTime, default=now_ist)
 
     admission: Mapped["Admission"] = orm_relationship(back_populates="attendants")

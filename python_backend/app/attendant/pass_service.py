@@ -8,6 +8,7 @@ import logging
 from datetime import timedelta
 
 from fastapi import UploadFile
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.config import get_settings
@@ -135,7 +136,32 @@ class AttendantPassService:
         self.db.add(attendant)
         self.db.commit()
         self.db.refresh(attendant)
-        return self._serialize_attendant(attendant)
+
+        # Eager-load admission/patient for ward notification email
+        attendant = (
+            self.db.query(Attendant)
+            .options(joinedload(Attendant.admission).joinedload(Admission.patient))
+            .filter(Attendant.id == attendant.id)
+            .first()
+        )
+        assert attendant is not None
+
+        notify: dict = {"emailsSent": 0, "recipients": []}
+        try:
+            from app.attendant.approval_link_service import AttendantApprovalLinkService
+
+            notify = AttendantApprovalLinkService(self.db).notify_ward_admins(attendant)
+        except Exception as exc:
+            logger.error(
+                "Failed to notify ward for attendant %s: %s",
+                attendant.id,
+                exc,
+            )
+
+        result = self._serialize_attendant(attendant)
+        result["wardNotified"] = bool(notify.get("emailsSent"))
+        result["wardRecipients"] = notify.get("recipients") or []
+        return result
 
     def approve_attendant(self, user: dict, attendant_id: str) -> dict:
         attendant = self.db.get(Attendant, attendant_id)
@@ -335,10 +361,45 @@ class AttendantPassService:
         )
         if not admission:
             raise not_found("Active admission")
+        return self._serialize_admission_lookup(admission)
+
+    def search_admissions_by_name(self, branch_id: str, query: str, *, limit: int = 20) -> dict:
+        term = query.strip().lower()
+        if len(term) < 2:
+            return {"items": []}
+
+        pattern = f"%{term}%"
+        rows = (
+            self.db.query(Admission)
+            .join(Patient, Patient.id == Admission.patientId)
+            .options(joinedload(Admission.patient))
+            .filter(
+                Admission.branchId == branch_id,
+                Admission.status == "ACTIVE",
+                Patient.isActive.is_(True),
+                (
+                    func.lower(Patient.firstName).like(pattern)
+                    | func.lower(Patient.lastName).like(pattern)
+                    | func.lower(Patient.firstName + " " + Patient.lastName).like(pattern)
+                ),
+            )
+            .order_by(Admission.admittedAt.desc())
+            .limit(limit)
+            .all()
+        )
+        return {"items": [self._serialize_admission_lookup(a) for a in rows]}
+
+    def _serialize_admission_lookup(self, admission: Admission) -> dict:
+        patient = admission.patient
+        if not patient:
+            patient = self.db.get(Patient, admission.patientId)
         active_pass = self._active_pass_for_admission(admission.id)
         return {
             "admissionId": admission.id,
-            "patientFirstName": patient.firstName,
+            "patientFirstName": patient.firstName if patient else "",
+            "patientLastName": patient.lastName if patient else "",
+            "patientName": f"{patient.firstName} {patient.lastName}".strip() if patient else "Patient",
+            "mrn": patient.mrn if patient else "",
             "wardName": admission.wardName,
             "roomNumber": admission.roomNumber,
             "hasActivePass": active_pass is not None,
@@ -440,3 +501,22 @@ class AttendantPassService:
             data["qrSignature"] = pass_row.qrSignature
             data["attendant"] = self._serialize_attendant(attendant) if attendant else None
         return data
+
+    def list_public_branches(self) -> list[dict]:
+        branches = (
+            self.db.query(Branch)
+            .options(joinedload(Branch.hospitalChain))
+            .order_by(Branch.name)
+            .all()
+        )
+        return [
+            {
+                "id": b.id,
+                "name": b.name,
+                "city": b.city,
+                "state": b.state,
+                "hospitalChainId": b.hospitalChainId,
+                "hospitalChainName": b.hospitalChain.name if b.hospitalChain else None,
+            }
+            for b in branches
+        ]

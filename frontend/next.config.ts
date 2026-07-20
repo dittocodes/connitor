@@ -7,7 +7,7 @@ const frontendRoot = path.dirname(fileURLToPath(import.meta.url));
 const backendProxyTarget = (
   process.env.BACKEND_PROXY_URL ??
   process.env.NEXT_PUBLIC_BACKEND_API_URL ??
-  'http://127.0.0.1:8001'
+  'http://127.0.0.1:8002'
 ).replace(/\/$/, '');
 
 const nextConfig: NextConfig = {

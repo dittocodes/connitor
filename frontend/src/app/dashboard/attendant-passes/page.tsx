@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { AttendantPassBranchLinks } from '@/features/attendant-passes/AttendantPassBranchLinks';
 
 type Tab = 'admissions' | 'attendants' | 'passes';
 
@@ -180,24 +181,13 @@ export default function AttendantPassesPage(): React.ReactElement {
     }
   };
 
-  const applyUrl =
-    typeof window !== 'undefined' && branchId
-      ? `${window.location.origin}/attendant-pass/apply?branchId=${branchId}`
-      : '';
-
   return (
     <div className="p-6 space-y-4 max-w-4xl">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">Attendant Passes</h1>
-        {applyUrl && (
-          <p className="text-xs text-muted-foreground max-w-md">
-            Public apply link:{' '}
-            <a className="underline text-teal-700 break-all" href={applyUrl}>
-              {applyUrl}
-            </a>
-          </p>
-        )}
       </div>
+
+      <AttendantPassBranchLinks branchId={branchId ?? null} />
 
       <div className="flex gap-2 text-sm">
         {(['admissions', 'attendants', 'passes'] as Tab[]).map((t) => (
