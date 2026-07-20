@@ -319,6 +319,33 @@ class InboundDeliveryService:
             "expiresAt": delivery.qrCode.expiresAt.isoformat(),
         }
 
+    def _gate_timing_fields(self, delivery_id: str) -> dict:
+        from app.models.delivery_entities import DeliveryGateEntry, DeliveryGateExit
+
+        entry = (
+            self.db.query(DeliveryGateEntry)
+            .filter(DeliveryGateEntry.deliveryId == delivery_id)
+            .order_by(DeliveryGateEntry.entryTime.asc())
+            .first()
+        )
+        exit_row = (
+            self.db.query(DeliveryGateExit)
+            .filter(DeliveryGateExit.deliveryId == delivery_id)
+            .order_by(DeliveryGateExit.exitTime.desc())
+            .first()
+        )
+        entry_time = entry.entryTime if entry else None
+        exit_time = exit_row.exitTime if exit_row else None
+        duration_minutes = None
+        if entry_time and exit_time:
+            duration_minutes = max(0, int((exit_time - entry_time).total_seconds() // 60))
+        return {
+            "entryTime": entry_time.isoformat() if entry_time else None,
+            "exitTime": exit_time.isoformat() if exit_time else None,
+            "durationMinutes": duration_minutes,
+            "gatePassNumber": entry.passNumber if entry else None,
+        }
+
     def _serialize_dashboard(self, d: InboundDelivery) -> dict:
         branch = self.db.get(Branch, d.branchId)
         vendor = self.db.get(Distributor, d.vendorId)
@@ -437,6 +464,7 @@ class InboundDeliveryService:
                     "totalBoxes": d.totalBoxes,
                     "remarks": d.remarks,
                     "expectedArrivalTime": d.expectedArrivalTime.isoformat() if d.expectedArrivalTime else None,
+                    "actualArrivalTime": d.actualArrivalTime.isoformat() if d.actualArrivalTime else None,
                     "walletFee": float(d.walletFee or 0),
                     "items": [
                         {
@@ -454,6 +482,7 @@ class InboundDeliveryService:
                     "agentPhone": agent.phone if agent else None,
                     "vehicleNumber": vehicle.registrationNumber if vehicle else None,
                     "branchName": branch.name if branch else None,
+                    **self._gate_timing_fields(d.id),
                 }
             )
         return base

@@ -54,7 +54,13 @@ function PatientSummary({
         {lookup.wardName ? lookup.wardName : 'Ward not listed'}
         {lookup.roomNumber ? ` · Room ${lookup.roomNumber}` : ''}
       </p>
-      {lookup.hasActivePass && (
+      {lookup.hasAttendantInside && (
+        <p className="mt-2 text-red-800 font-medium">
+          An attendant is currently inside with this patient. They must check out at security
+          before another person can apply.
+        </p>
+      )}
+      {!lookup.hasAttendantInside && lookup.hasActivePass && (
         <p className="mt-2 text-amber-800">
           Another visitor currently holds the active pass. Ward staff must revoke it before yours
           can be issued.
@@ -156,6 +162,12 @@ function ApplyForm(): React.ReactElement {
       toast.error('Fill all required fields');
       return;
     }
+    if (lookup.hasAttendantInside) {
+      toast.error(
+        'An attendant is currently inside for this patient. They must check out first.',
+      );
+      return;
+    }
     setLoading(true);
     try {
       await AttendantPassService.publicApply({
@@ -166,8 +178,12 @@ function ApplyForm(): React.ReactElement {
         relationship: relationship.trim() || undefined,
       });
       setDone(true);
-    } catch {
-      toast.error('Could not submit request');
+    } catch (e: unknown) {
+      const detail =
+        typeof e === 'object' && e && 'response' in e
+          ? String((e as { response?: { data?: { detail?: string } } }).response?.data?.detail ?? '')
+          : '';
+      toast.error(detail || 'Could not submit request');
     } finally {
       setLoading(false);
     }
@@ -381,7 +397,11 @@ function ApplyForm(): React.ReactElement {
               />
             </div>
             <div className="sm:col-span-2">
-              <Button disabled={loading} className="w-full sm:w-auto" onClick={() => void submit()}>
+              <Button
+                disabled={loading || Boolean(lookup?.hasAttendantInside)}
+                className="w-full sm:w-auto"
+                onClick={() => void submit()}
+              >
                 Submit request
               </Button>
             </div>

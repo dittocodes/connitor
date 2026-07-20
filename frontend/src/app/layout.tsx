@@ -24,7 +24,8 @@ export const metadata: Metadata = {
   title: 'Connitor — Hospital Visitor Tracking',
   description: 'Pre-register, book appointments, and track hospital visits with Connitor.',
   icons: {
-    icon: '/favicon.png',
+    icon: [{ url: '/favicon.png', type: 'image/png' }],
+    shortcut: '/favicon.png',
   },
 };
 

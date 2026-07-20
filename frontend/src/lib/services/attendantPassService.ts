@@ -16,6 +16,7 @@ export interface AttendantAdmission {
   bedNumber?: string | null;
   branchId: string;
   hasActivePass?: boolean;
+  hasAttendantInside?: boolean;
   activePassId?: string | null;
   patient?: AttendantPatient | null;
 }
@@ -38,6 +39,10 @@ export interface AttendantPassRow {
   attendantId: string;
   validTo?: string | null;
   expiresAt?: string | null;
+  enteredAt?: string | null;
+  exitedAt?: string | null;
+  durationMinutes?: number | null;
+  isInside?: boolean;
   attendant?: AttendantRow | null;
 }
 
@@ -59,6 +64,7 @@ export interface AttendantAdmissionLookup {
   wardName?: string | null;
   roomNumber?: string | null;
   hasActivePass: boolean;
+  hasAttendantInside?: boolean;
   branchId: string;
 }
 

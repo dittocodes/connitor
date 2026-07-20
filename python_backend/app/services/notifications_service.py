@@ -838,8 +838,106 @@ class NotificationsService:
 
         self.db.commit()
 
+    def notify_on_delivery_exit(self, delivery) -> None:
+        from app.models.delivery_entities import DeliveryAgent, DeliveryVehicle, Distributor
+        from app.email_templates import build_delivery_exit_email
+
+        branch = self.db.get(Branch, delivery.branchId)
+        vendor = self.db.get(Distributor, delivery.vendorId)
+        agent = self.db.get(DeliveryAgent, delivery.agentId)
+        vehicle = self.db.get(DeliveryVehicle, delivery.vehicleId)
+
+        from app.models.delivery_entities import DeliveryGateEntry, DeliveryGateExit
+
+        entry = (
+            self.db.query(DeliveryGateEntry)
+            .filter(DeliveryGateEntry.deliveryId == delivery.id)
+            .order_by(DeliveryGateEntry.entryTime.asc())
+            .first()
+        )
+        exit_row = (
+            self.db.query(DeliveryGateExit)
+            .filter(DeliveryGateExit.deliveryId == delivery.id)
+            .order_by(DeliveryGateExit.exitTime.desc())
+            .first()
+        )
+        entry_time = entry.entryTime if entry else delivery.actualArrivalTime
+        exit_time = exit_row.exitTime if exit_row else now_ist()
+        duration_minutes = None
+        if entry_time and exit_time:
+            duration_minutes = max(0, int((exit_time - entry_time).total_seconds() // 60))
+
+        vendor_name = vendor.vendorName if vendor else "Distributor"
+        driver_name = agent.name if agent else "Driver"
+        vehicle_no = vehicle.registrationNumber if vehicle else "—"
+        branch_name = branch.name if branch else "Hospital"
+        goods = delivery.goodsType or "Goods"
+        boxes = delivery.totalBoxes or 0
+        entry_label = format_ist_datetime(entry_time) if entry_time else "—"
+        exit_label = format_ist_datetime(exit_time) if exit_time else "—"
+
+        message = (
+            f"Delivery {delivery.deliveryNumber} exited. "
+            f"{vendor_name} / {driver_name} / {vehicle_no}. "
+            f"Inside {duration_minutes if duration_minutes is not None else '—'} min "
+            f"({entry_label} → {exit_label})."
+        )
+        subject = f"Delivery completed — {delivery.deliveryNumber}"
+
+        notify_users: list[User] = []
+        for security in self._security_users(delivery.branchId):
+            self._add_system_notification(security.id, message)
+            notify_users.append(security)
+        for receiving in self._receiving_users(delivery.branchId):
+            self._add_system_notification(receiving.id, message)
+            notify_users.append(receiving)
+        self._email_users(notify_users, subject, message)
+
+        email_targets: list[tuple[str, str]] = []
+        if vendor and vendor.email:
+            email_targets.append((vendor.email, vendor.vendorName or "Distributor"))
+        if agent and agent.email:
+            email_targets.append((agent.email, agent.name or "Driver"))
+
+        settings = get_settings()
+        for to_email, recipient_name in email_targets:
+            try:
+                subj, text_body, html_body = build_delivery_exit_email(
+                    recipient_name=recipient_name,
+                    delivery_number=delivery.deliveryNumber,
+                    vendor_name=vendor_name,
+                    driver_name=driver_name,
+                    vehicle_number=vehicle_no,
+                    goods_type=goods,
+                    total_boxes=boxes,
+                    hospital_name=branch_name,
+                    entry_label=entry_label,
+                    exit_label=exit_label,
+                    duration_minutes=duration_minutes,
+                    company_name=settings.email_from_name,
+                    product_name=settings.email_product_name,
+                )
+                self.email._deliver_email(
+                    to_email, subj, text_body, html_body, context="delivery exit"
+                )
+            except Exception as exc:
+                logger.error("Failed delivery exit email to %s: %s", to_email, exc)
+
+        self.db.commit()
+
     def _add_system_notification(self, recipient_id: str, message: str) -> None:
         self.db.add(Notification(recipientId=recipient_id, visitId=None, message=message))
+
+    def _receiving_users(self, branch_id: str) -> list[User]:
+        return (
+            self.db.query(User)
+            .filter(
+                User.branchId == branch_id,
+                User.role == Role.RECEIVING.value,
+                User.isActive == True,  # noqa: E712
+            )
+            .all()
+        )
 
     def _hospital_admins_for_branch(self, branch_id: str) -> list[User]:
         return (

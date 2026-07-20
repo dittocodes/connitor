@@ -1001,3 +1001,139 @@ def build_ward_attendant_approval_request_email(
 </html>"""
 
     return subject, text_body, html_body
+
+
+def build_delivery_exit_email(
+    *,
+    recipient_name: str,
+    delivery_number: str,
+    vendor_name: str,
+    driver_name: str,
+    vehicle_number: str,
+    goods_type: str,
+    total_boxes: int,
+    hospital_name: str,
+    entry_label: str,
+    exit_label: str,
+    duration_minutes: int | None,
+    company_name: str = "Connitor",
+    product_name: str = "Hospital Visitor Tracking System",
+) -> tuple[str, str, str]:
+    """Completion summary after driver exits the hospital gate."""
+    duration_label = (
+        f"{duration_minutes} minutes" if duration_minutes is not None else "—"
+    )
+    subject = f"{company_name} — Delivery completed — {delivery_number}"
+    text_body = (
+        f"{company_name}\n{product_name}\n\n"
+        f"Hello {recipient_name},\n\n"
+        f"Delivery {delivery_number} has exited the hospital gate.\n\n"
+        f"Hospital: {hospital_name}\n"
+        f"Distributor: {vendor_name}\n"
+        f"Driver: {driver_name}\n"
+        f"Vehicle: {vehicle_number}\n"
+        f"Goods: {goods_type} ({total_boxes} boxes)\n"
+        f"Entry: {entry_label}\n"
+        f"Exit: {exit_label}\n"
+        f"Time inside: {duration_label}\n\n"
+        f"— {company_name}"
+    )
+    html_body = f"""<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8" /><title>{escape(subject)}</title></head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f1f5f9;padding:24px 12px;">
+    <tr><td align="center">
+      <table role="presentation" width="560" cellspacing="0" cellpadding="0" style="background:#ffffff;border-radius:12px;overflow:hidden;">
+        <tr><td style="background:#0d9488;padding:20px 24px;color:#ffffff;">
+          <p style="margin:0;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;opacity:0.9;">{escape(company_name)}</p>
+          <h1 style="margin:6px 0 0;font-size:20px;">Delivery completed</h1>
+        </td></tr>
+        <tr><td style="padding:24px;">
+          <p style="margin:0 0 16px;">Hello {escape(recipient_name)},</p>
+          <p style="margin:0 0 16px;color:#475569;">
+            Delivery <strong>{escape(delivery_number)}</strong> has exited the hospital gate.
+          </p>
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 16px;font-size:14px;">
+            <tr><td style="padding:8px 0;color:#64748b;">Hospital</td><td style="padding:8px 0;text-align:right;">{escape(hospital_name)}</td></tr>
+            <tr><td style="padding:8px 0;color:#64748b;">Distributor</td><td style="padding:8px 0;text-align:right;">{escape(vendor_name)}</td></tr>
+            <tr><td style="padding:8px 0;color:#64748b;">Driver</td><td style="padding:8px 0;text-align:right;">{escape(driver_name)}</td></tr>
+            <tr><td style="padding:8px 0;color:#64748b;">Vehicle</td><td style="padding:8px 0;text-align:right;">{escape(vehicle_number)}</td></tr>
+            <tr><td style="padding:8px 0;color:#64748b;">Goods</td><td style="padding:8px 0;text-align:right;">{escape(goods_type)} ({total_boxes} boxes)</td></tr>
+            <tr><td style="padding:8px 0;color:#64748b;">Entry</td><td style="padding:8px 0;text-align:right;">{escape(entry_label)}</td></tr>
+            <tr><td style="padding:8px 0;color:#64748b;">Exit</td><td style="padding:8px 0;text-align:right;">{escape(exit_label)}</td></tr>
+            <tr><td style="padding:8px 0;color:#64748b;">Time inside</td><td style="padding:8px 0;text-align:right;font-weight:700;">{escape(duration_label)}</td></tr>
+          </table>
+          <p style="margin:0;font-size:12px;color:#94a3b8;">— {escape(company_name)}</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>"""
+    return subject, text_body, html_body
+
+
+def build_attendant_visit_exit_email(
+    *,
+    recipient_name: str,
+    attendant_name: str,
+    patient_name: str,
+    mrn: str,
+    pass_number: str,
+    ward_name: str | None,
+    room_number: str | None,
+    hospital_name: str,
+    entry_label: str,
+    exit_label: str,
+    duration_minutes: int | None,
+    company_name: str = "Connitor",
+    product_name: str = "Hospital Visitor Tracking System",
+) -> tuple[str, str, str]:
+    """Summary email when an attendant checks out at security."""
+    duration_label = (
+        f"{duration_minutes} minutes" if duration_minutes is not None else "—"
+    )
+    location = " / ".join(p for p in (ward_name, room_number) if p) or "—"
+    subject = f"{company_name} — Attendant visit completed — {pass_number}"
+    text_body = (
+        f"{company_name}\n{product_name}\n\n"
+        f"Hello {recipient_name},\n\n"
+        f"Attendant {attendant_name} has checked out of {hospital_name}.\n\n"
+        f"Pass: {pass_number}\n"
+        f"Patient: {patient_name} (MRN {mrn})\n"
+        f"Location: {location}\n"
+        f"Entry: {entry_label}\n"
+        f"Exit: {exit_label}\n"
+        f"Time inside: {duration_label}\n\n"
+        f"— {company_name}"
+    )
+    html_body = f"""<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8" /><title>{escape(subject)}</title></head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f1f5f9;padding:24px 12px;">
+    <tr><td align="center">
+      <table role="presentation" width="560" cellspacing="0" cellpadding="0" style="background:#ffffff;border-radius:12px;overflow:hidden;">
+        <tr><td style="background:#0f766e;padding:20px 24px;color:#ffffff;">
+          <p style="margin:0;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;opacity:0.9;">{escape(company_name)}</p>
+          <h1 style="margin:6px 0 0;font-size:20px;">Attendant visit completed</h1>
+        </td></tr>
+        <tr><td style="padding:24px;">
+          <p style="margin:0 0 16px;">Hello {escape(recipient_name)},</p>
+          <p style="margin:0 0 16px;color:#475569;">
+            <strong>{escape(attendant_name)}</strong> has checked out at security.
+          </p>
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 16px;font-size:14px;">
+            <tr><td style="padding:8px 0;color:#64748b;">Pass</td><td style="padding:8px 0;text-align:right;">{escape(pass_number)}</td></tr>
+            <tr><td style="padding:8px 0;color:#64748b;">Patient</td><td style="padding:8px 0;text-align:right;">{escape(patient_name)} (MRN {escape(mrn)})</td></tr>
+            <tr><td style="padding:8px 0;color:#64748b;">Location</td><td style="padding:8px 0;text-align:right;">{escape(location)}</td></tr>
+            <tr><td style="padding:8px 0;color:#64748b;">Hospital</td><td style="padding:8px 0;text-align:right;">{escape(hospital_name)}</td></tr>
+            <tr><td style="padding:8px 0;color:#64748b;">Entry</td><td style="padding:8px 0;text-align:right;">{escape(entry_label)}</td></tr>
+            <tr><td style="padding:8px 0;color:#64748b;">Exit</td><td style="padding:8px 0;text-align:right;">{escape(exit_label)}</td></tr>
+            <tr><td style="padding:8px 0;color:#64748b;">Time inside</td><td style="padding:8px 0;text-align:right;font-weight:700;">{escape(duration_label)}</td></tr>
+          </table>
+          <p style="margin:0;font-size:12px;color:#94a3b8;">— {escape(company_name)}</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>"""
+    return subject, text_body, html_body

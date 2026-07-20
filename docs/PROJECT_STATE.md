@@ -19,6 +19,7 @@
 | **Dept Hierarchy**        | 🟢 Live        | Developer | Spec: `docs/features/department-hierarchy/` |
 | **Hospital Admin Role**   | 🟢 Live        | Agent     | `docs/features/hospital-admin/` |
 | **Delivery Management**   | 🟢 Live        | Agent     | Full suite redesign: distributor portal, hospital ops, receiving board, security gate (`frontend/src/features/delivery-management/`) |
+| **Gate exit + duration**  | 🟢 Live        | Agent     | Same-QR exit for deliveries (after GRN) and attendants; duration emails; one-inside booking block |
 | **Rule/UI alignment**     | 🟢 Done        | Agent     | Delivery status transitions + exit-after-GRN; attendant expired ACTIVE + branch scan + honest email toast; El City demo portals |
 | **F-005** Visitor Mgmt    | 🏗 In Progress | Developer | Spec: `docs/specs/F-005-visitor-mgmt`    |
 | **Visitor Pre-Registration** | 🟢 Live     | Agent     | `docs/features/visitor-pre-registration/` |

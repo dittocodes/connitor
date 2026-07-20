@@ -68,6 +68,18 @@ export default function HospitalDeliveryDetailPage(): React.ReactElement {
               <span className="text-muted-foreground">Branch:</span>{' '}
               {String(delivery.branchName ?? '—')}
             </p>
+            <p>
+              <span className="text-muted-foreground">Gate entry:</span>{' '}
+              {delivery.entryTime ? formatIstDateTime(String(delivery.entryTime)) : '—'}
+            </p>
+            <p>
+              <span className="text-muted-foreground">Gate exit:</span>{' '}
+              {delivery.exitTime ? formatIstDateTime(String(delivery.exitTime)) : '—'}
+            </p>
+            <p>
+              <span className="text-muted-foreground">Time inside:</span>{' '}
+              {delivery.durationMinutes != null ? `${String(delivery.durationMinutes)} min` : '—'}
+            </p>
           </CardContent>
         </Card>
       )}

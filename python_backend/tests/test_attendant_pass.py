@@ -299,3 +299,88 @@ def test_search_admissions_by_name(db):
     assert len(rows["items"]) == 1
     assert rows["items"][0]["patientFirstName"] == "Ravi"
     assert rows["items"][0]["mrn"] == "MRN-100"
+
+
+@pytest.mark.asyncio
+async def test_entry_exit_duration_and_inside_block(db):
+    branch = db.query(Branch).first()
+    admission = _seed_admission(db, branch.id)
+    svc = AttendantPassService(db)
+    user = _ward_user(branch.id)
+    security = {"id": str(uuid.uuid4()), "role": "SECURITY", "branchId": branch.id}
+
+    att = svc.register_attendant(
+        user,
+        {
+            "admissionId": admission.id,
+            "name": "Inside Visitor",
+            "email": "inside@example.com",
+            "phone": "9777777777",
+        },
+    )
+    svc.approve_attendant(user, att["id"])
+    with patch.object(EmailService, "send_attendant_pass_email"):
+        issued = svc.issue_pass(user, att["id"])
+    pass_row = db.get(AttendantPass, issued["id"])
+
+    upload = UploadFile(
+        filename="id.jpg",
+        file=BytesIO(b"\xff\xd8\xff"),
+        headers={"content-type": "image/jpeg"},
+    )
+    with patch.object(svc.gcp, "upload_visitor_document", new_callable=AsyncMock) as up:
+        up.return_value = "local://id.jpg"
+        entry = await svc.scan_pass(
+            security,
+            qr_payload=pass_row.qrPayload,
+            signature=pass_row.qrSignature,
+            govt_id_file=upload,
+            scan_type="ENTRY",
+        )
+    assert entry["scanType"] == "ENTRY"
+    assert entry["isInside"] is True
+    assert entry["enteredAt"] is not None
+
+    lookup = svc.lookup_admission_by_mrn(branch.id, "MRN-100")
+    assert lookup["hasAttendantInside"] is True
+
+    with pytest.raises(Exception) as blocked:
+        svc.public_apply(
+            {
+                "admissionId": admission.id,
+                "name": "Second Person",
+                "email": "second@example.com",
+                "phone": "9888888888",
+            }
+        )
+    assert "currently inside" in str(blocked.value.detail).lower()
+
+    with patch.object(svc, "_notify_visit_exit"):
+        exit_result = await svc.scan_pass(
+            security,
+            qr_payload=pass_row.qrPayload,
+            signature=pass_row.qrSignature,
+            govt_id_file=None,
+            scan_type="EXIT",
+        )
+    assert exit_result["scanType"] == "EXIT"
+    assert exit_result["isInside"] is False
+    assert exit_result["durationMinutes"] is not None
+    assert exit_result["durationMinutes"] >= 0
+
+    lookup2 = svc.lookup_admission_by_mrn(branch.id, "MRN-100")
+    assert lookup2["hasAttendantInside"] is False
+
+    with patch(
+        "app.attendant.approval_link_service.AttendantApprovalLinkService.notify_ward_admins"
+    ) as notify:
+        notify.return_value = {"emailsSent": 0, "recipients": []}
+        again = svc.public_apply(
+            {
+                "admissionId": admission.id,
+                "name": "Second Person",
+                "email": "second@example.com",
+                "phone": "9888888888",
+            }
+        )
+    assert again["status"] == "PENDING"

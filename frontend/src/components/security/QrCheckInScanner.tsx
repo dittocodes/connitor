@@ -10,6 +10,11 @@ type Props = {
   onScan: (payload: string) => void | Promise<void>;
   disabled?: boolean;
   className?: string;
+  /** Unique DOM id when multiple scanners exist on one page */
+  readerId?: string;
+  hint?: string;
+  buttonLabel?: string;
+  permissionErrorHint?: string;
 };
 
 /** Wait for React to paint the reader element before html5-qrcode measures it. */
@@ -21,7 +26,17 @@ function waitForLayout(): Promise<void> {
   });
 }
 
-export function QrCheckInScanner({ onScan, disabled = false, className }: Props) {
+export function QrCheckInScanner({
+  onScan,
+  disabled = false,
+  className,
+  readerId,
+  hint = 'Ask the visitor to show the QR code from their approval email or visitor portal.',
+  buttonLabel = 'Scan QR Code',
+  permissionErrorHint = 'Could not access camera. Allow camera permission or paste the QR manually.',
+}: Props) {
+  const reactId = React.useId().replace(/:/g, '');
+  const elementId = readerId ?? `qr-reader-${reactId}`;
   const [error, setError] = React.useState<string | null>(null);
   const [starting, setStarting] = React.useState(false);
   const [active, setActive] = React.useState(false);
@@ -68,7 +83,7 @@ export function QrCheckInScanner({ onScan, disabled = false, className }: Props)
         if (cancelled) return;
 
         const { Html5Qrcode } = await import('html5-qrcode');
-        const scanner = new Html5Qrcode('security-qr-reader');
+        const scanner = new Html5Qrcode(elementId);
         scannerRef.current = scanner;
 
         await scanner.start(
@@ -90,7 +105,7 @@ export function QrCheckInScanner({ onScan, disabled = false, className }: Props)
         }
       } catch {
         if (!cancelled) {
-          setError('Could not access camera. Allow camera permission or use OTP entry instead.');
+          setError(permissionErrorHint);
         }
         await stopScanner();
       } finally {
@@ -103,7 +118,7 @@ export function QrCheckInScanner({ onScan, disabled = false, className }: Props)
     return () => {
       cancelled = true;
     };
-  }, [shouldStart, stopScanner]);
+  }, [shouldStart, stopScanner, elementId, permissionErrorHint]);
 
   const requestStart = () => {
     if (disabled || active || starting || shouldStart) return;
@@ -115,7 +130,7 @@ export function QrCheckInScanner({ onScan, disabled = false, className }: Props)
       {showReader && (
         <div className="relative mx-auto w-full max-w-sm">
           <div
-            id="security-qr-reader"
+            id={elementId}
             className={cn(
               'min-h-[300px] w-full overflow-hidden rounded-lg border border-gray-200 bg-black',
               '[&_video]:!block [&_video]:!h-full [&_video]:!max-h-[360px] [&_video]:!w-full [&_video]:object-cover',
@@ -134,9 +149,7 @@ export function QrCheckInScanner({ onScan, disabled = false, className }: Props)
       {!showReader && (
         <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center">
           <Camera className="mx-auto h-10 w-10 text-gray-400" />
-          <p className="mt-3 text-sm text-gray-600">
-            Ask the visitor to show the QR code from their approval email or visitor portal.
-          </p>
+          <p className="mt-3 text-sm text-gray-600">{hint}</p>
           <Button
             type="button"
             className="mt-4 bg-emerald-600 hover:bg-emerald-700"
@@ -144,7 +157,7 @@ export function QrCheckInScanner({ onScan, disabled = false, className }: Props)
             disabled={disabled}
           >
             <Camera className="mr-2 h-4 w-4" />
-            Scan QR Code
+            {buttonLabel}
           </Button>
         </div>
       )}
@@ -163,4 +176,19 @@ export function QrCheckInScanner({ onScan, disabled = false, className }: Props)
       )}
     </div>
   );
+}
+
+/** Parse emailed QR JSON or raw payload string into qrPayload + signature. */
+export function parseQrScanText(raw: string): { qrPayload: string; signature: string } | null {
+  const text = raw.trim();
+  if (!text) return null;
+  try {
+    const parsed = JSON.parse(text) as { qrPayload?: string; signature?: string };
+    if (parsed.qrPayload && parsed.signature) {
+      return { qrPayload: parsed.qrPayload, signature: parsed.signature };
+    }
+  } catch {
+    // not JSON
+  }
+  return null;
 }

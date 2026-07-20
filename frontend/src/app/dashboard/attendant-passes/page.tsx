@@ -382,11 +382,19 @@ export default function AttendantPassesPage(): React.ReactElement {
                 <div>
                   <p className="font-medium">
                     {p.passNumber} — {p.status}
+                    {p.isInside ? ' · Inside' : p.exitedAt ? ' · Checked out' : ''}
                   </p>
                   <p className="text-muted-foreground">
                     {p.attendant?.name} ({p.attendant?.email}) · Patient{' '}
                     {p.attendant?.admission?.patient?.name ?? '—'}
                   </p>
+                  {(p.enteredAt || p.exitedAt || p.durationMinutes != null) && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {p.enteredAt ? `In ${p.enteredAt}` : ''}
+                      {p.exitedAt ? ` · Out ${p.exitedAt}` : ''}
+                      {p.durationMinutes != null ? ` · ${p.durationMinutes} min` : ''}
+                    </p>
+                  )}
                 </div>
                 {p.status === 'ACTIVE' && (
                   <Button size="sm" variant="outline" onClick={() => void revoke(p.id)}>

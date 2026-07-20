@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import logging
 
 from sqlalchemy.orm import Session
 
@@ -22,11 +23,53 @@ from app.models.delivery_entities import (
 from app.models.enums import DeliveryStatus
 from app.utils.timezone import now_ist
 
+logger = logging.getLogger(__name__)
+
 
 class DeliveryGateService:
     def __init__(self, db: Session) -> None:
         self.db = db
         self.delivery_svc = InboundDeliveryService(db)
+
+    def _gate_timing(self, delivery_id: str) -> dict:
+        entry = (
+            self.db.query(DeliveryGateEntry)
+            .filter(DeliveryGateEntry.deliveryId == delivery_id)
+            .order_by(DeliveryGateEntry.entryTime.asc())
+            .first()
+        )
+        exit_row = (
+            self.db.query(DeliveryGateExit)
+            .filter(DeliveryGateExit.deliveryId == delivery_id)
+            .order_by(DeliveryGateExit.exitTime.desc())
+            .first()
+        )
+        entry_time = entry.entryTime if entry else None
+        exit_time = exit_row.exitTime if exit_row else None
+        duration_minutes = None
+        if entry_time and exit_time:
+            duration_minutes = max(0, int((exit_time - entry_time).total_seconds() // 60))
+        return {
+            "entryTime": entry_time.isoformat() if entry_time else None,
+            "exitTime": exit_time.isoformat() if exit_time else None,
+            "durationMinutes": duration_minutes,
+            "passNumber": entry.passNumber if entry else None,
+        }
+
+    def _suggested_action(self, status: str) -> tuple[str, str]:
+        if status in (DeliveryStatus.SCHEDULED.value, DeliveryStatus.APPROVED.value):
+            return "ALLOW_ENTRY", "QR valid — allow vehicle entry."
+        if status == DeliveryStatus.RECEIVED.value:
+            return "MARK_EXIT", "Delivery received — scan confirms gate exit."
+        if status in (
+            DeliveryStatus.ARRIVED_AT_GATE.value,
+            DeliveryStatus.GATE_VERIFIED.value,
+            DeliveryStatus.IN_PROGRESS.value,
+        ):
+            return "INFO", "Vehicle is inside — finish receiving/GRN before exit scan."
+        if status in (DeliveryStatus.EXITED.value, DeliveryStatus.CLOSED.value):
+            return "INFO", "Delivery already exited."
+        return "INFO", f"No gate action for status {status}."
 
     def allow_entry(self, user: dict, delivery_id: str, gate_id: str | None = None) -> dict:
         delivery = self.db.get(InboundDelivery, delivery_id)
@@ -51,7 +94,13 @@ class DeliveryGateService:
         self.delivery_svc.transition_status(
             delivery.id, user, DeliveryStatus.ARRIVED_AT_GATE.value, "Gate entry allowed"
         )
-        return {"passNumber": pass_number, "deliveryId": delivery.id}
+        timing = self._gate_timing(delivery.id)
+        return {
+            "passNumber": pass_number,
+            "deliveryId": delivery.id,
+            "entryTime": timing["entryTime"],
+            "status": DeliveryStatus.ARRIVED_AT_GATE.value,
+        }
 
     def mark_exit(self, user: dict, delivery_id: str) -> dict:
         delivery = self.db.get(InboundDelivery, delivery_id)
@@ -61,18 +110,35 @@ class DeliveryGateService:
             raise bad_request(
                 f"Mark exit only after GRN (RECEIVED). Current status: {delivery.status}"
             )
+        exit_time = now_ist()
         self.db.add(
             DeliveryGateExit(
                 deliveryId=delivery.id,
                 markedById=user["id"],
+                exitTime=exit_time,
             )
         )
         updated = self.delivery_svc.transition_status(
             delivery.id, user, DeliveryStatus.EXITED.value, "Exited gate"
         )
-        return {"deliveryId": delivery.id, "status": updated.get("status", DeliveryStatus.EXITED.value)}
+        timing = self._gate_timing(delivery.id)
+        try:
+            from app.services.notifications_service import NotificationsService
 
-    def scan_qr(self, user: dict, qr_payload: str, signature: str) -> dict:
+            NotificationsService(self.db).notify_on_delivery_exit(delivery)
+        except Exception as exc:
+            logger.error("Failed delivery exit notifications for %s: %s", delivery.id, exc)
+
+        return {
+            "deliveryId": delivery.id,
+            "status": updated.get("status", DeliveryStatus.EXITED.value),
+            "entryTime": timing["entryTime"],
+            "exitTime": timing["exitTime"],
+            "durationMinutes": timing["durationMinutes"],
+            "delivery": updated,
+        }
+
+    def _validate_qr(self, user: dict, qr_payload: str, signature: str) -> InboundDelivery:
         secret = get_settings().jwt_secret
         expected = hmac.new(secret.encode(), qr_payload.encode(), hashlib.sha256).hexdigest()
         if not hmac.compare_digest(expected, signature):
@@ -91,6 +157,10 @@ class DeliveryGateService:
         user_branch = user.get("branchId")
         if user_branch and delivery.branchId != user_branch and user.get("role") != "SUPER_ADMIN":
             raise bad_request("Delivery belongs to another branch")
+        return delivery
+
+    def scan_qr(self, user: dict, qr_payload: str, signature: str) -> dict:
+        delivery = self._validate_qr(user, qr_payload, signature)
 
         self.db.add(
             DeliverySecurityScan(
@@ -100,10 +170,65 @@ class DeliveryGateService:
             )
         )
         self.db.commit()
+        self.db.refresh(delivery)
+
+        action, message = self._suggested_action(delivery.status)
+        payload = self.delivery_svc._serialize_dashboard(delivery)
         return {
             "valid": True,
-            "delivery": self.delivery_svc._serialize_dashboard(delivery),
+            "suggestedAction": action,
+            "message": message,
+            "delivery": payload,
         }
+
+    def process_scanned_qr(
+        self,
+        user: dict,
+        qr_payload: str,
+        signature: str,
+        *,
+        auto_exit: bool = True,
+        gate_id: str | None = None,
+    ) -> dict:
+        """Validate QR; optionally complete exit when status is RECEIVED."""
+        delivery = self._validate_qr(user, qr_payload, signature)
+        self.db.add(
+            DeliverySecurityScan(
+                deliveryId=delivery.id,
+                scannedById=user["id"],
+                scanResult="VALID",
+            )
+        )
+        self.db.flush()
+
+        action, message = self._suggested_action(delivery.status)
+        result: dict = {
+            "valid": True,
+            "suggestedAction": action,
+            "message": message,
+        }
+
+        if auto_exit and delivery.status == DeliveryStatus.RECEIVED.value:
+            exit_result = self.mark_exit(user, delivery.id)
+            result.update(
+                {
+                    "actionTaken": "MARK_EXIT",
+                    "entryTime": exit_result.get("entryTime"),
+                    "exitTime": exit_result.get("exitTime"),
+                    "durationMinutes": exit_result.get("durationMinutes"),
+                    "delivery": exit_result.get("delivery"),
+                    "status": exit_result.get("status"),
+                    "message": (
+                        f"Exit recorded. Time inside: {exit_result.get('durationMinutes') or 0} min."
+                    ),
+                }
+            )
+            return result
+
+        self.db.commit()
+        self.db.refresh(delivery)
+        result["delivery"] = self.delivery_svc._serialize_dashboard(delivery)
+        return result
 
     def register_courier(self, user: dict, data: dict) -> dict:
         log = DeliveryVisitorLog(

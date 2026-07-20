@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { DeliveryStatusBadge } from '@/features/delivery-management/ui';
 import { formatIstDateTime } from '@/lib/datetime';
+import { parseQrScanText, QrCheckInScanner } from '@/components/security/QrCheckInScanner';
 
 interface DeliveryScanTabProps {
   branchId: string;
@@ -20,9 +21,17 @@ export function DeliveryScanTab({ branchId }: DeliveryScanTabProps): React.React
   const [delivery, setDelivery] = React.useState<Record<string, unknown> | null>(null);
   const [passNumber, setPassNumber] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const [manualOpen, setManualOpen] = React.useState(false);
   const [queue, setQueue] = React.useState<{
     walkInVisits: Array<Record<string, unknown>>;
     vendorDeliveries: Array<Record<string, unknown>>;
+  } | null>(null);
+
+  const [suggestedAction, setSuggestedAction] = React.useState<string | null>(null);
+  const [gateTiming, setGateTiming] = React.useState<{
+    entryTime?: string | null;
+    exitTime?: string | null;
+    durationMinutes?: number | null;
   } | null>(null);
 
   const loadQueue = React.useCallback(async () => {
@@ -38,39 +47,84 @@ export function DeliveryScanTab({ branchId }: DeliveryScanTabProps): React.React
     void loadQueue();
   }, [loadQueue]);
 
-  const handleScan = async () => {
-    setError(null);
-    setPassNumber(null);
-    let payload = qrText.trim();
-    let sig = signature.trim();
-    try {
-      const parsed = JSON.parse(qrText) as { qrPayload?: string; signature?: string };
-      if (parsed.qrPayload && parsed.signature) {
+  const validateQr = React.useCallback(
+    async (rawText: string, rawSig = '') => {
+      setError(null);
+      setPassNumber(null);
+      setGateTiming(null);
+      let payload = rawText.trim();
+      let sig = rawSig.trim();
+      const parsed = parseQrScanText(rawText);
+      if (parsed) {
         payload = parsed.qrPayload;
         sig = parsed.signature;
       }
-    } catch {
-      // manual
-    }
-    if (!payload || !sig) {
-      setError('QR payload and signature required');
-      return;
-    }
-    try {
-      const res = await apiClient.post('/api/delivery/security/scan-qr', {
-        qrPayload: payload,
-        signature: sig,
-      });
-      setDelivery((res.data.delivery as Record<string, unknown>) ?? null);
-      toast.success('QR valid');
-      void loadQueue();
-    } catch (e: unknown) {
-      setDelivery(null);
-      const detail =
-        typeof e === 'object' && e && 'response' in e
-          ? String((e as { response?: { data?: { detail?: string } } }).response?.data?.detail ?? '')
-          : '';
-      setError(detail || 'Scan failed');
+      if (!payload || !sig) {
+        setError('QR payload and signature required');
+        setManualOpen(true);
+        return;
+      }
+      setQrText(rawText.trim());
+      setSignature(sig);
+      try {
+        const res = await apiClient.post('/api/delivery/security/process-qr', {
+          qrPayload: payload,
+          signature: sig,
+        });
+        setDelivery((res.data.delivery as Record<string, unknown>) ?? null);
+        setSuggestedAction(String(res.data.suggestedAction ?? ''));
+        if (res.data.actionTaken === 'MARK_EXIT') {
+          setGateTiming({
+            entryTime: res.data.entryTime as string | null,
+            exitTime: res.data.exitTime as string | null,
+            durationMinutes: res.data.durationMinutes as number | null,
+          });
+          toast.success(
+            typeof res.data.message === 'string'
+              ? res.data.message
+              : 'Exit recorded',
+          );
+        } else {
+          const d = res.data.delivery as Record<string, unknown> | undefined;
+          if (d) {
+            setGateTiming({
+              entryTime: (d.entryTime as string) ?? null,
+              exitTime: (d.exitTime as string) ?? null,
+              durationMinutes: (d.durationMinutes as number) ?? null,
+            });
+          }
+          toast.success(typeof res.data.message === 'string' ? res.data.message : 'QR valid');
+        }
+        void loadQueue();
+      } catch (e: unknown) {
+        setDelivery(null);
+        setSuggestedAction(null);
+        const detail =
+          typeof e === 'object' && e && 'response' in e
+            ? String(
+                (e as { response?: { data?: { detail?: string } } }).response?.data?.detail ?? '',
+              )
+            : '';
+        setError(detail || 'Scan failed');
+      }
+    },
+    [loadQueue],
+  );
+
+  const handleManualScan = async () => {
+    await validateQr(qrText, signature);
+  };
+
+  const onCameraScan = async (decoded: string) => {
+    setQrText(decoded);
+    const parsed = parseQrScanText(decoded);
+    if (parsed) {
+      setSignature(parsed.signature);
+      await validateQr(decoded);
+    } else {
+      setManualOpen(true);
+      setError('Scanned QR needs a signature — paste full JSON or enter signature below.');
+      toast.message('QR scanned — add signature if needed');
     }
   };
 
@@ -81,9 +135,7 @@ export function DeliveryScanTab({ branchId }: DeliveryScanTabProps): React.React
         `/api/delivery/security/allow-entry/${String(delivery.id)}`,
       );
       setPassNumber(String(res.data.passNumber));
-      setDelivery((prev) =>
-        prev ? { ...prev, status: 'ARRIVED_AT_GATE' } : prev,
-      );
+      setDelivery((prev) => (prev ? { ...prev, status: 'ARRIVED_AT_GATE' } : prev));
       toast.success('Entry allowed');
       void loadQueue();
     } catch (e: unknown) {
@@ -98,9 +150,23 @@ export function DeliveryScanTab({ branchId }: DeliveryScanTabProps): React.React
   const markExit = async () => {
     if (!delivery?.id) return;
     try {
-      await apiClient.post(`/api/delivery/security/mark-exit/${String(delivery.id)}`);
-      toast.success('Exit marked');
-      setDelivery(null);
+      const res = await apiClient.post(`/api/delivery/security/mark-exit/${String(delivery.id)}`);
+      setGateTiming({
+        entryTime: res.data.entryTime as string | null,
+        exitTime: res.data.exitTime as string | null,
+        durationMinutes: res.data.durationMinutes as number | null,
+      });
+      setDelivery(
+        (res.data.delivery as Record<string, unknown>) ?? {
+          ...delivery,
+          status: 'EXITED',
+        },
+      );
+      toast.success(
+        res.data.durationMinutes != null
+          ? `Exit marked — ${res.data.durationMinutes} min inside`
+          : 'Exit marked',
+      );
       setPassNumber(null);
       void loadQueue();
     } catch (e: unknown) {
@@ -118,25 +184,46 @@ export function DeliveryScanTab({ branchId }: DeliveryScanTabProps): React.React
         <CardHeader>
           <CardTitle>Scan delivery QR</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Paste the driver&apos;s emailed QR JSON, validate, then allow entry or mark exit.
+            Point the camera at the driver&apos;s emailed QR, then allow entry or mark exit.
           </p>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <div>
-            <Label>QR JSON or payload</Label>
-            <Input
-              placeholder='{"qrPayload":"...","signature":"..."}'
-              value={qrText}
-              onChange={(e) => setQrText(e.target.value)}
-            />
-          </div>
-          <div>
-            <Label>Signature (if not in JSON)</Label>
-            <Input value={signature} onChange={(e) => setSignature(e.target.value)} />
-          </div>
-          <Button className="bg-amber-600 hover:bg-amber-700" onClick={() => void handleScan()}>
-            Validate QR
+        <CardContent className="space-y-4">
+          <QrCheckInScanner
+            readerId="delivery-qr-reader"
+            onScan={onCameraScan}
+            hint="Show the delivery QR from the driver assignment email."
+            buttonLabel="Open camera"
+          />
+
+          <Button
+            type="button"
+            variant="ghost"
+            className="h-auto px-0 text-sm text-muted-foreground"
+            onClick={() => setManualOpen((v) => !v)}
+          >
+            {manualOpen ? 'Hide manual entry' : 'Paste QR manually'}
           </Button>
+
+          {manualOpen && (
+            <div className="space-y-3 rounded-lg border border-dashed p-3">
+              <div>
+                <Label>QR JSON or payload</Label>
+                <Input
+                  placeholder='{"qrPayload":"...","signature":"..."}'
+                  value={qrText}
+                  onChange={(e) => setQrText(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label>Signature (if not in JSON)</Label>
+                <Input value={signature} onChange={(e) => setSignature(e.target.value)} />
+              </div>
+              <Button className="bg-amber-600 hover:bg-amber-700" onClick={() => void handleManualScan()}>
+                Validate QR
+              </Button>
+            </div>
+          )}
+
           {error && <p className="text-sm text-destructive">{error}</p>}
         </CardContent>
       </Card>
@@ -158,6 +245,27 @@ export function DeliveryScanTab({ branchId }: DeliveryScanTabProps): React.React
             {delivery.expectedArrivalTime ? (
               <p>ETA: {formatIstDateTime(String(delivery.expectedArrivalTime))}</p>
             ) : null}
+            {(gateTiming?.entryTime || delivery.entryTime) && (
+              <p>
+                Entry:{' '}
+                {formatIstDateTime(String(gateTiming?.entryTime ?? delivery.entryTime))}
+              </p>
+            )}
+            {(gateTiming?.exitTime || delivery.exitTime) && (
+              <p>
+                Exit: {formatIstDateTime(String(gateTiming?.exitTime ?? delivery.exitTime))}
+              </p>
+            )}
+            {(gateTiming?.durationMinutes != null || delivery.durationMinutes != null) && (
+              <p className="font-semibold text-teal-900">
+                Time inside: {String(gateTiming?.durationMinutes ?? delivery.durationMinutes)} min
+              </p>
+            )}
+            {suggestedAction === 'MARK_EXIT' && delivery.status === 'RECEIVED' && (
+              <p className="rounded-md bg-white px-3 py-2 text-amber-900">
+                Same QR confirms exit — scan again or tap Mark exit below.
+              </p>
+            )}
             {passNumber && (
               <p className="rounded-md bg-white px-3 py-2 font-semibold text-teal-900">
                 Gate pass: {passNumber}
@@ -169,7 +277,7 @@ export function DeliveryScanTab({ branchId }: DeliveryScanTabProps): React.React
               )}
               {delivery.status === 'RECEIVED' && (
                 <Button variant="outline" onClick={() => void markExit()}>
-                  Mark exit
+                  Mark exit (or rescan same QR)
                 </Button>
               )}
             </div>

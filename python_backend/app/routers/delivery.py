@@ -261,6 +261,18 @@ def scan_qr(
     return DeliveryGateService(db).scan_qr(user, body.qrPayload, body.signature)
 
 
+@router.post("/security/process-qr")
+def process_qr(
+    body: ScanQrBody,
+    user: Annotated[dict, Depends(require_permission("SCAN_QR"))],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Validate QR and auto-complete exit when delivery is RECEIVED (same QR for exit)."""
+    return DeliveryGateService(db).process_scanned_qr(
+        user, body.qrPayload, body.signature, auto_exit=True
+    )
+
+
 @router.post("/security/allow-entry/{delivery_id}")
 def allow_entry(
     delivery_id: str,

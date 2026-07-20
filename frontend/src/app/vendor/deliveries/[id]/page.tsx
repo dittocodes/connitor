@@ -64,6 +64,24 @@ export default function VendorDeliveryDetailPage(): React.ReactElement {
                 <span className="text-muted-foreground">Vehicle:</span>{' '}
                 {String(delivery.vehicleNumber ?? '—')}
               </p>
+              {delivery.entryTime ? (
+                <p>
+                  <span className="text-muted-foreground">Gate entry:</span>{' '}
+                  {formatIstDateTime(String(delivery.entryTime))}
+                </p>
+              ) : null}
+              {delivery.exitTime ? (
+                <p>
+                  <span className="text-muted-foreground">Gate exit:</span>{' '}
+                  {formatIstDateTime(String(delivery.exitTime))}
+                </p>
+              ) : null}
+              {delivery.durationMinutes != null ? (
+                <p>
+                  <span className="text-muted-foreground">Time inside:</span>{' '}
+                  {String(delivery.durationMinutes)} min
+                </p>
+              ) : null}
               {delivery.remarks ? (
                 <p>
                   <span className="text-muted-foreground">Notes:</span> {String(delivery.remarks)}

@@ -73,6 +73,28 @@ class AttendantPassService:
             self.db.commit()
         return None
 
+    @staticmethod
+    def _is_inside(pass_row: AttendantPass) -> bool:
+        return bool(pass_row.enteredAt and not pass_row.exitedAt)
+
+    def _inside_pass_for_admission(self, admission_id: str) -> AttendantPass | None:
+        rows = (
+            self.db.query(AttendantPass)
+            .join(Attendant, Attendant.id == AttendantPass.attendantId)
+            .filter(
+                Attendant.admissionId == admission_id,
+                AttendantPass.enteredAt.isnot(None),
+                AttendantPass.exitedAt.is_(None),
+            )
+            .order_by(AttendantPass.enteredAt.desc())
+            .all()
+        )
+        for pass_row in rows:
+            if pass_row.status == "EXPIRED":
+                continue
+            return pass_row
+        return None
+
     def create_patient(self, user: dict, data: dict) -> dict:
         branch_id = data.get("branchId") or user.get("branchId")
         if not branch_id:
@@ -123,6 +145,12 @@ class AttendantPassService:
             raise not_found("Admission")
         if admission.status != "ACTIVE":
             raise bad_request("Admission is not active")
+        inside = self._inside_pass_for_admission(admission.id)
+        if inside:
+            raise bad_request(
+                "An attendant is currently inside for this patient. "
+                "They must check out at security before another person can apply."
+            )
         email = AuthService.normalize_email(data["email"])
         attendant = Attendant(
             admissionId=admission.id,
@@ -238,7 +266,7 @@ class AttendantPassService:
         *,
         qr_payload: str,
         signature: str,
-        govt_id_file: UploadFile,
+        govt_id_file: UploadFile | None = None,
         scan_type: str = "ENTRY",
         govt_id_type: str | None = None,
     ) -> dict:
@@ -277,27 +305,67 @@ class AttendantPassService:
         ):
             raise bad_request("Pass belongs to another branch")
 
-        if not govt_id_file or not govt_id_file.filename:
-            raise bad_request("Government ID image is required")
+        # Prefer EXIT when already inside if client sent ENTRY by default
+        requested = (scan_type or "ENTRY").upper()
+        if requested == "ENTRY" and self._is_inside(pass_row):
+            requested = "EXIT"
+        if requested not in ("ENTRY", "EXIT"):
+            raise bad_request("scanType must be ENTRY or EXIT")
 
-        image_url = await self.gcp.upload_visitor_document(
-            govt_id_file, pass_row.id, "attendant-govt-id"
-        )
+        image_url: str | None = None
+        if requested == "ENTRY":
+            if self._is_inside(pass_row):
+                raise bad_request("Attendant is already inside — scan for EXIT")
+            if pass_row.exitedAt:
+                raise bad_request("This pass was already used for a completed visit")
+            if not govt_id_file or not govt_id_file.filename:
+                raise bad_request("Government ID image is required for entry")
+            image_url = await self.gcp.upload_visitor_document(
+                govt_id_file, pass_row.id, "attendant-govt-id"
+            )
+            pass_row.enteredAt = now_ist()
+            pass_row.exitedAt = None
+            pass_row.durationMinutes = None
+        else:
+            if not self._is_inside(pass_row):
+                raise bad_request("Attendant is not inside — scan for ENTRY first")
+            if govt_id_file and govt_id_file.filename:
+                image_url = await self.gcp.upload_visitor_document(
+                    govt_id_file, pass_row.id, "attendant-govt-id"
+                )
+            exit_time = now_ist()
+            pass_row.exitedAt = exit_time
+            if pass_row.enteredAt:
+                pass_row.durationMinutes = max(
+                    0, int((exit_time - pass_row.enteredAt).total_seconds() // 60)
+                )
 
         self.db.add(
             AttendantPassScan(
                 passId=pass_row.id,
                 scannedById=user["id"],
-                scanType=scan_type or "ENTRY",
+                scanType=requested,
                 govtIdImageUrl=image_url,
                 govtIdType=govt_id_type,
             )
         )
         self.db.commit()
+        self.db.refresh(pass_row)
+
+        if requested == "EXIT":
+            try:
+                self._notify_visit_exit(pass_row)
+            except Exception as exc:
+                logger.error("Failed attendant exit notifications for %s: %s", pass_row.id, exc)
+
         return {
             "valid": True,
             "passNumber": pass_row.passNumber,
-            "scanType": scan_type or "ENTRY",
+            "scanType": requested,
+            "isInside": self._is_inside(pass_row),
+            "enteredAt": pass_row.enteredAt.isoformat() if pass_row.enteredAt else None,
+            "exitedAt": pass_row.exitedAt.isoformat() if pass_row.exitedAt else None,
+            "durationMinutes": pass_row.durationMinutes,
             "govtIdImageUrl": image_url,
             "attendant": self._serialize_attendant(pass_row.attendant) if pass_row.attendant else None,
             "admission": (
@@ -305,7 +373,98 @@ class AttendantPassService:
                 if pass_row.attendant and pass_row.attendant.admission
                 else None
             ),
+            "pass": self._serialize_pass(pass_row, full=True),
         }
+
+    def _notify_visit_exit(self, pass_row: AttendantPass) -> None:
+        from app.email_templates import build_attendant_visit_exit_email
+        from app.models import User
+        from app.models.enums import Role
+
+        attendant = pass_row.attendant or self.db.get(Attendant, pass_row.attendantId)
+        if not attendant:
+            return
+        admission = attendant.admission or self.db.get(Admission, attendant.admissionId)
+        patient = None
+        if admission:
+            patient = admission.patient or self.db.get(Patient, admission.patientId)
+        branch = self.db.get(Branch, pass_row.branchId)
+        patient_name = (
+            f"{patient.firstName} {patient.lastName}".strip() if patient else "Patient"
+        )
+        mrn = patient.mrn if patient else "—"
+        hospital_name = branch.name if branch else "Hospital"
+        entry_label = format_ist_datetime(pass_row.enteredAt) if pass_row.enteredAt else "—"
+        exit_label = format_ist_datetime(pass_row.exitedAt) if pass_row.exitedAt else "—"
+        settings = get_settings()
+
+        targets: list[tuple[str, str]] = []
+        if attendant.email and "@placeholder.local" not in attendant.email:
+            targets.append((attendant.email, attendant.name))
+
+        ward_users = (
+            self.db.query(User)
+            .filter(
+                User.branchId == pass_row.branchId,
+                User.role == "WARD_ADMIN",
+                User.isActive.is_(True),
+            )
+            .all()
+        )
+        if not ward_users:
+            ward_users = (
+                self.db.query(User)
+                .filter(
+                    User.branchId == pass_row.branchId,
+                    User.role == Role.HOSPITAL_ADMIN.value,
+                    User.isActive.is_(True),
+                )
+                .all()
+            )
+        for u in ward_users:
+            if u.email:
+                targets.append((u.email, u.name or "Ward Admin"))
+
+        security_users = (
+            self.db.query(User)
+            .filter(
+                User.branchId == pass_row.branchId,
+                User.role.in_([Role.SECURITY.value, Role.SECURITY_SUPERVISOR.value]),
+                User.isActive.is_(True),
+            )
+            .all()
+        )
+        for u in security_users:
+            if u.email:
+                targets.append((u.email, u.name or "Security"))
+
+        seen: set[str] = set()
+        for to_email, recipient_name in targets:
+            key = to_email.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            try:
+                subject, text_body, html_body = build_attendant_visit_exit_email(
+                    recipient_name=recipient_name,
+                    attendant_name=attendant.name,
+                    patient_name=patient_name,
+                    mrn=mrn,
+                    pass_number=pass_row.passNumber,
+                    ward_name=admission.wardName if admission else None,
+                    room_number=admission.roomNumber if admission else None,
+                    hospital_name=hospital_name,
+                    entry_label=entry_label,
+                    exit_label=exit_label,
+                    duration_minutes=pass_row.durationMinutes,
+                    company_name=settings.email_from_name,
+                    product_name=settings.email_product_name,
+                )
+                self.email._deliver_email(
+                    to_email, subject, text_body, html_body, context="attendant exit"
+                )
+            except Exception as exc:
+                logger.error("Failed attendant exit email to %s: %s", to_email, exc)
 
     def list_passes(self, branch_id: str, skip: int = 0, limit: int = 50) -> dict:
         q = (
@@ -394,6 +553,7 @@ class AttendantPassService:
         if not patient:
             patient = self.db.get(Patient, admission.patientId)
         active_pass = self._active_pass_for_admission(admission.id)
+        inside = self._inside_pass_for_admission(admission.id)
         return {
             "admissionId": admission.id,
             "patientFirstName": patient.firstName if patient else "",
@@ -403,6 +563,7 @@ class AttendantPassService:
             "wardName": admission.wardName,
             "roomNumber": admission.roomNumber,
             "hasActivePass": active_pass is not None,
+            "hasAttendantInside": inside is not None,
             "branchId": admission.branchId,
         }
 
@@ -446,6 +607,7 @@ class AttendantPassService:
         if not patient:
             patient = self.db.get(Patient, admission.patientId)
         active = self._active_pass_for_admission(admission.id)
+        inside = self._inside_pass_for_admission(admission.id)
         return {
             "id": admission.id,
             "status": admission.status,
@@ -455,6 +617,7 @@ class AttendantPassService:
             "branchId": admission.branchId,
             "admittedAt": admission.admittedAt.isoformat() if admission.admittedAt else None,
             "hasActivePass": active is not None,
+            "hasAttendantInside": inside is not None,
             "activePassId": active.id if active else None,
             "patient": {
                 "id": patient.id,
@@ -492,6 +655,10 @@ class AttendantPassService:
             "validFrom": pass_row.validFrom.isoformat() if pass_row.validFrom else None,
             "validTo": pass_row.validTo.isoformat() if pass_row.validTo else None,
             "expiresAt": pass_row.expiresAt.isoformat() if pass_row.expiresAt else None,
+            "enteredAt": pass_row.enteredAt.isoformat() if pass_row.enteredAt else None,
+            "exitedAt": pass_row.exitedAt.isoformat() if pass_row.exitedAt else None,
+            "durationMinutes": pass_row.durationMinutes,
+            "isInside": self._is_inside(pass_row),
         }
         if full:
             attendant = pass_row.attendant

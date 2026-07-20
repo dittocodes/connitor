@@ -139,7 +139,7 @@ async def scan_pass(
     db: Annotated[Session, Depends(get_db)],
     qrPayload: Annotated[str, Form(...)],
     signature: Annotated[str, Form(...)],
-    govtIdImage: Annotated[UploadFile, File(...)],
+    govtIdImage: Annotated[UploadFile | None, File()] = None,
     scanType: Annotated[str, Form()] = "ENTRY",
     govtIdType: Annotated[str | None, Form()] = None,
 ):
