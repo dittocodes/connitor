@@ -26,6 +26,8 @@ type ScanResult = {
   govtIdImageUrl?: string;
   emailsSent?: number;
   emailRecipients?: string[];
+  outsideVisitingHours?: boolean;
+  visitingHoursSummary?: string | null;
   attendant?: {
     id?: string;
     name?: string;
@@ -178,7 +180,15 @@ export function AttendantPassScanTab({ branchId }: AttendantPassScanTabProps): R
         );
       } else {
         setScanType('EXIT');
-        toast.success('Entry recorded — scan same QR again on exit');
+        if (res.outsideVisitingHours) {
+          toast.warning(
+            res.visitingHoursSummary
+              ? `Entry recorded outside visiting hours (${res.visitingHoursSummary})`
+              : 'Entry recorded outside visiting hours',
+          );
+        } else {
+          toast.success('Entry recorded — scan same QR again on exit');
+        }
       }
     } catch (e: unknown) {
       const detail =

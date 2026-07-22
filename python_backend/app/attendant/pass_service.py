@@ -523,6 +523,8 @@ class AttendantPassService:
             raise bad_request("scanType must be ENTRY or EXIT")
 
         image_url: str | None = None
+        outside_hours = False
+        visiting_hours_summary: str | None = None
         if requested == "ENTRY":
             if self._is_inside(pass_row):
                 raise bad_request("Attendant is already inside — scan for EXIT")
@@ -530,7 +532,16 @@ class AttendantPassService:
                 raise bad_request("This pass was already used for a completed visit")
             attendant = pass_row.attendant or self.db.get(Attendant, pass_row.attendantId)
             if attendant:
-                self.assert_within_visiting_hours(attendant.admissionId)
+                hours = self.get_visiting_hours(attendant.admissionId)
+                visiting_hours_summary = hours.get("summary")
+                if not self.is_within_visiting_hours(attendant.admissionId):
+                    # Security may still admit (emergency / late arrival). Record as override.
+                    outside_hours = True
+                    logger.warning(
+                        "Attendant ENTRY outside visiting hours for admission %s (%s)",
+                        attendant.admissionId,
+                        visiting_hours_summary,
+                    )
             if not govt_id_file or not govt_id_file.filename:
                 raise bad_request("Government ID image is required for entry")
             image_url = await self.gcp.upload_visitor_document(
@@ -583,6 +594,8 @@ class AttendantPassService:
             "govtIdImageUrl": image_url,
             "emailsSent": notify_result.get("emailsSent", 0),
             "emailRecipients": notify_result.get("recipients") or [],
+            "outsideVisitingHours": outside_hours if requested == "ENTRY" else False,
+            "visitingHoursSummary": visiting_hours_summary,
             "attendant": self._serialize_attendant(pass_row.attendant) if pass_row.attendant else None,
             "admission": (
                 self._serialize_admission(pass_row.attendant.admission)
