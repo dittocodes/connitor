@@ -139,7 +139,12 @@ export function DeliveryScanTab({ branchId }: DeliveryScanTabProps): React.React
       );
       setPassNumber(String(res.data.passNumber));
       setDelivery((prev) => (prev ? { ...prev, status: 'ARRIVED_AT_GATE' } : prev));
-      toast.success('Entry allowed');
+      const emailed = Number(res.data.emailsSent ?? 0);
+      toast.success(
+        emailed > 0
+          ? 'Entry allowed — checkout QR emailed to driver/distributor'
+          : 'Entry allowed — checkout QR email skipped if no address on file',
+      );
       void loadQueue();
     } catch (e: unknown) {
       const detail =
@@ -192,14 +197,15 @@ export function DeliveryScanTab({ branchId }: DeliveryScanTabProps): React.React
         <CardHeader>
           <CardTitle>Scan delivery QR</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Point the camera at the driver&apos;s emailed QR, then allow entry or mark exit.
+            Scan the driver&apos;s check-in QR to allow entry. After entry, a checkout QR is emailed —
+            scan that after GRN to exit.
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
           <QrCheckInScanner
             readerId="delivery-qr-reader"
             onScan={onCameraScan}
-            hint="Show the delivery QR from the driver assignment email."
+            hint="Show the check-in or checkout QR from the driver's email."
             buttonLabel="Open camera"
           />
 
@@ -271,7 +277,7 @@ export function DeliveryScanTab({ branchId }: DeliveryScanTabProps): React.React
             ) : null}
             {suggestedAction === 'MARK_EXIT' && delivery.status === 'RECEIVED' ? (
               <p className="rounded-md bg-white px-3 py-2 text-amber-900">
-                Same QR confirms exit — scan again or tap Mark exit below.
+                Checkout QR confirmed — scan again or tap Mark exit below.
               </p>
             ) : null}
             {passNumber && (
@@ -285,7 +291,7 @@ export function DeliveryScanTab({ branchId }: DeliveryScanTabProps): React.React
               )}
               {delivery.status === 'RECEIVED' && (
                 <Button variant="outline" onClick={() => void markExit()}>
-                  Mark exit (or rescan same QR)
+                  Mark exit (or scan checkout QR)
                 </Button>
               )}
             </div>
@@ -293,7 +299,7 @@ export function DeliveryScanTab({ branchId }: DeliveryScanTabProps): React.React
             delivery.status === 'GATE_VERIFIED' ||
             delivery.status === 'IN_PROGRESS' ? (
               <p className="text-muted-foreground">
-                Vehicle is inside — receiving must complete GRN before exit.
+                Vehicle is inside — finish GRN, then scan the emailed checkout QR to exit.
               </p>
             ) : null}
             {delivery.status === 'EXITED' || delivery.status === 'CLOSED' ? (

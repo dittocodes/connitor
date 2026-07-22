@@ -5,8 +5,9 @@ from __future__ import annotations
 import hashlib
 import hmac
 import logging
+from datetime import timedelta
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.config import get_settings
 from app.delivery.inbound_delivery_service import InboundDeliveryService
@@ -56,23 +57,72 @@ class DeliveryGateService:
             "passNumber": entry.passNumber if entry else None,
         }
 
-    def _suggested_action(self, status: str) -> tuple[str, str]:
+    def _suggested_action(self, status: str, *, qr_kind: str = "ENTRY") -> tuple[str, str]:
+        kind = (qr_kind or "ENTRY").upper()
+        if kind == "EXIT":
+            if status == DeliveryStatus.RECEIVED.value:
+                return "MARK_EXIT", "Checkout QR valid — confirm gate exit."
+            if status in (DeliveryStatus.EXITED.value, DeliveryStatus.CLOSED.value):
+                return "INFO", "Delivery already exited."
+            if status in (
+                DeliveryStatus.ARRIVED_AT_GATE.value,
+                DeliveryStatus.GATE_VERIFIED.value,
+                DeliveryStatus.IN_PROGRESS.value,
+            ):
+                return (
+                    "INFO",
+                    "Checkout QR scanned — finish receiving/GRN before exit is allowed.",
+                )
+            return "INFO", f"Checkout QR not ready for exit (status {status})."
+
+        # ENTRY QR
         if status in (DeliveryStatus.SCHEDULED.value, DeliveryStatus.APPROVED.value):
             return "ALLOW_ENTRY", "QR valid — allow vehicle entry."
-        if status == DeliveryStatus.RECEIVED.value:
-            return "MARK_EXIT", "Delivery received — scan confirms gate exit."
         if status in (
             DeliveryStatus.ARRIVED_AT_GATE.value,
             DeliveryStatus.GATE_VERIFIED.value,
             DeliveryStatus.IN_PROGRESS.value,
+            DeliveryStatus.RECEIVED.value,
         ):
-            return "INFO", "Vehicle is inside — finish receiving/GRN before exit scan."
+            return (
+                "INFO",
+                "Already checked in — use the checkout QR emailed after entry (after GRN).",
+            )
         if status in (DeliveryStatus.EXITED.value, DeliveryStatus.CLOSED.value):
             return "INFO", "Delivery already exited."
         return "INFO", f"No gate action for status {status}."
 
+    def _ensure_exit_qr(self, delivery: InboundDelivery) -> DeliveryQrCode:
+        existing = delivery.qr_for_kind("EXIT")
+        if existing:
+            return existing
+        payload = f"EXIT:{delivery.id}:{delivery.deliveryNumber}:{now_ist().isoformat()}"
+        secret = get_settings().jwt_secret
+        signature = hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
+        entry_qr = delivery.qrCode
+        expires = (
+            entry_qr.expiresAt
+            if entry_qr and entry_qr.expiresAt
+            else now_ist() + timedelta(hours=48)
+        )
+        row = DeliveryQrCode(
+            deliveryId=delivery.id,
+            qrKind="EXIT",
+            qrPayload=payload,
+            signature=signature,
+            expiresAt=expires,
+        )
+        self.db.add(row)
+        self.db.flush()
+        return row
+
     def allow_entry(self, user: dict, delivery_id: str, gate_id: str | None = None) -> dict:
-        delivery = self.db.get(InboundDelivery, delivery_id)
+        delivery = (
+            self.db.query(InboundDelivery)
+            .options(joinedload(InboundDelivery.qrCodes))
+            .filter(InboundDelivery.id == delivery_id)
+            .first()
+        )
         if not delivery:
             raise not_found("Delivery")
         if delivery.status not in (
@@ -94,12 +144,42 @@ class DeliveryGateService:
         self.delivery_svc.transition_status(
             delivery.id, user, DeliveryStatus.ARRIVED_AT_GATE.value, "Gate entry allowed"
         )
+        # Re-load with qrCodes after status transition commit
+        delivery = (
+            self.db.query(InboundDelivery)
+            .options(joinedload(InboundDelivery.qrCodes))
+            .filter(InboundDelivery.id == delivery_id)
+            .first()
+        )
+        assert delivery is not None
+        exit_qr = self._ensure_exit_qr(delivery)
+        self.db.commit()
+
+        notify_result: dict = {"emailsSent": 0, "recipients": []}
+        try:
+            from app.services.notifications_service import NotificationsService
+
+            fresh = (
+                self.db.query(InboundDelivery)
+                .options(joinedload(InboundDelivery.qrCodes))
+                .filter(InboundDelivery.id == delivery.id)
+                .first()
+            )
+            notify_result = NotificationsService(self.db).notify_on_delivery_checkout_qr(
+                fresh or delivery, exit_qr
+            ) or notify_result
+        except Exception as exc:
+            logger.error("Failed delivery checkout QR email for %s: %s", delivery.id, exc)
+
         timing = self._gate_timing(delivery.id)
         return {
             "passNumber": pass_number,
             "deliveryId": delivery.id,
             "entryTime": timing["entryTime"],
             "status": DeliveryStatus.ARRIVED_AT_GATE.value,
+            "checkoutQrEmailed": int(notify_result.get("emailsSent") or 0) > 0,
+            "emailsSent": notify_result.get("emailsSent", 0),
+            "emailRecipients": notify_result.get("recipients") or [],
         }
 
     def mark_exit(self, user: dict, delivery_id: str) -> dict:
@@ -145,7 +225,9 @@ class DeliveryGateService:
             "emailRecipients": notify_result.get("recipients") or [],
         }
 
-    def _validate_qr(self, user: dict, qr_payload: str, signature: str) -> InboundDelivery:
+    def _validate_qr(
+        self, user: dict, qr_payload: str, signature: str
+    ) -> tuple[InboundDelivery, DeliveryQrCode]:
         secret = get_settings().jwt_secret
         expected = hmac.new(secret.encode(), qr_payload.encode(), hashlib.sha256).hexdigest()
         if not hmac.compare_digest(expected, signature):
@@ -157,17 +239,22 @@ class DeliveryGateService:
         if qr.expiresAt < now_ist():
             raise bad_request("QR code expired")
 
-        delivery = self.db.get(InboundDelivery, qr.deliveryId)
+        delivery = (
+            self.db.query(InboundDelivery)
+            .options(joinedload(InboundDelivery.qrCodes))
+            .filter(InboundDelivery.id == qr.deliveryId)
+            .first()
+        )
         if not delivery:
             raise not_found("Delivery")
 
         user_branch = user.get("branchId")
         if user_branch and delivery.branchId != user_branch and user.get("role") != "SUPER_ADMIN":
             raise bad_request("Delivery belongs to another branch")
-        return delivery
+        return delivery, qr
 
     def scan_qr(self, user: dict, qr_payload: str, signature: str) -> dict:
-        delivery = self._validate_qr(user, qr_payload, signature)
+        delivery, qr = self._validate_qr(user, qr_payload, signature)
 
         self.db.add(
             DeliverySecurityScan(
@@ -179,12 +266,13 @@ class DeliveryGateService:
         self.db.commit()
         self.db.refresh(delivery)
 
-        action, message = self._suggested_action(delivery.status)
+        action, message = self._suggested_action(delivery.status, qr_kind=qr.qrKind or "ENTRY")
         payload = self.delivery_svc._serialize_dashboard(delivery)
         return {
             "valid": True,
             "suggestedAction": action,
             "message": message,
+            "qrKind": qr.qrKind or "ENTRY",
             "delivery": payload,
         }
 
@@ -197,8 +285,9 @@ class DeliveryGateService:
         auto_exit: bool = True,
         gate_id: str | None = None,
     ) -> dict:
-        """Validate QR; optionally complete exit when status is RECEIVED."""
-        delivery = self._validate_qr(user, qr_payload, signature)
+        """Validate QR; complete exit only when checkout QR is scanned and status is RECEIVED."""
+        delivery, qr = self._validate_qr(user, qr_payload, signature)
+        qr_kind = (qr.qrKind or "ENTRY").upper()
         self.db.add(
             DeliverySecurityScan(
                 deliveryId=delivery.id,
@@ -208,14 +297,19 @@ class DeliveryGateService:
         )
         self.db.flush()
 
-        action, message = self._suggested_action(delivery.status)
+        action, message = self._suggested_action(delivery.status, qr_kind=qr_kind)
         result: dict = {
             "valid": True,
             "suggestedAction": action,
             "message": message,
+            "qrKind": qr_kind,
         }
 
-        if auto_exit and delivery.status == DeliveryStatus.RECEIVED.value:
+        if (
+            auto_exit
+            and qr_kind == "EXIT"
+            and delivery.status == DeliveryStatus.RECEIVED.value
+        ):
             exit_result = self.mark_exit(user, delivery.id)
             result.update(
                 {

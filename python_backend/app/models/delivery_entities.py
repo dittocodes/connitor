@@ -185,8 +185,24 @@ class InboundDelivery(Base):
     updatedAt: Mapped[datetime] = mapped_column(DateTime, default=now_ist, onupdate=now_ist)
 
     items: Mapped[list["InboundDeliveryItem"]] = relationship(back_populates="delivery", cascade="all, delete-orphan")
-    qrCode: Mapped["DeliveryQrCode | None"] = relationship(back_populates="delivery", uselist=False)
+    qrCodes: Mapped[list["DeliveryQrCode"]] = relationship(
+        back_populates="delivery", cascade="all, delete-orphan"
+    )
     statusHistory: Mapped[list["InboundDeliveryStatusHistory"]] = relationship(back_populates="delivery")
+
+    @property
+    def qrCode(self) -> "DeliveryQrCode | None":
+        """Entry/check-in QR (legacy single-QR accessor)."""
+        for qr in self.qrCodes or []:
+            if (qr.qrKind or "ENTRY") == "ENTRY":
+                return qr
+        return None
+
+    def qr_for_kind(self, kind: str) -> "DeliveryQrCode | None":
+        for qr in self.qrCodes or []:
+            if (qr.qrKind or "ENTRY") == kind:
+                return qr
+        return None
 
 
 class InboundDeliveryItem(Base):
@@ -218,15 +234,19 @@ class InboundDeliveryStatusHistory(Base):
 
 class DeliveryQrCode(Base):
     __tablename__ = "DeliveryQrCode"
+    __table_args__ = (
+        UniqueConstraint("deliveryId", "qrKind", name="DeliveryQrCode_delivery_kind_key"),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
-    deliveryId: Mapped[str] = mapped_column(String(36), ForeignKey("InboundDelivery.id"), unique=True)
+    deliveryId: Mapped[str] = mapped_column(String(36), ForeignKey("InboundDelivery.id"), index=True)
+    qrKind: Mapped[str] = mapped_column(String(20), default="ENTRY")  # ENTRY | EXIT
     qrPayload: Mapped[str] = mapped_column(Text)
     signature: Mapped[str] = mapped_column(String(255))
     expiresAt: Mapped[datetime] = mapped_column(DateTime)
     createdAt: Mapped[datetime] = mapped_column(DateTime, default=now_ist)
 
-    delivery: Mapped["InboundDelivery"] = relationship(back_populates="qrCode")
+    delivery: Mapped["InboundDelivery"] = relationship(back_populates="qrCodes")
 
 
 class DeliverySecurityScan(Base):

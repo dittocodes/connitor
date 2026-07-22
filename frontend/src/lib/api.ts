@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { type InternalAxiosRequestConfig } from 'axios';
 import {
   DEFAULT_DEMO_USER_ID,
   DEMO_USER_ID_STORAGE_KEY,
@@ -7,9 +7,23 @@ import {
 } from '@/lib/demo-config';
 import { getBackendBaseUrl } from '@/lib/backend-url';
 import { getStoredAuthToken } from '@/lib/auth-storage';
+import { beginMutationBusy, endMutationBusy } from '@/lib/mutation-busy';
 
 function resolveBaseUrl(): string {
   return USE_MOCK_API ? '/' : getBackendBaseUrl();
+}
+
+const MUTATING_METHODS = new Set(['post', 'put', 'patch', 'delete']);
+
+type BusyTrackedConfig = InternalAxiosRequestConfig & {
+  skipBusyLoader?: boolean;
+  __busyTracked?: boolean;
+};
+
+function shouldTrackBusy(config: BusyTrackedConfig): boolean {
+  if (config.skipBusyLoader) return false;
+  const method = (config.method ?? 'get').toLowerCase();
+  return MUTATING_METHODS.has(method);
 }
 
 const apiClient = axios.create({
@@ -46,23 +60,48 @@ if (typeof window !== 'undefined') {
 
   apiClient.interceptors.request.use(
     (config) => {
-      config.baseURL = resolveBaseUrl();
-      config.url = withApiTrailingSlash(config.url);
+      const busyConfig = config as BusyTrackedConfig;
+      busyConfig.baseURL = resolveBaseUrl();
+      busyConfig.url = withApiTrailingSlash(busyConfig.url);
 
       const token = getStoredAuthToken();
-      if (token && !config.headers.Authorization) {
-        config.headers.Authorization = `Bearer ${token}`;
+      if (token && !busyConfig.headers.Authorization) {
+        busyConfig.headers.Authorization = `Bearer ${token}`;
       }
 
       if (IS_DEMO_MODE && !getStoredAuthToken()) {
         const demoUserId =
           sessionStorage.getItem(DEMO_USER_ID_STORAGE_KEY) ?? DEFAULT_DEMO_USER_ID;
-        config.headers['x-demo-user-id'] = demoUserId;
+        busyConfig.headers['x-demo-user-id'] = demoUserId;
       }
 
-      return config;
+      if (shouldTrackBusy(busyConfig)) {
+        beginMutationBusy();
+        busyConfig.__busyTracked = true;
+      }
+
+      return busyConfig;
     },
     (error) => Promise.reject(error),
+  );
+
+  const releaseBusy = (config?: InternalAxiosRequestConfig) => {
+    const busyConfig = config as BusyTrackedConfig | undefined;
+    if (busyConfig?.__busyTracked) {
+      busyConfig.__busyTracked = false;
+      endMutationBusy();
+    }
+  };
+
+  apiClient.interceptors.response.use(
+    (response) => {
+      releaseBusy(response.config);
+      return response;
+    },
+    (error) => {
+      releaseBusy(error?.config);
+      return Promise.reject(error);
+    },
   );
 }
 

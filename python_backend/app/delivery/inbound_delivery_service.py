@@ -397,6 +397,7 @@ class InboundDeliveryService:
             self.db.add(
                 DeliveryQrCode(
                     deliveryId=delivery.id,
+                    qrKind="ENTRY",
                     qrPayload=payload,
                     signature=signature,
                     expiresAt=now_ist() + timedelta(hours=48),

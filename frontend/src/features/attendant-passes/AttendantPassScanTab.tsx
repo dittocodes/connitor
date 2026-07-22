@@ -26,6 +26,7 @@ type ScanResult = {
   govtIdImageUrl?: string;
   emailsSent?: number;
   emailRecipients?: string[];
+  checkoutQrEmailed?: boolean;
   outsideVisitingHours?: boolean;
   visitingHoursSummary?: string | null;
   attendant?: {
@@ -53,7 +54,6 @@ export function AttendantPassScanTab({ branchId }: AttendantPassScanTabProps): R
   const [error, setError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [manualOpen, setManualOpen] = React.useState(false);
-  const [scanType, setScanType] = React.useState<'ENTRY' | 'EXIT'>('ENTRY');
   const [idMode, setIdMode] = React.useState<'camera' | 'upload'>('camera');
   const [idStreaming, setIdStreaming] = React.useState(false);
   const [idCameraError, setIdCameraError] = React.useState<string | null>(null);
@@ -131,7 +131,12 @@ export function AttendantPassScanTab({ branchId }: AttendantPassScanTabProps): R
     const parsed = parseQrScanText(decoded);
     if (parsed) {
       setSignature(parsed.signature);
-      toast.success('QR scanned — capture government ID, then validate');
+      const isExit = parsed.qrPayload.startsWith('PASS-EXIT:');
+      toast.success(
+        isExit
+          ? 'Checkout QR scanned — validate to check out'
+          : 'Check-in QR scanned — capture government ID, then validate',
+      );
     } else {
       setManualOpen(true);
       toast.message('QR scanned — enter signature if not included');
@@ -152,7 +157,8 @@ export function AttendantPassScanTab({ branchId }: AttendantPassScanTabProps): R
       setError('QR payload and signature are required');
       return;
     }
-    if (scanType === 'ENTRY' && !file) {
+    const isExitQr = payload.startsWith('PASS-EXIT:');
+    if (!isExitQr && !file) {
       setError('Government ID photo is required for entry — use camera or upload');
       return;
     }
@@ -160,7 +166,7 @@ export function AttendantPassScanTab({ branchId }: AttendantPassScanTabProps): R
     const form = new FormData();
     form.append('qrPayload', payload);
     form.append('signature', sig);
-    form.append('scanType', scanType);
+    form.append('scanType', isExitQr ? 'EXIT' : 'ENTRY');
     if (file) form.append('govtIdImage', file);
     if (govtIdType.trim()) form.append('govtIdType', govtIdType.trim());
 
@@ -169,7 +175,6 @@ export function AttendantPassScanTab({ branchId }: AttendantPassScanTabProps): R
       const res = (await AttendantPassService.scanPass(form)) as ScanResult;
       setResult(res);
       if (res.scanType === 'EXIT') {
-        setScanType('ENTRY');
         const emailed = Number(res.emailsSent ?? 0);
         toast.success(
           emailed > 0
@@ -178,17 +183,18 @@ export function AttendantPassScanTab({ branchId }: AttendantPassScanTabProps): R
               ? `Checked out — ${res.durationMinutes} min inside`
               : 'Checked out',
         );
+      } else if (res.outsideVisitingHours) {
+        toast.warning(
+          res.visitingHoursSummary
+            ? `Entry recorded outside visiting hours (${res.visitingHoursSummary}). Checkout QR emailed.`
+            : 'Entry recorded outside visiting hours. Checkout QR emailed.',
+        );
       } else {
-        setScanType('EXIT');
-        if (res.outsideVisitingHours) {
-          toast.warning(
-            res.visitingHoursSummary
-              ? `Entry recorded outside visiting hours (${res.visitingHoursSummary})`
-              : 'Entry recorded outside visiting hours',
-          );
-        } else {
-          toast.success('Entry recorded — scan same QR again on exit');
-        }
+        toast.success(
+          res.checkoutQrEmailed
+            ? 'Entry recorded — checkout QR emailed to the attendant'
+            : 'Entry recorded — checkout QR will be emailed when an address is on file',
+        );
       }
     } catch (e: unknown) {
       const detail =
@@ -211,15 +217,15 @@ export function AttendantPassScanTab({ branchId }: AttendantPassScanTabProps): R
         <CardHeader>
           <CardTitle>Scan attendant visit pass</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Branch {branchId}. Scan the emailed QR, capture the visitor&apos;s government ID with the
-            camera, then validate.
+            Branch {branchId}. Scan the check-in QR for entry (with government ID). After check-in,
+            a checkout QR is emailed — scan that QR to check out.
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
           <QrCheckInScanner
             readerId="attendant-qr-reader"
             onScan={async (decoded) => applyDecodedQr(decoded)}
-            hint="Show the attendant pass QR from the emailed gate pass."
+            hint="Show the check-in or checkout QR from the attendant's email."
             buttonLabel="Open camera"
           />
 
@@ -252,30 +258,12 @@ export function AttendantPassScanTab({ branchId }: AttendantPassScanTabProps): R
           {(qrText || signature) && !manualOpen && (
             <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
               QR captured{signature ? ' with signature' : ''}.
-              {scanType === 'ENTRY'
-                ? ' Capture government ID below for entry.'
-                : ' Exit does not require ID photo — validate to check out.'}
+              {qrText.includes('PASS-EXIT:') ||
+              (parseQrScanText(qrText)?.qrPayload ?? '').startsWith('PASS-EXIT:')
+                ? ' Checkout QR — validate to check out (ID photo optional).'
+                : ' Check-in QR — capture government ID below, then validate.'}
             </p>
           )}
-
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant={scanType === 'ENTRY' ? 'default' : 'outline'}
-              onClick={() => setScanType('ENTRY')}
-            >
-              Entry
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant={scanType === 'EXIT' ? 'default' : 'outline'}
-              onClick={() => setScanType('EXIT')}
-            >
-              Exit (same QR)
-            </Button>
-          </div>
 
           <div>
             <Label>ID type (optional)</Label>
@@ -383,10 +371,8 @@ export function AttendantPassScanTab({ branchId }: AttendantPassScanTabProps): R
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Validating…
               </>
-            ) : scanType === 'EXIT' ? (
-              'Confirm exit'
             ) : (
-              'Validate entry'
+              'Validate QR'
             )}
           </Button>
           {error && <p className="text-sm text-destructive">{error}</p>}
@@ -406,7 +392,9 @@ export function AttendantPassScanTab({ branchId }: AttendantPassScanTabProps): R
                   ? Number(result.emailsSent ?? 0) > 0
                     ? 'Visit complete. Summary emailed to the attendant, ward, and security.'
                     : 'Visit complete. Duration recorded (email skipped if no address on file).'
-                  : 'Attendant is inside. Scan the same QR again when they leave.'}
+                  : result.checkoutQrEmailed
+                    ? 'Attendant is inside. A checkout QR was emailed — scan that QR when they leave.'
+                    : 'Attendant is inside. Checkout QR will be emailed when an address is on file.'}
               </p>
             </div>
             <Badge className="bg-emerald-600 hover:bg-emerald-600">

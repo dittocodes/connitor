@@ -6,8 +6,8 @@ import { cn } from '@/lib/utils';
 type ConnitorLoaderProps = {
   /** Short status line under the brand name */
   message?: string;
-  /** inline = compact in-flow; section = centered block; overlay = covers parent */
-  variant?: 'inline' | 'section' | 'overlay';
+  /** inline = compact in-flow; section = centered block; overlay = covers parent; fullscreen = covers viewport */
+  variant?: 'inline' | 'section' | 'overlay' | 'fullscreen';
   className?: string;
 };
 
@@ -77,6 +77,14 @@ export function ConnitorLoader({
       </div>
     </div>
   );
+
+  if (variant === 'fullscreen') {
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-white/80 backdrop-blur-[2px]">
+        {content}
+      </div>
+    );
+  }
 
   if (variant === 'overlay') {
     return (

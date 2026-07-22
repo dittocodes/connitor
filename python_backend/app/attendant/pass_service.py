@@ -484,6 +484,7 @@ class AttendantPassService:
         if not hmac.compare_digest(expected, signature):
             raise bad_request("Invalid QR signature")
 
+        is_exit_qr = qr_payload.startswith("PASS-EXIT:")
         pass_row = (
             self.db.query(AttendantPass)
             .options(
@@ -491,7 +492,11 @@ class AttendantPassService:
                 .joinedload(Attendant.admission)
                 .joinedload(Admission.patient)
             )
-            .filter(AttendantPass.qrPayload == qr_payload)
+            .filter(
+                AttendantPass.exitQrPayload == qr_payload
+                if is_exit_qr
+                else AttendantPass.qrPayload == qr_payload
+            )
             .first()
         )
         if not pass_row:
@@ -515,19 +520,29 @@ class AttendantPassService:
         ):
             raise bad_request("Pass belongs to another branch")
 
-        # Prefer EXIT when already inside if client sent ENTRY by default
-        requested = (scan_type or "ENTRY").upper()
-        if requested == "ENTRY" and self._is_inside(pass_row):
+        # QR kind decides action — exit QR always EXIT; entry QR never auto-exits
+        if is_exit_qr:
             requested = "EXIT"
-        if requested not in ("ENTRY", "EXIT"):
-            raise bad_request("scanType must be ENTRY or EXIT")
+        else:
+            requested = (scan_type or "ENTRY").upper()
+            if requested == "EXIT":
+                raise bad_request(
+                    "Use the checkout QR emailed after check-in — the check-in QR cannot exit"
+                )
+            if self._is_inside(pass_row):
+                raise bad_request(
+                    "Already checked in — use the checkout QR emailed to the attendant"
+                )
+            if requested != "ENTRY":
+                raise bad_request("scanType must be ENTRY or EXIT")
 
         image_url: str | None = None
         outside_hours = False
         visiting_hours_summary: str | None = None
+        checkout_email_sent = False
         if requested == "ENTRY":
             if self._is_inside(pass_row):
-                raise bad_request("Attendant is already inside — scan for EXIT")
+                raise bad_request("Attendant is already inside — use the emailed checkout QR")
             if pass_row.exitedAt:
                 raise bad_request("This pass was already used for a completed visit")
             attendant = pass_row.attendant or self.db.get(Attendant, pass_row.attendantId)
@@ -550,9 +565,12 @@ class AttendantPassService:
             pass_row.enteredAt = now_ist()
             pass_row.exitedAt = None
             pass_row.durationMinutes = None
+            exit_payload = f"PASS-EXIT:{pass_row.id}:{pass_row.attendantId}:{pass_row.enteredAt.isoformat()}"
+            pass_row.exitQrPayload = exit_payload
+            pass_row.exitQrSignature = self._sign_payload(exit_payload)
         else:
             if not self._is_inside(pass_row):
-                raise bad_request("Attendant is not inside — scan for ENTRY first")
+                raise bad_request("Attendant is not inside — scan the check-in QR first")
             if govt_id_file and govt_id_file.filename:
                 image_url = await self.gcp.upload_visitor_document(
                     govt_id_file, pass_row.id, "attendant-govt-id"
@@ -577,7 +595,11 @@ class AttendantPassService:
         self.db.refresh(pass_row)
 
         notify_result: dict = {"emailsSent": 0, "recipients": []}
-        if requested == "EXIT":
+        if requested == "ENTRY":
+            attendant = pass_row.attendant or self.db.get(Attendant, pass_row.attendantId)
+            if attendant:
+                checkout_email_sent = self._email_checkout_qr(attendant, pass_row)
+        elif requested == "EXIT":
             try:
                 notify_result = self._notify_visit_exit(pass_row) or notify_result
             except Exception as exc:
@@ -594,6 +616,7 @@ class AttendantPassService:
             "govtIdImageUrl": image_url,
             "emailsSent": notify_result.get("emailsSent", 0),
             "emailRecipients": notify_result.get("recipients") or [],
+            "checkoutQrEmailed": checkout_email_sent if requested == "ENTRY" else False,
             "outsideVisitingHours": outside_hours if requested == "ENTRY" else False,
             "visitingHoursSummary": visiting_hours_summary,
             "attendant": self._serialize_attendant(pass_row.attendant) if pass_row.attendant else None,
@@ -872,6 +895,39 @@ class AttendantPassService:
             return True
         except Exception as exc:
             logger.error("Failed to email attendant pass to %s: %s", attendant.email, exc)
+            return False
+
+    def _email_checkout_qr(self, attendant: Attendant, pass_row: AttendantPass) -> bool:
+        if not attendant.email or "@placeholder.local" in attendant.email:
+            logger.warning(
+                "Skipping attendant checkout QR email for %s (missing email)", attendant.id
+            )
+            return False
+        if not pass_row.exitQrPayload or not pass_row.exitQrSignature:
+            return False
+        admission = attendant.admission or self.db.get(Admission, attendant.admissionId)
+        patient = admission.patient if admission else None
+        if admission and not patient:
+            patient = self.db.get(Patient, admission.patientId)
+        branch = self.db.get(Branch, attendant.branchId)
+        try:
+            self.email.send_attendant_checkout_qr_email(
+                attendant.email,
+                attendant_name=attendant.name,
+                pass_number=pass_row.passNumber,
+                patient_first_name=patient.firstName if patient else "Patient",
+                ward_name=admission.wardName if admission else None,
+                room_number=admission.roomNumber if admission else None,
+                hospital_name=branch.name if branch else "Hospital",
+                entry_label=format_ist_datetime(pass_row.enteredAt),
+                qr_payload=pass_row.exitQrPayload,
+                qr_signature=pass_row.exitQrSignature,
+            )
+            return True
+        except Exception as exc:
+            logger.error(
+                "Failed to email attendant checkout QR to %s: %s", attendant.email, exc
+            )
             return False
 
     def _serialize_attendant(self, attendant: Attendant) -> dict:

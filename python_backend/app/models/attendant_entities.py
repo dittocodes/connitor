@@ -88,6 +88,8 @@ class AttendantPass(Base):
     validTo: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     qrPayload: Mapped[str | None] = mapped_column(Text, nullable=True)
     qrSignature: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    exitQrPayload: Mapped[str | None] = mapped_column(Text, nullable=True)
+    exitQrSignature: Mapped[str | None] = mapped_column(String(128), nullable=True)
     expiresAt: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     enteredAt: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     exitedAt: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

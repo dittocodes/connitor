@@ -756,6 +756,161 @@ def build_attendant_pass_email(
     return subject, text_body, html_body
 
 
+def build_attendant_checkout_qr_email(
+    *,
+    attendant_name: str,
+    pass_number: str,
+    patient_first_name: str,
+    hospital_name: str,
+    entry_label: str,
+    ward_name: str | None = None,
+    room_number: str | None = None,
+    qr_cid: str | None = None,
+    company_name: str = "Connitor",
+    product_name: str = "Hospital Visitor Tracking System",
+) -> tuple[str, str, str]:
+    """Checkout QR emailed after attendant check-in — scan at security to exit."""
+    location_bits = [b for b in (ward_name, f"Room {room_number}" if room_number else None) if b]
+    location = ", ".join(location_bits) if location_bits else "as directed by ward staff"
+
+    qr_html = ""
+    qr_text = ""
+    if qr_cid:
+        qr_html = (
+            f'<div style="text-align:center;margin:20px 0;">'
+            f'<p style="margin:0 0 12px;font-size:12px;color:#0d9488;font-weight:600;text-transform:uppercase;">'
+            f"Show at security to check out</p>"
+            f'<img src="cid:{escape(qr_cid)}" alt="Checkout QR code" width="200" height="200" '
+            f'style="border:2px solid #99f6e4;border-radius:8px;" />'
+            f"</div>"
+        )
+        qr_text = (
+            "\nShow the checkout QR in this email at hospital security when you leave.\n"
+            "Do not use your check-in QR for exit.\n"
+        )
+
+    subject = f"{company_name} — Checkout QR — {pass_number}"
+    text_body = (
+        f"{company_name}\n{product_name}\n\n"
+        f"Hello {attendant_name},\n\n"
+        f"You have checked in to visit {patient_first_name} (pass {pass_number}).\n"
+        f"Hospital: {hospital_name}\n"
+        f"Location: {location}\n"
+        f"Entry time: {entry_label}\n"
+        f"{qr_text}\n"
+        f"— {company_name}"
+    )
+    html_body = f"""<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8" /><title>{escape(subject)}</title></head>
+<body style="margin:0;padding:0;background:#f0f4f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table role="presentation" width="100%" style="background:#f0f4f8;padding:32px 16px;"><tr><td align="center">
+    <table role="presentation" width="100%" style="max-width:520px;background:#fff;border-radius:12px;">
+      <tr><td style="background:linear-gradient(135deg,#0d9488,#0f766e);padding:24px;text-align:center;">
+        <h1 style="margin:0;color:#fff;font-size:22px;">Checkout QR</h1>
+        <p style="margin:8px 0 0;color:#ccfbf1;font-size:14px;">{escape(pass_number)}</p>
+      </td></tr>
+      <tr><td style="padding:32px;">
+        <p style="margin:0 0 12px;color:#334155;">Hello {escape(attendant_name)},</p>
+        <p style="margin:0 0 20px;color:#64748b;line-height:1.6;">
+          You are checked in to visit <strong>{escape(patient_first_name)}</strong> at
+          <strong>{escape(hospital_name)}</strong>. Use the QR below when you leave.
+        </p>
+        <table role="presentation" width="100%" style="margin:0 0 20px;border-collapse:collapse;">
+          <tr><td style="padding:8px 0;color:#64748b;font-size:13px;width:120px;">Location</td>
+              <td style="padding:8px 0;color:#0f172a;font-size:14px;">{escape(location)}</td></tr>
+          <tr><td style="padding:8px 0;color:#64748b;font-size:13px;">Entry</td>
+              <td style="padding:8px 0;color:#0f172a;font-size:14px;">{escape(entry_label)}</td></tr>
+        </table>
+        {qr_html}
+        <p style="margin:16px 0 0;padding:12px 16px;background:#ecfeff;border-radius:8px;color:#0e7490;font-size:14px;line-height:1.5;">
+          Your original check-in QR will not check you out. Present this checkout QR at security.
+        </p>
+      </td></tr>
+    </table>
+  </td></tr></table>
+</body></html>"""
+    return subject, text_body, html_body
+
+
+def build_delivery_checkout_qr_email(
+    *,
+    driver_name: str,
+    delivery_number: str,
+    goods_type: str,
+    total_boxes: int,
+    vehicle_number: str,
+    vendor_name: str,
+    hospital_name: str,
+    entry_label: str,
+    qr_cid: str | None = None,
+    company_name: str = "Connitor",
+    product_name: str = "Hospital Visitor Tracking System",
+) -> tuple[str, str, str]:
+    """Checkout QR emailed after delivery gate entry — scan after GRN to exit."""
+    qr_html = ""
+    qr_text = ""
+    if qr_cid:
+        qr_html = (
+            f'<div style="text-align:center;margin:20px 0;">'
+            f'<p style="margin:0 0 12px;font-size:12px;color:#0d9488;font-weight:600;text-transform:uppercase;">'
+            f"Show at security to check out</p>"
+            f'<img src="cid:{escape(qr_cid)}" alt="Delivery checkout QR" width="200" height="200" '
+            f'style="border:2px solid #99f6e4;border-radius:8px;" />'
+            f"</div>"
+        )
+        qr_text = (
+            "\nAfter receiving/GRN is complete, show this checkout QR at security to exit.\n"
+            "Do not use your check-in QR for exit.\n"
+        )
+
+    subject = f"{company_name} — Delivery checkout QR — {delivery_number}"
+    text_body = (
+        f"{company_name}\n{product_name}\n\n"
+        f"Hello {driver_name},\n\n"
+        f"Delivery {delivery_number} has entered the hospital gate.\n"
+        f"Hospital: {hospital_name}\n"
+        f"Distributor: {vendor_name}\n"
+        f"Vehicle: {vehicle_number}\n"
+        f"Goods: {goods_type} ({total_boxes} boxes)\n"
+        f"Entry: {entry_label}\n"
+        f"{qr_text}\n"
+        f"— {company_name}"
+    )
+    html_body = f"""<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8" /><title>{escape(subject)}</title></head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f1f5f9;padding:24px 12px;">
+    <tr><td align="center">
+      <table role="presentation" width="560" cellspacing="0" cellpadding="0" style="background:#ffffff;border-radius:12px;overflow:hidden;">
+        <tr><td style="background:#0d9488;padding:20px 24px;color:#ffffff;">
+          <p style="margin:0;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;opacity:0.9;">{escape(company_name)}</p>
+          <h1 style="margin:6px 0 0;font-size:20px;">Delivery checkout QR</h1>
+        </td></tr>
+        <tr><td style="padding:24px;">
+          <p style="margin:0 0 16px;">Hello {escape(driver_name)},</p>
+          <p style="margin:0 0 16px;color:#475569;">
+            Delivery <strong>{escape(delivery_number)}</strong> is inside the hospital.
+            Complete receiving/GRN, then show the QR below at security to exit.
+          </p>
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 16px;font-size:14px;">
+            <tr><td style="padding:8px 0;color:#64748b;">Hospital</td><td style="padding:8px 0;text-align:right;">{escape(hospital_name)}</td></tr>
+            <tr><td style="padding:8px 0;color:#64748b;">Distributor</td><td style="padding:8px 0;text-align:right;">{escape(vendor_name)}</td></tr>
+            <tr><td style="padding:8px 0;color:#64748b;">Vehicle</td><td style="padding:8px 0;text-align:right;">{escape(vehicle_number)}</td></tr>
+            <tr><td style="padding:8px 0;color:#64748b;">Goods</td><td style="padding:8px 0;text-align:right;">{escape(goods_type)} ({total_boxes} boxes)</td></tr>
+            <tr><td style="padding:8px 0;color:#64748b;">Entry</td><td style="padding:8px 0;text-align:right;">{escape(entry_label)}</td></tr>
+          </table>
+          {qr_html}
+          <p style="margin:16px 0 0;padding:12px 16px;background:#ecfeff;border-radius:8px;color:#0e7490;font-size:14px;line-height:1.5;">
+            Your original check-in QR will not check you out. Use this checkout QR after GRN.
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>"""
+    return subject, text_body, html_body
+
+
 def build_online_appointment_email(
     *,
     recipient_name: str,

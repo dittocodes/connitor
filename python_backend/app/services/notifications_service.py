@@ -910,6 +910,56 @@ class NotificationsService:
 
         return targets
 
+    def notify_on_delivery_checkout_qr(self, delivery, exit_qr) -> dict:
+        """Email driver (+ distributor) with checkout QR after gate entry."""
+        from app.models.delivery_entities import DeliveryAgent, DeliveryVehicle, Distributor
+
+        branch = self.db.get(Branch, delivery.branchId)
+        vendor = self.db.get(Distributor, delivery.vendorId) if delivery.vendorId else None
+        agent = self.db.get(DeliveryAgent, delivery.agentId) if delivery.agentId else None
+        vehicle = self.db.get(DeliveryVehicle, delivery.vehicleId) if delivery.vehicleId else None
+
+        from app.models.delivery_entities import DeliveryGateEntry
+
+        entry = (
+            self.db.query(DeliveryGateEntry)
+            .filter(DeliveryGateEntry.deliveryId == delivery.id)
+            .order_by(DeliveryGateEntry.entryTime.asc())
+            .first()
+        )
+        entry_time = entry.entryTime if entry else delivery.actualArrivalTime
+        entry_label = format_ist_datetime(entry_time) if entry_time else "—"
+        vendor_name = vendor.vendorName if vendor else "Distributor"
+        driver_name = agent.name if agent else "Driver"
+        vehicle_no = vehicle.registrationNumber if vehicle else "—"
+        branch_name = branch.name if branch else "Hospital"
+        goods = delivery.goodsType or "Goods"
+        boxes = delivery.totalBoxes or 0
+
+        targets = self._delivery_exit_email_targets(vendor, agent)
+        sent: list[str] = []
+        for to_email, recipient_name in targets:
+            try:
+                self.email.send_delivery_checkout_qr_email(
+                    to_email,
+                    driver_name=recipient_name or driver_name,
+                    delivery_number=delivery.deliveryNumber,
+                    goods_type=goods,
+                    total_boxes=boxes,
+                    vehicle_number=vehicle_no,
+                    vendor_name=vendor_name,
+                    hospital_name=branch_name,
+                    entry_label=entry_label,
+                    qr_payload=exit_qr.qrPayload if exit_qr else None,
+                    qr_signature=exit_qr.signature if exit_qr else None,
+                )
+                sent.append(to_email)
+            except Exception as exc:
+                logger.error(
+                    "Failed delivery checkout QR email to %s: %s", to_email, exc
+                )
+        return {"emailsSent": len(sent), "recipients": sent}
+
     def notify_on_delivery_exit(self, delivery) -> dict:
         """Email distributor + driver (and staff) with gate entry/exit duration."""
         from app.models.delivery_entities import DeliveryAgent, DeliveryVehicle, Distributor

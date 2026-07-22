@@ -9,6 +9,7 @@ import {
   type AttendantAdmissionLookup,
   type AttendantPassBranch,
 } from '@/lib/services/attendantPassService';
+import { ConnitorLoader } from '@/components/ConnitorLoader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -91,7 +92,8 @@ function ApplyForm(): React.ReactElement {
   const [phone, setPhone] = React.useState('');
   const [relationship, setRelationship] = React.useState('');
   const [done, setDone] = React.useState(false);
-  const [loading, setLoading] = React.useState(false);
+  const [lookupLoading, setLookupLoading] = React.useState(false);
+  const [submitting, setSubmitting] = React.useState(false);
 
   React.useEffect(() => {
     AttendantPassService.listPublicBranches()
@@ -144,7 +146,7 @@ function ApplyForm(): React.ReactElement {
       toast.error('Select a hospital and enter patient MRN');
       return;
     }
-    setLoading(true);
+    setLookupLoading(true);
     try {
       const res = await AttendantPassService.lookupAdmission(branchId.trim(), mrn.trim());
       setLookup(res);
@@ -153,7 +155,7 @@ function ApplyForm(): React.ReactElement {
       setLookup(null);
       toast.error('No active admission found for this MRN at the selected hospital');
     } finally {
-      setLoading(false);
+      setLookupLoading(false);
     }
   };
 
@@ -173,7 +175,7 @@ function ApplyForm(): React.ReactElement {
       );
       return;
     }
-    setLoading(true);
+    setSubmitting(true);
     try {
       await AttendantPassService.publicApply({
         admissionId: lookup.admissionId,
@@ -190,7 +192,7 @@ function ApplyForm(): React.ReactElement {
           : '';
       toast.error(detail || 'Could not submit request');
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
@@ -209,7 +211,13 @@ function ApplyForm(): React.ReactElement {
   }
 
   return (
-    <div className="mx-auto w-full max-w-xl space-y-6">
+    <div className="relative mx-auto w-full max-w-xl space-y-6">
+      {(lookupLoading || searching) && (
+        <ConnitorLoader
+          variant="fullscreen"
+          message={lookupLoading ? 'Looking up patient…' : 'Searching patients…'}
+        />
+      )}
       <div className="space-y-2">
         <h1 className="text-2xl font-bold tracking-tight">Apply for visit pass</h1>
         <p className="text-sm leading-relaxed text-muted-foreground">
@@ -345,7 +353,7 @@ function ApplyForm(): React.ReactElement {
                 />
               </div>
               <Button
-                disabled={loading || !branchId}
+                disabled={lookupLoading || !branchId}
                 className="w-full sm:w-auto"
                 onClick={() => void doMrnLookup()}
               >
@@ -403,7 +411,7 @@ function ApplyForm(): React.ReactElement {
             </div>
             <div className="sm:col-span-2">
               <Button
-                disabled={loading || Boolean(lookup?.hasAttendantInside)}
+                disabled={submitting || Boolean(lookup?.hasAttendantInside)}
                 className="w-full sm:w-auto"
                 onClick={() => void submit()}
               >

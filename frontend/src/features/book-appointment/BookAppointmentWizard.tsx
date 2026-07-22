@@ -382,11 +382,8 @@ export function BookAppointmentWizard({
       </div>
 
       <Card className="relative overflow-hidden">
-        {(fetchingNext || loading) && (
-          <ConnitorLoader
-            variant="overlay"
-            message={loading ? 'Submitting your booking…' : fetchingNext ?? 'Loading…'}
-          />
+        {fetchingNext && (
+          <ConnitorLoader variant="overlay" message={fetchingNext} />
         )}
         <CardHeader>
           <CardTitle>{title}</CardTitle>

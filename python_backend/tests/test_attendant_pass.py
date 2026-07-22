@@ -220,6 +220,7 @@ async def test_scan_requires_govt_id_and_stores_url(db):
     with (
         patch.object(svc.gcp, "upload_visitor_document", new_callable=AsyncMock) as up,
         patch("app.attendant.pass_service.now_ist", return_value=datetime(2026, 7, 22, 12, 0, 0)),
+        patch.object(EmailService, "send_attendant_checkout_qr_email"),
     ):
         up.return_value = "local://attendant-govt-id/aadhaar.jpg"
         result = await svc.scan_pass(
@@ -336,7 +337,7 @@ async def test_entry_exit_duration_and_inside_block(db):
         with patch(
             "app.attendant.pass_service.now_ist",
             return_value=datetime(2026, 7, 22, 12, 0, 0),
-        ):
+        ), patch.object(EmailService, "send_attendant_checkout_qr_email"):
             entry = await svc.scan_pass(
                 security,
                 qr_payload=pass_row.qrPayload,
@@ -347,6 +348,10 @@ async def test_entry_exit_duration_and_inside_block(db):
     assert entry["scanType"] == "ENTRY"
     assert entry["isInside"] is True
     assert entry["enteredAt"] is not None
+    db.refresh(pass_row)
+    assert pass_row.exitQrPayload
+    assert pass_row.exitQrSignature
+    assert pass_row.exitQrPayload.startswith("PASS-EXIT:")
 
     lookup = svc.lookup_admission_by_mrn(branch.id, "MRN-100")
     assert lookup["hasAttendantInside"] is True
@@ -362,11 +367,22 @@ async def test_entry_exit_duration_and_inside_block(db):
         )
     assert "currently inside" in str(blocked.value.detail).lower()
 
-    with patch.object(svc, "_notify_visit_exit"):
-        exit_result = await svc.scan_pass(
+    # Entry QR while inside must not check out
+    with pytest.raises(Exception) as entry_blocked:
+        await svc.scan_pass(
             security,
             qr_payload=pass_row.qrPayload,
             signature=pass_row.qrSignature,
+            govt_id_file=None,
+            scan_type="ENTRY",
+        )
+    assert "checkout qr" in str(entry_blocked.value.detail).lower()
+
+    with patch.object(svc, "_notify_visit_exit"):
+        exit_result = await svc.scan_pass(
+            security,
+            qr_payload=pass_row.exitQrPayload,
+            signature=pass_row.exitQrSignature,
             govt_id_file=None,
             scan_type="EXIT",
         )

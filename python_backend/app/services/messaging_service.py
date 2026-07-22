@@ -25,10 +25,12 @@ from app.config import (
 from app.utils.phone import normalize_phone
 from app.email_templates import (
     build_account_credentials_email,
+    build_attendant_checkout_qr_email,
     build_attendant_pass_email,
     build_booking_confirmation_email,
     build_check_in_otp_email,
     build_delivery_assignment_email,
+    build_delivery_checkout_qr_email,
     build_doctor_approval_request_email,
     build_gate_pass_email,
     build_login_otp_email,
@@ -76,7 +78,9 @@ def build_doctor_approval_whatsapp_message(
 
 GATE_PASS_QR_CID = "checkin-qr"
 DELIVERY_QR_CID = "delivery-checkin-qr"
+DELIVERY_CHECKOUT_QR_CID = "delivery-checkout-qr"
 ATTENDANT_PASS_QR_CID = "attendant-pass-qr"
+ATTENDANT_CHECKOUT_QR_CID = "attendant-checkout-qr"
 
 
 class EmailService:
@@ -731,6 +735,94 @@ class EmailService:
             text_body,
             html_body,
             context="attendant pass",
+            inline_images=inline_images,
+        )
+
+    def send_attendant_checkout_qr_email(
+        self,
+        to_email: str,
+        *,
+        attendant_name: str,
+        pass_number: str,
+        patient_first_name: str,
+        hospital_name: str,
+        entry_label: str,
+        ward_name: str | None = None,
+        room_number: str | None = None,
+        qr_payload: str | None = None,
+        qr_signature: str | None = None,
+    ) -> None:
+        settings = get_settings()
+        qr_bytes = None
+        if qr_payload and qr_signature:
+            qr_bytes = self._build_delivery_qr_png(qr_payload, qr_signature)
+        qr_cid = ATTENDANT_CHECKOUT_QR_CID if qr_bytes else None
+        subject, text_body, html_body = build_attendant_checkout_qr_email(
+            attendant_name=attendant_name,
+            pass_number=pass_number,
+            patient_first_name=patient_first_name,
+            hospital_name=hospital_name,
+            entry_label=entry_label,
+            ward_name=ward_name,
+            room_number=room_number,
+            qr_cid=qr_cid,
+            company_name=settings.email_from_name,
+            product_name=settings.email_product_name,
+        )
+        inline_images = None
+        if qr_bytes:
+            inline_images = [(ATTENDANT_CHECKOUT_QR_CID, qr_bytes, "image/png")]
+        self._deliver_email(
+            to_email,
+            subject,
+            text_body,
+            html_body,
+            context="attendant checkout QR",
+            inline_images=inline_images,
+        )
+
+    def send_delivery_checkout_qr_email(
+        self,
+        to_email: str,
+        *,
+        driver_name: str,
+        delivery_number: str,
+        goods_type: str,
+        total_boxes: int,
+        vehicle_number: str,
+        vendor_name: str,
+        hospital_name: str,
+        entry_label: str,
+        qr_payload: str | None = None,
+        qr_signature: str | None = None,
+    ) -> None:
+        settings = get_settings()
+        qr_bytes = None
+        if qr_payload and qr_signature:
+            qr_bytes = self._build_delivery_qr_png(qr_payload, qr_signature)
+        qr_cid = DELIVERY_CHECKOUT_QR_CID if qr_bytes else None
+        subject, text_body, html_body = build_delivery_checkout_qr_email(
+            driver_name=driver_name,
+            delivery_number=delivery_number,
+            goods_type=goods_type,
+            total_boxes=total_boxes,
+            vehicle_number=vehicle_number,
+            vendor_name=vendor_name,
+            hospital_name=hospital_name,
+            entry_label=entry_label,
+            qr_cid=qr_cid,
+            company_name=settings.email_from_name,
+            product_name=settings.email_product_name,
+        )
+        inline_images = None
+        if qr_bytes:
+            inline_images = [(DELIVERY_CHECKOUT_QR_CID, qr_bytes, "image/png")]
+        self._deliver_email(
+            to_email,
+            subject,
+            text_body,
+            html_body,
+            context="delivery checkout QR",
             inline_images=inline_images,
         )
 
