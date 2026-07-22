@@ -54,6 +54,11 @@ function PatientSummary({
         {lookup.wardName ? lookup.wardName : 'Ward not listed'}
         {lookup.roomNumber ? ` · Room ${lookup.roomNumber}` : ''}
       </p>
+      <p className="mt-1 text-teal-800">
+        Visiting hours:{' '}
+        {lookup.visitingHours?.summary ??
+          `${lookup.visitingHours?.defaultWindow.startTime ?? '11:00'}–${lookup.visitingHours?.defaultWindow.endTime ?? '16:00'} IST (default)`}
+      </p>
       {lookup.hasAttendantInside && (
         <p className="mt-2 text-red-800 font-medium">
           An attendant is currently inside with this patient. They must check out at security

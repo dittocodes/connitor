@@ -79,10 +79,13 @@ export function DeliveryScanTab({ branchId }: DeliveryScanTabProps): React.React
             exitTime: res.data.exitTime as string | null,
             durationMinutes: res.data.durationMinutes as number | null,
           });
+          const emailed = Number(res.data.emailsSent ?? 0);
           toast.success(
-            typeof res.data.message === 'string'
-              ? res.data.message
-              : 'Exit recorded',
+            emailed > 0
+              ? `Exit recorded — visit summary emailed to distributor and driver`
+              : typeof res.data.message === 'string'
+                ? res.data.message
+                : 'Exit recorded',
           );
         } else {
           const d = res.data.delivery as Record<string, unknown> | undefined;
@@ -163,9 +166,14 @@ export function DeliveryScanTab({ branchId }: DeliveryScanTabProps): React.React
         },
       );
       toast.success(
-        res.data.durationMinutes != null
-          ? `Exit marked — ${res.data.durationMinutes} min inside`
-          : 'Exit marked',
+        (() => {
+          const mins =
+            res.data.durationMinutes != null ? `${res.data.durationMinutes} min inside` : 'Exit marked';
+          const emailed = Number(res.data.emailsSent ?? 0);
+          return emailed > 0
+            ? `${mins} — summary emailed to distributor and driver`
+            : mins;
+        })(),
       );
       setPassNumber(null);
       void loadQueue();
@@ -245,27 +253,27 @@ export function DeliveryScanTab({ branchId }: DeliveryScanTabProps): React.React
             {delivery.expectedArrivalTime ? (
               <p>ETA: {formatIstDateTime(String(delivery.expectedArrivalTime))}</p>
             ) : null}
-            {(gateTiming?.entryTime || delivery.entryTime) && (
+            {Boolean(gateTiming?.entryTime || delivery.entryTime) ? (
               <p>
                 Entry:{' '}
                 {formatIstDateTime(String(gateTiming?.entryTime ?? delivery.entryTime))}
               </p>
-            )}
-            {(gateTiming?.exitTime || delivery.exitTime) && (
+            ) : null}
+            {Boolean(gateTiming?.exitTime || delivery.exitTime) ? (
               <p>
                 Exit: {formatIstDateTime(String(gateTiming?.exitTime ?? delivery.exitTime))}
               </p>
-            )}
-            {(gateTiming?.durationMinutes != null || delivery.durationMinutes != null) && (
+            ) : null}
+            {gateTiming?.durationMinutes != null || delivery.durationMinutes != null ? (
               <p className="font-semibold text-teal-900">
                 Time inside: {String(gateTiming?.durationMinutes ?? delivery.durationMinutes)} min
               </p>
-            )}
-            {suggestedAction === 'MARK_EXIT' && delivery.status === 'RECEIVED' && (
+            ) : null}
+            {suggestedAction === 'MARK_EXIT' && delivery.status === 'RECEIVED' ? (
               <p className="rounded-md bg-white px-3 py-2 text-amber-900">
                 Same QR confirms exit — scan again or tap Mark exit below.
               </p>
-            )}
+            ) : null}
             {passNumber && (
               <p className="rounded-md bg-white px-3 py-2 font-semibold text-teal-900">
                 Gate pass: {passNumber}

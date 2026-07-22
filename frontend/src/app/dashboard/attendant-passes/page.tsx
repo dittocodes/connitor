@@ -8,6 +8,7 @@ import {
   type AttendantAdmission,
   type AttendantPassRow,
   type AttendantRow,
+  type VisitSlotRow,
 } from '@/lib/services/attendantPassService';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,7 +23,7 @@ import {
 } from '@/components/ui/select';
 import { AttendantPassBranchLinks } from '@/features/attendant-passes/AttendantPassBranchLinks';
 
-type Tab = 'admissions' | 'attendants' | 'passes';
+type Tab = 'admissions' | 'attendants' | 'passes' | 'slots';
 
 export default function AttendantPassesPage(): React.ReactElement {
   const user = useAuthSession<{ branchId?: string }>();
@@ -31,6 +32,12 @@ export default function AttendantPassesPage(): React.ReactElement {
   const [admissions, setAdmissions] = React.useState<AttendantAdmission[]>([]);
   const [attendants, setAttendants] = React.useState<AttendantRow[]>([]);
   const [passes, setPasses] = React.useState<AttendantPassRow[]>([]);
+  const [visitSlots, setVisitSlots] = React.useState<VisitSlotRow[]>([]);
+  const [defaultWindow, setDefaultWindow] = React.useState<{
+    startTime: string;
+    endTime: string;
+    label?: string;
+  }>({ startTime: '11:00', endTime: '16:00' });
   const [loading, setLoading] = React.useState(false);
 
   const [mrn, setMrn] = React.useState('');
@@ -47,17 +54,27 @@ export default function AttendantPassesPage(): React.ReactElement {
   const [attPhone, setAttPhone] = React.useState('');
   const [relationship, setRelationship] = React.useState('');
 
+  const [slotAdmissionId, setSlotAdmissionId] = React.useState('');
+  const [slotStart, setSlotStart] = React.useState('17:00');
+  const [slotEnd, setSlotEnd] = React.useState('19:00');
+  const [slotDate, setSlotDate] = React.useState('');
+  const [slotLabel, setSlotLabel] = React.useState('');
+  const [slotEveryDay, setSlotEveryDay] = React.useState(true);
+
   const refresh = React.useCallback(async () => {
     if (!branchId) return;
     try {
-      const [a, t, p] = await Promise.all([
+      const [a, t, p, slots] = await Promise.all([
         AttendantPassService.listAdmissions(branchId),
         AttendantPassService.listAttendants(branchId),
         AttendantPassService.listPasses(branchId),
+        AttendantPassService.listVisitSlots(branchId),
       ]);
       setAdmissions(a);
       setAttendants(t);
       setPasses(p);
+      setVisitSlots(slots.items);
+      if (slots.defaultWindow) setDefaultWindow(slots.defaultWindow);
     } catch {
       toast.error('Could not load attendant data');
     }
@@ -181,6 +198,48 @@ export default function AttendantPassesPage(): React.ReactElement {
     }
   };
 
+  const addVisitSlot = async () => {
+    if (!slotAdmissionId || !slotStart || !slotEnd) {
+      toast.error('Patient, start, and end time are required');
+      return;
+    }
+    if (!slotEveryDay && !slotDate) {
+      toast.error('Pick a date, or mark the slot as every day');
+      return;
+    }
+    setLoading(true);
+    try {
+      await AttendantPassService.createVisitSlot({
+        admissionId: slotAdmissionId,
+        startTime: slotStart,
+        endTime: slotEnd,
+        visitDate: slotEveryDay ? undefined : slotDate,
+        label: slotLabel.trim() || undefined,
+      });
+      toast.success('Extra visiting slot added for this patient');
+      setSlotLabel('');
+      await refresh();
+    } catch (e: unknown) {
+      const msg =
+        typeof e === 'object' && e && 'response' in e
+          ? String((e as { response?: { data?: { detail?: string } } }).response?.data?.detail ?? '')
+          : '';
+      toast.error(msg || 'Could not add visit slot');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const removeVisitSlot = async (slotId: string) => {
+    try {
+      await AttendantPassService.deleteVisitSlot(slotId);
+      toast.success('Visit slot removed');
+      await refresh();
+    } catch {
+      toast.error('Could not remove slot');
+    }
+  };
+
   return (
     <div className="p-6 space-y-4 max-w-4xl">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -189,15 +248,32 @@ export default function AttendantPassesPage(): React.ReactElement {
 
       <AttendantPassBranchLinks branchId={branchId ?? null} />
 
-      <div className="flex gap-2 text-sm">
-        {(['admissions', 'attendants', 'passes'] as Tab[]).map((t) => (
+      <Card className="border-teal-100 bg-teal-50/40">
+        <CardContent className="py-4 text-sm">
+          <p className="font-medium text-teal-900">
+            Default visiting hours (all patients, every day): {defaultWindow.startTime}–{defaultWindow.endTime} IST
+          </p>
+          <p className="text-muted-foreground mt-1">
+            Use the Visit slots tab to add extra hours for a specific patient (for example evenings).
+          </p>
+        </CardContent>
+      </Card>
+
+      <div className="flex flex-wrap gap-2 text-sm">
+        {(['admissions', 'attendants', 'passes', 'slots'] as Tab[]).map((t) => (
           <Button
             key={t}
             size="sm"
             variant={tab === t ? 'default' : 'outline'}
             onClick={() => setTab(t)}
           >
-            {t === 'admissions' ? 'Admissions' : t === 'attendants' ? 'Attendants' : 'Passes'}
+            {t === 'admissions'
+              ? 'Admissions'
+              : t === 'attendants'
+                ? 'Attendants'
+                : t === 'passes'
+                  ? 'Passes'
+                  : 'Visit slots'}
           </Button>
         ))}
       </div>
@@ -261,17 +337,32 @@ export default function AttendantPassesPage(): React.ReactElement {
                       MRN {a.patient?.mrn} · {a.wardName ?? '—'} / Room {a.roomNumber ?? '—'}
                       {a.hasActivePass ? ' · Active pass held' : ''}
                     </p>
+                    <p className="text-xs text-teal-800 mt-1">
+                      Visits: {a.visitingHours?.summary ?? `${defaultWindow.startTime}–${defaultWindow.endTime} (default)`}
+                    </p>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setAdmissionId(a.id);
-                      setTab('attendants');
-                    }}
-                  >
-                    Register visitor
-                  </Button>
+                  <div className="flex flex-col gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setAdmissionId(a.id);
+                        setTab('attendants');
+                      }}
+                    >
+                      Register visitor
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setSlotAdmissionId(a.id);
+                        setTab('slots');
+                      }}
+                    >
+                      Add visit slot
+                    </Button>
+                  </div>
                 </div>
               ))}
             </CardContent>
@@ -405,6 +496,106 @@ export default function AttendantPassesPage(): React.ReactElement {
             ))}
           </CardContent>
         </Card>
+      )}
+
+      {tab === 'slots' && (
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Add extra visiting slot for a patient</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Everyone already has {defaultWindow.startTime}–{defaultWindow.endTime} IST daily.
+                Add another window when a patient needs extra visiting time.
+              </p>
+            </CardHeader>
+            <CardContent className="grid gap-3 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <Label>Patient admission</Label>
+                <Select value={slotAdmissionId} onValueChange={setSlotAdmissionId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select patient" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {admissions.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        {a.patient?.name} ({a.patient?.mrn})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Start time</Label>
+                <Input type="time" value={slotStart} onChange={(e) => setSlotStart(e.target.value)} />
+              </div>
+              <div>
+                <Label>End time</Label>
+                <Input type="time" value={slotEnd} onChange={(e) => setSlotEnd(e.target.value)} />
+              </div>
+              <div className="sm:col-span-2 flex items-center gap-2">
+                <input
+                  id="slot-every-day"
+                  type="checkbox"
+                  checked={slotEveryDay}
+                  onChange={(e) => setSlotEveryDay(e.target.checked)}
+                  className="h-4 w-4"
+                />
+                <Label htmlFor="slot-every-day" className="font-normal">
+                  Repeat every day while patient is admitted
+                </Label>
+              </div>
+              {!slotEveryDay && (
+                <div>
+                  <Label>Date</Label>
+                  <Input type="date" value={slotDate} onChange={(e) => setSlotDate(e.target.value)} />
+                </div>
+              )}
+              <div className={slotEveryDay ? 'sm:col-span-2' : ''}>
+                <Label>Label (optional)</Label>
+                <Input
+                  value={slotLabel}
+                  onChange={(e) => setSlotLabel(e.target.value)}
+                  placeholder="e.g. Evening visit"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <Button disabled={loading || !branchId} onClick={() => void addVisitSlot()}>
+                  Add visit slot
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Extra slots</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              {visitSlots.length === 0 && (
+                <p className="text-muted-foreground">
+                  No extra slots yet. Default {defaultWindow.startTime}–{defaultWindow.endTime} applies to all patients.
+                </p>
+              )}
+              {visitSlots.map((s) => (
+                <div key={s.id} className="rounded border p-3 flex justify-between gap-2">
+                  <div>
+                    <p className="font-medium">
+                      {s.patient?.name ?? 'Patient'} · {s.startTime}–{s.endTime}
+                    </p>
+                    <p className="text-muted-foreground">
+                      {s.everyDay || !s.visitDate ? 'Every day' : s.visitDate}
+                      {s.label ? ` · ${s.label}` : ''}
+                      {s.wardName ? ` · ${s.wardName}` : ''}
+                    </p>
+                  </div>
+                  <Button size="sm" variant="outline" onClick={() => void removeVisitSlot(s.id)}>
+                    Remove
+                  </Button>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
       )}
     </div>
   );

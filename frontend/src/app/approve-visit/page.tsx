@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { CheckCircle2, Loader2, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { ConnitorLoader } from '@/components/ConnitorLoader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -72,10 +73,7 @@ function ApproveVisitContent() {
 
   if (loading) {
     return (
-      <p className="flex items-center gap-2 text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        Loading appointment…
-      </p>
+      <ConnitorLoader variant="section" message="Loading appointment…" className="py-10" />
     );
   }
 
@@ -133,7 +131,26 @@ function ApproveVisitContent() {
         </p>
         {preview.appointmentDate && (
           <p>
-            <span className="text-muted-foreground">Date & time:</span> {preview.appointmentDate}
+            <span className="text-muted-foreground">
+              {preview.isOpenSlotRequest
+                ? 'Preferred date:'
+                : preview.isCustomSlotRequest
+                  ? 'Requested time:'
+                  : 'Date & time:'}
+            </span>{' '}
+            {preview.appointmentDate}
+          </p>
+        )}
+        {preview.isOpenSlotRequest && (
+          <p className="text-amber-800 text-xs pt-1">
+            Visitor wants a visiting slot on this date (no preferred clock time). Approving
+            confirms you will arrange the visit.
+          </p>
+        )}
+        {preview.isCustomSlotRequest && !preview.isOpenSlotRequest && (
+          <p className="text-amber-800 text-xs pt-1">
+            Visitor requested this custom time (not from your published slots). Approving confirms
+            this slot.
           </p>
         )}
         {preview.purpose && (
@@ -149,7 +166,11 @@ function ApproveVisitContent() {
       <div className="flex flex-col gap-2 sm:flex-row">
         <Button className="flex-1" onClick={onApprove} disabled={acting}>
           {acting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Yes
+          {preview.isOpenSlotRequest
+            ? 'Approve visit request'
+            : preview.isCustomSlotRequest
+              ? 'Approve this time'
+              : 'Yes'}
         </Button>
         <Button variant="destructive" className="flex-1" onClick={onReject} disabled={acting}>
           No
@@ -168,7 +189,7 @@ export default function ApproveVisitPage() {
           <CardDescription>Doctor one-tap approval — no login required</CardDescription>
         </CardHeader>
         <CardContent>
-          <Suspense fallback={<Loader2 className="h-6 w-6 animate-spin" />}>
+          <Suspense fallback={<ConnitorLoader variant="inline" message="Loading…" />}>
             <ApproveVisitContent />
           </Suspense>
         </CardContent>

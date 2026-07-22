@@ -55,6 +55,7 @@ from app.models.delivery_entities import (  # noqa: F401 — register ORM tables
 )
 from app.models.attendant_entities import (  # noqa: F401
     Admission,
+    AdmissionVisitSlot,
     Attendant,
     AttendantPass,
     AttendantPassScan,

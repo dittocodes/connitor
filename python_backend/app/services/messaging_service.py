@@ -388,6 +388,7 @@ class EmailService:
         appointment_date: str,
         purpose: str,
         approval_url: str,
+        open_slot_request: bool = False,
     ) -> None:
         """Send doctor a one-tap approval link by email (works when SMS/WhatsApp are down)."""
         settings = get_settings()
@@ -399,6 +400,7 @@ class EmailService:
             approval_url=approval_url,
             company_name=settings.email_from_name,
             product_name=settings.email_product_name,
+            open_slot_request=open_slot_request,
         )
         try:
             self._deliver_email(

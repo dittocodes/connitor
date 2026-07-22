@@ -10,9 +10,14 @@ const backendProxyTarget = (
   'http://127.0.0.1:8002'
 ).replace(/\/$/, '');
 
+const isProdBuild = process.env.NODE_ENV === 'production';
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  ...(process.env.NODE_ENV === 'production' ? { output: 'export' as const } : {}),
+  // Amplify static hosting — HTML pages land in `out/` then `scripts/prepare-dist.mjs` → `dist/`
+  ...(isProdBuild ? { output: 'export' as const } : {}),
+  // Windows builds often OOM/crash with many parallel static-generation workers
+  ...(isProdBuild ? { experimental: { cpus: 1 } } : {}),
   // Dev: proxy /api/* to Python (or Nest) backend so the browser uses same origin (port 3000)
   async rewrites() {
     if (process.env.NODE_ENV !== 'development') {

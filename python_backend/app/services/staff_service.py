@@ -9,17 +9,79 @@ import qrcode
 from fastapi import HTTPException
 from sqlalchemy.orm import Session, joinedload
 
-from app.models import Visit
+from app.models import DoctorAvailabilitySlot, Visit
 from app.models.enums import AppointmentMode, VisitStatus
 from app.services.notifications_service import NotificationsService
 from app.services.zoom_service import ZoomService
 from app.utils.serializers import model_to_dict
+
+CUSTOM_SLOT_MINUTES = 30
 
 
 class StaffService:
     def __init__(self, db: Session) -> None:
         self.db = db
         self.notifications = NotificationsService(db)
+
+    def _release_slot_for_visit(self, visit_id: str) -> None:
+        slot = (
+            self.db.query(DoctorAvailabilitySlot)
+            .filter(DoctorAvailabilitySlot.visitId == visit_id)
+            .first()
+        )
+        if slot:
+            slot.isBooked = False
+            slot.visitId = None
+
+    def _materialize_slot_on_approve(self, visit: Visit) -> None:
+        """Ensure a DoctorAvailabilitySlot exists and is linked when doctor approves.
+
+        Open visit-slot requests (date only, midnight marker) do not create a clock slot —
+        the doctor only confirms they will arrange a visit.
+        """
+        if not visit.appointmentDate or not visit.staffId:
+            return
+        purpose = (visit.purpose or "").upper()
+        is_open_request = purpose.startswith("[CUSTOM SLOT]") and visit.appointmentDate.hour == 0 and visit.appointmentDate.minute == 0
+        if is_open_request:
+            return
+
+        existing = (
+            self.db.query(DoctorAvailabilitySlot)
+            .filter(DoctorAvailabilitySlot.visitId == visit.id)
+            .first()
+        )
+        if existing:
+            return
+
+        appt = visit.appointmentDate.replace(second=0, microsecond=0)
+        slot = (
+            self.db.query(DoctorAvailabilitySlot)
+            .filter(
+                DoctorAvailabilitySlot.doctorId == visit.staffId,
+                DoctorAvailabilitySlot.slotStart == appt,
+            )
+            .first()
+        )
+        if slot:
+            if slot.isBooked and slot.visitId and slot.visitId != visit.id:
+                raise HTTPException(
+                    status_code=409,
+                    detail="That time was booked by another visit. Ask the visitor to pick a new time.",
+                )
+            slot.isBooked = True
+            slot.visitId = visit.id
+            return
+
+        self.db.add(
+            DoctorAvailabilitySlot(
+                doctorId=visit.staffId,
+                slotStart=appt,
+                slotEnd=appt + timedelta(minutes=CUSTOM_SLOT_MINUTES),
+                isBooked=True,
+                visitId=visit.id,
+            )
+        )
 
     def get_pending_visits(self, staff_id: str) -> list[dict]:
         visits = (
@@ -101,6 +163,8 @@ class StaffService:
         visit.doctorFeedbackAt = now_ist()
         pamphlet: str | None = None
 
+        self._materialize_slot_on_approve(visit)
+
         if is_online:
             if not visit.appointmentDate:
                 raise HTTPException(status_code=400, detail="Online appointment requires a scheduled date and time.")
@@ -179,6 +243,7 @@ class StaffService:
         visit.rejectionReason = rejection_reason
         visit.doctorFeedback = rejection_reason
         visit.doctorFeedbackAt = now_ist()
+        self._release_slot_for_visit(visit.id)
         self.db.commit()
         self.db.refresh(visit)
         if visit.staff and visit.visitor:

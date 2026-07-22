@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { CheckCircle2, Loader2, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { ConnitorLoader } from '@/components/ConnitorLoader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -75,10 +76,7 @@ function ApproveAttendantContent() {
 
   if (loading) {
     return (
-      <p className="flex items-center gap-2 text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        Loading request…
-      </p>
+      <ConnitorLoader variant="section" message="Loading request…" className="py-10" />
     );
   }
 
@@ -193,7 +191,7 @@ export default function ApproveAttendantPage() {
           <CardDescription>Ward one-tap approval — no login required</CardDescription>
         </CardHeader>
         <CardContent>
-          <Suspense fallback={<Loader2 className="h-6 w-6 animate-spin" />}>
+          <Suspense fallback={<ConnitorLoader variant="inline" message="Loading…" />}>
             <ApproveAttendantContent />
           </Suspense>
         </CardContent>

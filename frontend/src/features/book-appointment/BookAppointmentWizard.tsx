@@ -13,6 +13,7 @@ import { VisitorAuthService } from '@/lib/services/visitorAuthService';
 import { getVisitorToken } from '@/lib/services/visitorPortalService';
 import { VisitorAccountApi } from '@/features/visitor-pre-registration/api/visitorAccountService';
 import type { VisitorPreviewData } from '@/features/visitor-pre-registration/schemas/visitorAccountSchema';
+import { ConnitorLoader } from '@/components/ConnitorLoader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -107,6 +108,7 @@ export function BookAppointmentWizard({
   const [subDepartmentId, setSubDepartmentId] = React.useState('');
   const [doctorId, setDoctorId] = React.useState('');
   const [slotId, setSlotId] = React.useState('');
+  const [requestCustomSlot, setRequestCustomSlot] = React.useState(false);
   const [firstName, setFirstName] = React.useState('');
   const [lastName, setLastName] = React.useState('');
   const [phone, setPhone] = React.useState('');
@@ -119,6 +121,8 @@ export function BookAppointmentWizard({
   const [error, setError] = React.useState('');
   const [loadingHospitals, setLoadingHospitals] = React.useState(!initialBranchId);
   const [loadingDepartments, setLoadingDepartments] = React.useState(!!initialBranchId);
+  /** Shown while a click waits on the next API response */
+  const [fetchingNext, setFetchingNext] = React.useState<string | null>(null);
   const [isRegisteredVisitor, setIsRegisteredVisitor] = React.useState(false);
   const [visitorProfile, setVisitorProfile] = React.useState<VisitorPreviewData | null>(null);
 
@@ -195,6 +199,7 @@ export function BookAppointmentWizard({
     setDoctorId('');
     setSelectedDoctor(null);
     setError('');
+    setFetchingNext('Loading departments…');
     try {
       const depts = await AppointmentService.listPublicDepartments(id);
       setDepartments(depts);
@@ -204,6 +209,8 @@ export function BookAppointmentWizard({
       setStep(2);
     } catch {
       setError('Failed to load departments. Please try again.');
+    } finally {
+      setFetchingNext(null);
     }
   };
 
@@ -213,6 +220,7 @@ export function BookAppointmentWizard({
     setDoctorId('');
     setSelectedDoctor(null);
     setError('');
+    setFetchingNext('Loading sections…');
     try {
       const subs = await AppointmentService.listPublicSubDepartments(id);
       setSubDepartments(subs);
@@ -222,6 +230,8 @@ export function BookAppointmentWizard({
       setStep(3);
     } catch {
       setError('Failed to load sections. Please try again.');
+    } finally {
+      setFetchingNext(null);
     }
   };
 
@@ -230,6 +240,7 @@ export function BookAppointmentWizard({
     setDoctorId('');
     setSelectedDoctor(null);
     setError('');
+    setFetchingNext('Loading doctors…');
     try {
       const docs = await AppointmentService.listPublicDoctors(id);
       setDoctors(docs);
@@ -239,6 +250,8 @@ export function BookAppointmentWizard({
       setStep(4);
     } catch {
       setError('Failed to load doctors. Please try again.');
+    } finally {
+      setFetchingNext(null);
     }
   };
 
@@ -246,11 +259,14 @@ export function BookAppointmentWizard({
     setDoctorId(doctor.id);
     setSlotId('');
     setError('');
+    setFetchingNext('Loading doctor details…');
     try {
       const detail = await AppointmentService.getPublicDoctor(doctor.id);
       setSelectedDoctor(detail);
     } catch {
       setSelectedDoctor(doctor);
+    } finally {
+      setFetchingNext(null);
     }
     setStep(5);
   };
@@ -259,12 +275,33 @@ export function BookAppointmentWizard({
     if (step > minStep && step < 6) setStep((step - 1) as Step);
   };
 
+  React.useEffect(() => {
+    if (!doctorId || !appointmentDate || step < 5) return;
+    setLoadingSlots(true);
+    setSlotId('');
+    AppointmentService.listDoctorSlots(doctorId, appointmentDate)
+      .then(setSlots)
+      .catch(() => {
+        setSlots([]);
+        setError('Could not load available time slots.');
+      })
+      .finally(() => setLoadingSlots(false));
+  }, [doctorId, appointmentDate, step]);
+
   const selectedSlot = slots.find((s) => s.id === slotId);
 
   const submit = async () => {
     const normalizedEmail = email.trim().toLowerCase();
-    if (!purpose.trim() || !slotId) {
-      setError('Please select a time slot and enter the purpose of your visit.');
+    if (!purpose.trim()) {
+      setError('Please enter the purpose of your visit.');
+      return;
+    }
+    if (!requestCustomSlot && !slotId) {
+      setError('Please select a time slot, or request a visit slot from the doctor.');
+      return;
+    }
+    if (requestCustomSlot && !appointmentDate) {
+      setError('Please choose a preferred date for your visit request.');
       return;
     }
     if (isRegisteredVisitor) {
@@ -278,7 +315,7 @@ export function BookAppointmentWizard({
       !firstName.trim() ||
       !lastName.trim()
     ) {
-      setError('Please fill in all required fields, select a time slot, and use a valid 10-digit phone and email.');
+      setError('Please fill in all required fields and use a valid 10-digit phone and email.');
       return;
     }
     setLoading(true);
@@ -293,8 +330,12 @@ export function BookAppointmentWizard({
         lastName,
         phone,
         email: normalizedEmail,
-        slotId,
-        appointmentDate: selectedSlot?.slotStart,
+        slotId: requestCustomSlot ? undefined : slotId,
+        // Date only — visitor does not propose a clock time
+        appointmentDate: requestCustomSlot
+          ? `${appointmentDate}T00:00:00`
+          : selectedSlot?.slotStart,
+        requestCustomSlot,
         purpose,
         appointmentMode,
       });
@@ -302,8 +343,17 @@ export function BookAppointmentWizard({
       setResult(bookingResult);
       setStep(6);
       onSuccess?.({ ...bookingResult, phone });
-    } catch {
-      setError('Booking failed. The slot may have been taken — pick another time and try again.');
+    } catch (e: unknown) {
+      const detail =
+        typeof e === 'object' && e && 'response' in e
+          ? String(
+              (e as { response?: { data?: { detail?: string } } }).response?.data?.detail ?? '',
+            )
+          : '';
+      setError(
+        detail ||
+          'Booking failed. The slot may have been taken — pick another time and try again.',
+      );
     } finally {
       setLoading(false);
     }
@@ -331,7 +381,13 @@ export function BookAppointmentWizard({
         )}
       </div>
 
-      <Card>
+      <Card className="relative overflow-hidden">
+        {(fetchingNext || loading) && (
+          <ConnitorLoader
+            variant="overlay"
+            message={loading ? 'Submitting your booking…' : fetchingNext ?? 'Loading…'}
+          />
+        )}
         <CardHeader>
           <CardTitle>{title}</CardTitle>
           {step < 6 && (
@@ -350,7 +406,7 @@ export function BookAppointmentWizard({
             <div className="space-y-2">
               <Label>Select Hospital Location</Label>
               {loadingHospitals && (
-                <p className="text-sm text-muted-foreground">Loading locations...</p>
+                <ConnitorLoader variant="section" message="Loading hospitals…" className="py-8" />
               )}
               {!loadingHospitals && hospitals.length === 0 && !error && (
                 <p className="text-sm text-muted-foreground">No hospitals available for booking.</p>
@@ -360,7 +416,8 @@ export function BookAppointmentWizard({
                   key={h.id}
                   variant="outline"
                   className="w-full justify-start"
-                  onClick={() => selectHospital(h.id)}
+                  disabled={Boolean(fetchingNext)}
+                  onClick={() => void selectHospital(h.id)}
                 >
                   {h.name} — {h.city}
                 </Button>
@@ -372,7 +429,7 @@ export function BookAppointmentWizard({
             <div className="space-y-2">
               <Label>Select Department</Label>
               {loadingDepartments && (
-                <p className="text-sm text-muted-foreground">Loading departments...</p>
+                <ConnitorLoader variant="section" message="Loading departments…" className="py-8" />
               )}
               {!loadingDepartments && departments.length === 0 && (
                 <p className="text-sm text-muted-foreground">
@@ -384,7 +441,8 @@ export function BookAppointmentWizard({
                   key={d.id}
                   variant="outline"
                   className="w-full justify-start"
-                  onClick={() => selectDepartment(d.id)}
+                  disabled={Boolean(fetchingNext)}
+                  onClick={() => void selectDepartment(d.id)}
                 >
                   {d.name}
                 </Button>
@@ -405,7 +463,8 @@ export function BookAppointmentWizard({
                   key={s.id}
                   variant="outline"
                   className="w-full justify-start"
-                  onClick={() => selectSubDepartment(s.id)}
+                  disabled={Boolean(fetchingNext)}
+                  onClick={() => void selectSubDepartment(s.id)}
                 >
                   {s.name}
                 </Button>
@@ -423,8 +482,9 @@ export function BookAppointmentWizard({
                 <button
                   key={d.id}
                   type="button"
-                  className="w-full rounded-lg border bg-card p-4 text-left transition hover:border-teal-500 hover:bg-teal-50/50"
-                  onClick={() => selectDoctor(d)}
+                  disabled={Boolean(fetchingNext)}
+                  className="w-full rounded-lg border bg-card p-4 text-left transition hover:border-teal-500 hover:bg-teal-50/50 disabled:opacity-60"
+                  onClick={() => void selectDoctor(d)}
                 >
                   <p className="font-medium">{d.name}</p>
                   {d.departmentName && (
@@ -520,11 +580,12 @@ export function BookAppointmentWizard({
                   Available time slots
                 </Label>
                 {loadingSlots && (
-                  <p className="text-sm text-muted-foreground">Loading slots…</p>
+                  <ConnitorLoader variant="inline" message="Loading time slots…" className="py-3" />
                 )}
                 {!loadingSlots && slots.length === 0 && (
                   <p className="text-sm text-muted-foreground rounded-md border border-dashed p-3">
-                    No slots available on this date. Try another day or contact the hospital.
+                    No published slots on this date. You can still ask the doctor for a visit slot
+                    below.
                   </p>
                 )}
                 <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
@@ -533,13 +594,43 @@ export function BookAppointmentWizard({
                       key={slot.id}
                       type="button"
                       size="sm"
-                      variant={slotId === slot.id ? 'default' : 'outline'}
-                      className={cn('text-xs', slotId === slot.id && 'bg-teal-700')}
-                      onClick={() => setSlotId(slot.id)}
+                      variant={!requestCustomSlot && slotId === slot.id ? 'default' : 'outline'}
+                      className={cn(
+                        'text-xs',
+                        !requestCustomSlot && slotId === slot.id && 'bg-teal-700',
+                      )}
+                      onClick={() => {
+                        setRequestCustomSlot(false);
+                        setSlotId(slot.id);
+                      }}
                     >
                       {slot.label}
                     </Button>
                   ))}
+                </div>
+
+                <div className="rounded-lg border border-dashed p-3 space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-medium">Ask doctor for a visit slot</p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={requestCustomSlot ? 'default' : 'outline'}
+                      onClick={() => {
+                        setRequestCustomSlot(true);
+                        setSlotId('');
+                      }}
+                    >
+                      {requestCustomSlot ? 'Visit request selected' : 'Request a visit slot'}
+                    </Button>
+                  </div>
+                  {requestCustomSlot && (
+                    <p className="text-xs text-muted-foreground">
+                      You do not pick a clock time. The doctor will get an email that you want a
+                      visiting slot on {appointmentDate || 'the selected date'}, and can approve or
+                      decline.
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -574,8 +665,16 @@ export function BookAppointmentWizard({
                   </Button>
                 </div>
               </div>
-              <Button className="w-full" onClick={submit} disabled={loading || !slotId}>
-                {loading ? 'Booking...' : 'Confirm Booking'}
+              <Button
+                className="w-full"
+                onClick={submit}
+                disabled={loading || (!requestCustomSlot && !slotId)}
+              >
+                {loading
+                  ? 'Submitting…'
+                  : requestCustomSlot
+                    ? 'Send visit request to doctor'
+                    : 'Confirm Booking'}
               </Button>
             </div>
           )}

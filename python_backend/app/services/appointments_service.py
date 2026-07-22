@@ -212,6 +212,37 @@ class AppointmentsService:
             raise HTTPException(status_code=400, detail="Appointment must be in the future.")
         return appt_date, None
 
+    def _assert_custom_time_available(self, doctor_id: str, appt_date: datetime) -> None:
+        """Reject custom requests that collide with an already-booked slot or pending visit."""
+        existing_slot = (
+            self.db.query(DoctorAvailabilitySlot)
+            .filter(
+                DoctorAvailabilitySlot.doctorId == doctor_id,
+                DoctorAvailabilitySlot.slotStart == appt_date,
+                DoctorAvailabilitySlot.isBooked == True,  # noqa: E712
+            )
+            .first()
+        )
+        if existing_slot:
+            raise HTTPException(
+                status_code=409,
+                detail="That time is already booked. Please choose another time.",
+            )
+        pending = (
+            self.db.query(Visit)
+            .filter(
+                Visit.staffId == doctor_id,
+                Visit.appointmentDate == appt_date,
+                Visit.status == VisitStatus.REQUEST_SENT.value,
+            )
+            .first()
+        )
+        if pending:
+            raise HTTPException(
+                status_code=409,
+                detail="Another request is already pending for that time. Please choose another time.",
+            )
+
     def book_appointment(self, data: dict) -> dict:
         branch, dept, sub, doctor = self._validate_booking_chain(
             data["branchId"],
@@ -220,12 +251,27 @@ class AppointmentsService:
             data["doctorId"],
         )
 
+        request_custom = bool(data.get("requestCustomSlot"))
+        slot_id = None if request_custom else data.get("slotId")
+
         try:
             appt_date = parse_to_ist_naive(data["appointmentDate"]) if data.get("appointmentDate") else None
         except ValueError as exc:
             raise HTTPException(status_code=400, detail="Invalid appointmentDate format.") from exc
 
-        appt_date, slot = self._reserve_slot(data["doctorId"], data.get("slotId"), appt_date)
+        if request_custom:
+            if not appt_date:
+                raise HTTPException(
+                    status_code=400,
+                    detail="appointmentDate is required when requesting a visit slot.",
+                )
+            # Visitor does not propose a clock time — store preferred date at 00:00 IST.
+            appt_date = appt_date.replace(hour=0, minute=0, second=0, microsecond=0)
+            if appt_date.date() < now_ist().date():
+                raise HTTPException(status_code=400, detail="Preferred date must be today or later.")
+            slot = None
+        else:
+            appt_date, slot = self._reserve_slot(data["doctorId"], slot_id, appt_date)
 
         visitor_account_id = data.get("visitorAccountId")
         if visitor_account_id:
@@ -258,6 +304,10 @@ class AppointmentsService:
         if mode not in (AppointmentMode.IN_PERSON.value, AppointmentMode.ONLINE.value):
             raise HTTPException(status_code=400, detail="Invalid appointmentMode.")
 
+        purpose = data["purpose"]
+        if request_custom and not purpose.upper().startswith("[CUSTOM SLOT]"):
+            purpose = f"[CUSTOM SLOT] {purpose}"
+
         visit = Visit(
             visitorId=visitor.id,
             staffId=doctor.id,
@@ -267,7 +317,7 @@ class AppointmentsService:
             departmentId=dept.id,
             subDepartmentId=sub.id,
             department=self._legacy_visit_department(dept, doctor),
-            purpose=data["purpose"],
+            purpose=purpose,
             appointmentDate=appt_date,
             appointmentMode=mode,
             visitCategory=VisitCategory.MEETING.value,
@@ -289,10 +339,16 @@ class AppointmentsService:
             visit, doctor, visitor, branch=branch, department=dept, sub_department=sub
         )
 
+        message = (
+            "Visit slot requested. The doctor has been emailed and will approve or decline."
+            if request_custom
+            else "Appointment booked successfully. Awaiting doctor approval."
+        )
         return {
             "bookingId": visit.id,
             "status": visit.status,
-            "message": "Appointment booked successfully. Awaiting doctor approval.",
+            "message": message,
+            "isCustomSlotRequest": request_custom,
             "appointmentDate": visit.appointmentDate.isoformat() if visit.appointmentDate else None,
             "doctorName": doctor.name,
             "departmentName": dept.name,

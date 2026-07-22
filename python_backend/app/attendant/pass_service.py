@@ -5,10 +5,11 @@ from __future__ import annotations
 import hashlib
 import hmac
 import logging
-from datetime import timedelta
+import re
+from datetime import date, datetime, timedelta
 
 from fastapi import UploadFile
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.config import get_settings
@@ -16,6 +17,7 @@ from app.delivery.utils import bad_request, not_found
 from app.models import Branch
 from app.models.attendant_entities import (
     Admission,
+    AdmissionVisitSlot,
     Attendant,
     AttendantPass,
     AttendantPassNumberSequence,
@@ -30,6 +32,10 @@ from app.utils.timezone import format_ist_datetime, now_ist
 logger = logging.getLogger(__name__)
 
 PASS_VALIDITY_HOURS = 24
+# Hospital-wide default visiting window for every inpatient (IST), every day.
+DEFAULT_VISIT_START = "11:00"
+DEFAULT_VISIT_END = "16:00"
+_TIME_RE = re.compile(r"^([01]?\d|2[0-3]):([0-5]\d)$")
 
 
 class AttendantPassService:
@@ -47,6 +53,210 @@ class AttendantPassService:
         seq.lastNumber += 1
         self.db.flush()
         return f"AP-{year}-{seq.lastNumber:06d}"
+
+    @staticmethod
+    def _parse_hhmm(value: str) -> int:
+        match = _TIME_RE.match((value or "").strip())
+        if not match:
+            raise bad_request("Time must be HH:MM (24-hour)")
+        return int(match.group(1)) * 60 + int(match.group(2))
+
+    @staticmethod
+    def _format_hhmm(minutes: int) -> str:
+        h, m = divmod(max(0, minutes), 60)
+        return f"{h:02d}:{m:02d}"
+
+    def _default_visit_window(self, branch_id: str) -> tuple[str, str]:
+        """Hospital default visiting hours for every inpatient, every day (IST)."""
+        _ = branch_id  # reserved for future PassPolicy overrides
+        return DEFAULT_VISIT_START, DEFAULT_VISIT_END
+
+    def get_visiting_hours(self, admission_id: str, *, on_date: date | None = None) -> dict:
+        admission = self.db.get(Admission, admission_id)
+        if not admission:
+            raise not_found("Admission")
+        day = on_date or now_ist().date()
+        start, end = self._default_visit_window(admission.branchId)
+        extras = (
+            self.db.query(AdmissionVisitSlot)
+            .filter(
+                AdmissionVisitSlot.admissionId == admission_id,
+                AdmissionVisitSlot.isActive.is_(True),
+                or_(
+                    AdmissionVisitSlot.visitDate.is_(None),
+                    AdmissionVisitSlot.visitDate == day,
+                ),
+            )
+            .order_by(AdmissionVisitSlot.startTime.asc())
+            .all()
+        )
+        return {
+            "admissionId": admission_id,
+            "date": day.isoformat(),
+            "defaultWindow": {
+                "startTime": start,
+                "endTime": end,
+                "label": "Hospital visiting hours",
+                "everyDay": True,
+            },
+            "extraSlots": [self._serialize_visit_slot(s) for s in extras],
+            "summary": self._visiting_hours_summary(start, end, extras),
+        }
+
+    def _visiting_hours_summary(
+        self, default_start: str, default_end: str, extras: list[AdmissionVisitSlot]
+    ) -> str:
+        parts = [f"{default_start}–{default_end} (default)"]
+        for slot in extras:
+            label = slot.label or "extra"
+            date_bit = slot.visitDate.isoformat() if slot.visitDate else "daily"
+            parts.append(f"{slot.startTime}–{slot.endTime} ({label}, {date_bit})")
+        return "; ".join(parts)
+
+    def is_within_visiting_hours(
+        self, admission_id: str, *, when: datetime | None = None
+    ) -> bool:
+        when = when or now_ist()
+        hours = self.get_visiting_hours(admission_id, on_date=when.date())
+        minutes = when.hour * 60 + when.minute
+        default = hours["defaultWindow"]
+        start = self._parse_hhmm(default["startTime"])
+        end = self._parse_hhmm(default["endTime"])
+        if start <= minutes <= end:
+            return True
+        for slot in hours["extraSlots"]:
+            s = self._parse_hhmm(slot["startTime"])
+            e = self._parse_hhmm(slot["endTime"])
+            if s <= minutes <= e:
+                return True
+        return False
+
+    def assert_within_visiting_hours(self, admission_id: str) -> None:
+        if self.is_within_visiting_hours(admission_id):
+            return
+        hours = self.get_visiting_hours(admission_id)
+        raise bad_request(
+            "Outside visiting hours. Allowed today: "
+            f"{hours['summary']}. Default hospital hours are "
+            f"{DEFAULT_VISIT_START}–{DEFAULT_VISIT_END} IST every day."
+        )
+
+    def list_visit_slots(self, branch_id: str, *, admission_id: str | None = None) -> dict:
+        q = (
+            self.db.query(AdmissionVisitSlot)
+            .options(
+                joinedload(AdmissionVisitSlot.admission).joinedload(Admission.patient)
+            )
+            .filter(
+                AdmissionVisitSlot.branchId == branch_id,
+                AdmissionVisitSlot.isActive.is_(True),
+            )
+        )
+        if admission_id:
+            q = q.filter(AdmissionVisitSlot.admissionId == admission_id)
+        rows = q.order_by(AdmissionVisitSlot.createdAt.desc()).all()
+        default_start, default_end = self._default_visit_window(branch_id)
+        return {
+            "defaultWindow": {
+                "startTime": default_start,
+                "endTime": default_end,
+                "label": "Hospital visiting hours (all patients, every day)",
+                "everyDay": True,
+            },
+            "items": [self._serialize_visit_slot(s, with_patient=True) for s in rows],
+        }
+
+    def create_visit_slot(self, user: dict, data: dict) -> dict:
+        admission = self.db.get(Admission, data["admissionId"])
+        if not admission:
+            raise not_found("Admission")
+        if admission.status != "ACTIVE":
+            raise bad_request("Admission is not active")
+        user_branch = user.get("branchId")
+        if (
+            user_branch
+            and admission.branchId != user_branch
+            and user.get("role") not in ("SUPER_ADMIN", "HOSPITAL_ADMIN")
+        ):
+            raise bad_request("Admission belongs to another branch")
+
+        start = data["startTime"].strip()
+        end = data["endTime"].strip()
+        start_m = self._parse_hhmm(start)
+        end_m = self._parse_hhmm(end)
+        if end_m <= start_m:
+            raise bad_request("End time must be after start time")
+
+        visit_date: date | None = None
+        raw_date = data.get("visitDate")
+        if raw_date:
+            try:
+                visit_date = date.fromisoformat(str(raw_date).strip())
+            except ValueError as exc:
+                raise bad_request("visitDate must be YYYY-MM-DD") from exc
+
+        slot = AdmissionVisitSlot(
+            admissionId=admission.id,
+            branchId=admission.branchId,
+            visitDate=visit_date,
+            startTime=self._format_hhmm(start_m),
+            endTime=self._format_hhmm(end_m),
+            label=(data.get("label") or "").strip() or None,
+            createdById=user.get("id"),
+            isActive=True,
+        )
+        self.db.add(slot)
+        self.db.commit()
+        self.db.refresh(slot)
+        return self._serialize_visit_slot(slot, with_patient=True)
+
+    def delete_visit_slot(self, user: dict, slot_id: str) -> dict:
+        slot = self.db.get(AdmissionVisitSlot, slot_id)
+        if not slot or not slot.isActive:
+            raise not_found("Visit slot")
+        user_branch = user.get("branchId")
+        if (
+            user_branch
+            and slot.branchId != user_branch
+            and user.get("role") not in ("SUPER_ADMIN", "HOSPITAL_ADMIN")
+        ):
+            raise bad_request("Visit slot belongs to another branch")
+        slot.isActive = False
+        self.db.commit()
+        return {"id": slot.id, "deleted": True}
+
+    def _serialize_visit_slot(
+        self, slot: AdmissionVisitSlot, *, with_patient: bool = False
+    ) -> dict:
+        payload = {
+            "id": slot.id,
+            "admissionId": slot.admissionId,
+            "branchId": slot.branchId,
+            "visitDate": slot.visitDate.isoformat() if slot.visitDate else None,
+            "startTime": slot.startTime,
+            "endTime": slot.endTime,
+            "label": slot.label,
+            "everyDay": slot.visitDate is None,
+            "isActive": slot.isActive,
+            "createdAt": slot.createdAt.isoformat() if slot.createdAt else None,
+        }
+        if with_patient:
+            admission = slot.admission or self.db.get(Admission, slot.admissionId)
+            patient = None
+            if admission:
+                patient = admission.patient or self.db.get(Patient, admission.patientId)
+            payload["patient"] = (
+                {
+                    "id": patient.id,
+                    "mrn": patient.mrn,
+                    "name": f"{patient.firstName} {patient.lastName}".strip(),
+                }
+                if patient
+                else None
+            )
+            payload["wardName"] = admission.wardName if admission else None
+            payload["roomNumber"] = admission.roomNumber if admission else None
+        return payload
 
     def _sign_payload(self, payload: str) -> str:
         secret = get_settings().jwt_secret
@@ -318,6 +528,9 @@ class AttendantPassService:
                 raise bad_request("Attendant is already inside — scan for EXIT")
             if pass_row.exitedAt:
                 raise bad_request("This pass was already used for a completed visit")
+            attendant = pass_row.attendant or self.db.get(Attendant, pass_row.attendantId)
+            if attendant:
+                self.assert_within_visiting_hours(attendant.admissionId)
             if not govt_id_file or not govt_id_file.filename:
                 raise bad_request("Government ID image is required for entry")
             image_url = await self.gcp.upload_visitor_document(
@@ -352,9 +565,10 @@ class AttendantPassService:
         self.db.commit()
         self.db.refresh(pass_row)
 
+        notify_result: dict = {"emailsSent": 0, "recipients": []}
         if requested == "EXIT":
             try:
-                self._notify_visit_exit(pass_row)
+                notify_result = self._notify_visit_exit(pass_row) or notify_result
             except Exception as exc:
                 logger.error("Failed attendant exit notifications for %s: %s", pass_row.id, exc)
 
@@ -367,6 +581,8 @@ class AttendantPassService:
             "exitedAt": pass_row.exitedAt.isoformat() if pass_row.exitedAt else None,
             "durationMinutes": pass_row.durationMinutes,
             "govtIdImageUrl": image_url,
+            "emailsSent": notify_result.get("emailsSent", 0),
+            "emailRecipients": notify_result.get("recipients") or [],
             "attendant": self._serialize_attendant(pass_row.attendant) if pass_row.attendant else None,
             "admission": (
                 self._serialize_admission(pass_row.attendant.admission)
@@ -376,14 +592,16 @@ class AttendantPassService:
             "pass": self._serialize_pass(pass_row, full=True),
         }
 
-    def _notify_visit_exit(self, pass_row: AttendantPass) -> None:
+    def _notify_visit_exit(self, pass_row: AttendantPass) -> dict:
+        """Email attendant (visitor) + ward + security with visit duration summary."""
         from app.email_templates import build_attendant_visit_exit_email
         from app.models import User
         from app.models.enums import Role
 
         attendant = pass_row.attendant or self.db.get(Attendant, pass_row.attendantId)
         if not attendant:
-            return
+            logger.warning("Attendant exit notify skipped — no attendant on pass %s", pass_row.id)
+            return {"emailsSent": 0, "recipients": []}
         admission = attendant.admission or self.db.get(Admission, attendant.admissionId)
         patient = None
         if admission:
@@ -401,6 +619,11 @@ class AttendantPassService:
         targets: list[tuple[str, str]] = []
         if attendant.email and "@placeholder.local" not in attendant.email:
             targets.append((attendant.email, attendant.name))
+        else:
+            logger.warning(
+                "Attendant %s has no usable email — visit exit mail to visitor skipped",
+                attendant.id,
+            )
 
         ward_users = (
             self.db.query(User)
@@ -439,6 +662,7 @@ class AttendantPassService:
                 targets.append((u.email, u.name or "Security"))
 
         seen: set[str] = set()
+        sent: list[str] = []
         for to_email, recipient_name in targets:
             key = to_email.lower()
             if key in seen:
@@ -463,8 +687,11 @@ class AttendantPassService:
                 self.email._deliver_email(
                     to_email, subject, text_body, html_body, context="attendant exit"
                 )
+                sent.append(to_email)
             except Exception as exc:
                 logger.error("Failed attendant exit email to %s: %s", to_email, exc)
+
+        return {"emailsSent": len(sent), "recipients": sent}
 
     def list_passes(self, branch_id: str, skip: int = 0, limit: int = 50) -> dict:
         q = (
@@ -554,6 +781,7 @@ class AttendantPassService:
             patient = self.db.get(Patient, admission.patientId)
         active_pass = self._active_pass_for_admission(admission.id)
         inside = self._inside_pass_for_admission(admission.id)
+        hours = self.get_visiting_hours(admission.id)
         return {
             "admissionId": admission.id,
             "patientFirstName": patient.firstName if patient else "",
@@ -565,6 +793,37 @@ class AttendantPassService:
             "hasActivePass": active_pass is not None,
             "hasAttendantInside": inside is not None,
             "branchId": admission.branchId,
+            "visitingHours": hours,
+        }
+
+    def _serialize_admission(self, admission: Admission) -> dict:
+        patient = admission.patient
+        if not patient:
+            patient = self.db.get(Patient, admission.patientId)
+        active = self._active_pass_for_admission(admission.id)
+        inside = self._inside_pass_for_admission(admission.id)
+        hours = self.get_visiting_hours(admission.id)
+        return {
+            "id": admission.id,
+            "status": admission.status,
+            "wardName": admission.wardName,
+            "roomNumber": admission.roomNumber,
+            "bedNumber": admission.bedNumber,
+            "branchId": admission.branchId,
+            "admittedAt": admission.admittedAt.isoformat() if admission.admittedAt else None,
+            "hasActivePass": active is not None,
+            "hasAttendantInside": inside is not None,
+            "activePassId": active.id if active else None,
+            "visitingHours": hours,
+            "patient": {
+                "id": patient.id,
+                "mrn": patient.mrn,
+                "firstName": patient.firstName,
+                "lastName": patient.lastName,
+                "name": f"{patient.firstName} {patient.lastName}",
+            }
+            if patient
+            else None,
         }
 
     def _email_pass(self, attendant: Attendant, pass_row: AttendantPass) -> bool:
@@ -601,34 +860,6 @@ class AttendantPassService:
         except Exception as exc:
             logger.error("Failed to email attendant pass to %s: %s", attendant.email, exc)
             return False
-
-    def _serialize_admission(self, admission: Admission) -> dict:
-        patient = admission.patient
-        if not patient:
-            patient = self.db.get(Patient, admission.patientId)
-        active = self._active_pass_for_admission(admission.id)
-        inside = self._inside_pass_for_admission(admission.id)
-        return {
-            "id": admission.id,
-            "status": admission.status,
-            "wardName": admission.wardName,
-            "roomNumber": admission.roomNumber,
-            "bedNumber": admission.bedNumber,
-            "branchId": admission.branchId,
-            "admittedAt": admission.admittedAt.isoformat() if admission.admittedAt else None,
-            "hasActivePass": active is not None,
-            "hasAttendantInside": inside is not None,
-            "activePassId": active.id if active else None,
-            "patient": {
-                "id": patient.id,
-                "mrn": patient.mrn,
-                "firstName": patient.firstName,
-                "lastName": patient.lastName,
-                "name": f"{patient.firstName} {patient.lastName}",
-            }
-            if patient
-            else None,
-        }
 
     def _serialize_attendant(self, attendant: Attendant) -> dict:
         admission = attendant.admission

@@ -122,10 +122,15 @@ class DeliveryGateService:
             delivery.id, user, DeliveryStatus.EXITED.value, "Exited gate"
         )
         timing = self._gate_timing(delivery.id)
+        notify_result: dict = {"emailsSent": 0, "recipients": []}
         try:
             from app.services.notifications_service import NotificationsService
 
-            NotificationsService(self.db).notify_on_delivery_exit(delivery)
+            # Re-load after commit so exit row + FKs are present for email templates
+            fresh = self.db.get(InboundDelivery, delivery.id)
+            notify_result = NotificationsService(self.db).notify_on_delivery_exit(
+                fresh or delivery
+            ) or notify_result
         except Exception as exc:
             logger.error("Failed delivery exit notifications for %s: %s", delivery.id, exc)
 
@@ -136,6 +141,8 @@ class DeliveryGateService:
             "exitTime": timing["exitTime"],
             "durationMinutes": timing["durationMinutes"],
             "delivery": updated,
+            "emailsSent": notify_result.get("emailsSent", 0),
+            "emailRecipients": notify_result.get("recipients") or [],
         }
 
     def _validate_qr(self, user: dict, qr_payload: str, signature: str) -> InboundDelivery:
@@ -218,8 +225,15 @@ class DeliveryGateService:
                     "durationMinutes": exit_result.get("durationMinutes"),
                     "delivery": exit_result.get("delivery"),
                     "status": exit_result.get("status"),
+                    "emailsSent": exit_result.get("emailsSent", 0),
+                    "emailRecipients": exit_result.get("emailRecipients") or [],
                     "message": (
                         f"Exit recorded. Time inside: {exit_result.get('durationMinutes') or 0} min."
+                        + (
+                            " Visit summary emailed to distributor and driver."
+                            if (exit_result.get("emailsSent") or 0) > 0
+                            else ""
+                        )
                     ),
                 }
             )

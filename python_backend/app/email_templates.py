@@ -836,16 +836,28 @@ def build_doctor_approval_request_email(
     approval_url: str,
     company_name: str = "Connitor",
     product_name: str = "Hospital Visitor Tracking System",
+    open_slot_request: bool = False,
 ) -> tuple[str, str, str]:
     """Email to doctor with one-tap approval link (primary channel when SMS/WhatsApp fail)."""
-    subject = f"{company_name} — Approve appointment request"
+    subject = (
+        f"{company_name} — Visitor wants a visiting slot"
+        if open_slot_request
+        else f"{company_name} — Approve appointment request"
+    )
     purpose_line = purpose.strip() or "Not specified"
+    intro_text = (
+        f"{visitor_name} wants a visiting slot with you."
+        if open_slot_request
+        else f"You have a new appointment request from {visitor_name}."
+    )
+    when_label = "Preferred date" if open_slot_request else "When"
+    heading = "Visit slot request" if open_slot_request else "Appointment approval needed"
 
     text_body = (
         f"{company_name}\n{product_name}\n\n"
         f"Hello Dr. {doctor_name},\n\n"
-        f"You have a new appointment request from {visitor_name}.\n"
-        f"When: {appointment_date}\n"
+        f"{intro_text}\n"
+        f"{when_label}: {appointment_date}\n"
         f"Purpose: {purpose_line}\n\n"
         f"Approve or decline (one-time secure link, no login):\n{approval_url}\n\n"
         f"— {company_name}"
@@ -865,7 +877,7 @@ def build_doctor_approval_request_email(
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:520px;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(15,23,42,0.08);">
           <tr>
             <td style="background:linear-gradient(135deg,#0d9488 0%,#0f766e 100%);padding:24px 32px;text-align:center;">
-              <h1 style="margin:0;font-size:22px;font-weight:700;color:#ffffff;">Appointment approval needed</h1>
+              <h1 style="margin:0;font-size:22px;font-weight:700;color:#ffffff;">{escape(heading)}</h1>
               <p style="margin:8px 0 0;font-size:13px;color:rgba(255,255,255,0.9);">{escape(product_name)}</p>
             </td>
           </tr>
@@ -873,12 +885,12 @@ def build_doctor_approval_request_email(
             <td style="padding:32px;">
               <p style="margin:0 0 12px;font-size:15px;color:#334155;">Hello Dr. {escape(doctor_name)},</p>
               <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#64748b;">
-                <strong style="color:#0f172a;">{escape(visitor_name)}</strong> requested an appointment.
+                {escape(intro_text)}
               </p>
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fafc;border-radius:8px;margin:0 0 24px;">
                 <tr>
                   <td style="padding:16px 18px;font-size:14px;line-height:1.7;color:#475569;">
-                    <strong style="color:#0f172a;">When:</strong> {escape(appointment_date)}<br/>
+                    <strong style="color:#0f172a;">{escape(when_label)}:</strong> {escape(appointment_date)}<br/>
                     <strong style="color:#0f172a;">Purpose:</strong> {escape(purpose_line)}
                   </td>
                 </tr>

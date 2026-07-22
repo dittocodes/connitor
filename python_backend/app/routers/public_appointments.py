@@ -26,6 +26,8 @@ class BookAppointmentBody(BaseModel):
     email: EmailStr
     appointmentDate: str | None = None
     slotId: str | None = None
+    """When true, visitor proposes a custom date/time for the doctor to approve."""
+    requestCustomSlot: bool = False
     purpose: str = Field(min_length=3)
     appointmentMode: Literal["IN_PERSON", "ONLINE"] = "IN_PERSON"
 

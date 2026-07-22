@@ -8,6 +8,34 @@ export interface AttendantPatient {
   name: string;
 }
 
+export interface VisitingHours {
+  admissionId?: string;
+  date?: string;
+  defaultWindow: {
+    startTime: string;
+    endTime: string;
+    label?: string;
+    everyDay?: boolean;
+  };
+  extraSlots?: VisitSlotRow[];
+  summary?: string;
+}
+
+export interface VisitSlotRow {
+  id: string;
+  admissionId: string;
+  branchId: string;
+  visitDate?: string | null;
+  startTime: string;
+  endTime: string;
+  label?: string | null;
+  everyDay?: boolean;
+  isActive?: boolean;
+  patient?: { id: string; mrn: string; name: string } | null;
+  wardName?: string | null;
+  roomNumber?: string | null;
+}
+
 export interface AttendantAdmission {
   id: string;
   status: string;
@@ -18,6 +46,7 @@ export interface AttendantAdmission {
   hasActivePass?: boolean;
   hasAttendantInside?: boolean;
   activePassId?: string | null;
+  visitingHours?: VisitingHours;
   patient?: AttendantPatient | null;
 }
 
@@ -66,6 +95,7 @@ export interface AttendantAdmissionLookup {
   hasActivePass: boolean;
   hasAttendantInside?: boolean;
   branchId: string;
+  visitingHours?: VisitingHours;
 }
 
 export const AttendantPassService = {
@@ -141,6 +171,34 @@ export const AttendantPassService = {
   async revokePass(passId: string): Promise<AttendantPassRow> {
     const res = await apiClient.post(`/api/attendant-passes/passes/${passId}/revoke`);
     return res.data;
+  },
+
+  async listVisitSlots(
+    branchId: string,
+    admissionId?: string,
+  ): Promise<{ defaultWindow: VisitingHours['defaultWindow']; items: VisitSlotRow[] }> {
+    const res = await apiClient.get('/api/attendant-passes/visit-slots', {
+      params: { branchId, admissionId },
+    });
+    return {
+      defaultWindow: res.data.defaultWindow,
+      items: res.data.items ?? [],
+    };
+  },
+
+  async createVisitSlot(data: {
+    admissionId: string;
+    startTime: string;
+    endTime: string;
+    visitDate?: string;
+    label?: string;
+  }): Promise<VisitSlotRow> {
+    const res = await apiClient.post('/api/attendant-passes/visit-slots', data);
+    return res.data;
+  },
+
+  async deleteVisitSlot(slotId: string): Promise<void> {
+    await apiClient.delete(`/api/attendant-passes/visit-slots/${slotId}`);
   },
 
   async listPublicBranches(): Promise<AttendantPassBranch[]> {

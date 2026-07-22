@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { AppointmentService } from '@/lib/services/appointmentService';
 import { formatIstDateTime } from '@/lib/datetime';
+import { ConnitorLoader } from '@/components/ConnitorLoader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -30,8 +31,8 @@ export default function BookingStatusPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-muted/30 p-8 text-center text-muted-foreground">
-          Loading appointment status…
+        <div className="flex min-h-screen items-center justify-center bg-muted/30 p-8">
+          <ConnitorLoader message="Loading appointment status…" />
         </div>
       }
     >
@@ -79,7 +80,10 @@ function BookingStatusContent() {
   return (
     <div className="min-h-screen bg-muted/30 p-4 md:p-8">
       <div className="mx-auto max-w-lg space-y-4">
-        <Card>
+        <Card className="relative overflow-hidden">
+          {loading && (
+            <ConnitorLoader variant="overlay" message="Looking up your booking…" />
+          )}
           <CardHeader>
             <CardTitle>Check Appointment Status</CardTitle>
             <p className="text-sm text-muted-foreground">
@@ -100,7 +104,7 @@ function BookingStatusContent() {
                 maxLength={10}
               />
             </div>
-            <Button className="w-full" onClick={lookup} disabled={loading || !bookingId || phone.length !== 10}>
+            <Button className="w-full" onClick={() => void lookup()} disabled={loading || !bookingId || phone.length !== 10}>
               {loading ? 'Looking up...' : 'Check Status'}
             </Button>
           </CardContent>

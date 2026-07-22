@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship as orm_relationship
 
 from app.database import Base
@@ -46,6 +46,7 @@ class Admission(Base):
 
     patient: Mapped["Patient"] = orm_relationship(back_populates="admissions")
     attendants: Mapped[list["Attendant"]] = orm_relationship(back_populates="admission")
+    visitSlots: Mapped[list["AdmissionVisitSlot"]] = orm_relationship(back_populates="admission")
 
 
 class Attendant(Base):
@@ -107,7 +108,32 @@ class PassPolicy(Base):
     policyCode: Mapped[str] = mapped_column(String(50))
     name: Mapped[str] = mapped_column(String(191))
     maxPassesPerPatient: Mapped[int] = mapped_column(Integer, default=2)
+    defaultVisitStart: Mapped[str] = mapped_column(String(5), default="11:00")
+    defaultVisitEnd: Mapped[str] = mapped_column(String(5), default="16:00")
     isActive: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class AdmissionVisitSlot(Base):
+    """Ward-added visiting window for a specific inpatient admission.
+
+    Default hospital hours (11:00–16:00) apply to every patient without a row.
+    Extra slots here extend visiting hours for that patient only.
+    """
+
+    __tablename__ = "AdmissionVisitSlot"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    admissionId: Mapped[str] = mapped_column(String(36), ForeignKey("Admission.id"), index=True)
+    branchId: Mapped[str] = mapped_column(String(36), ForeignKey("Branch.id"), index=True)
+    visitDate: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
+    startTime: Mapped[str] = mapped_column(String(5))
+    endTime: Mapped[str] = mapped_column(String(5))
+    label: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    createdById: Mapped[str | None] = mapped_column(String(36), ForeignKey("User.id"), nullable=True)
+    isActive: Mapped[bool] = mapped_column(Boolean, default=True)
+    createdAt: Mapped[datetime] = mapped_column(DateTime, default=now_ist)
+
+    admission: Mapped["Admission"] = orm_relationship(back_populates="visitSlots")
 
 
 class AttendantPassScan(Base):

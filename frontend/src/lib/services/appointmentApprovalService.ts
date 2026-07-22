@@ -8,6 +8,8 @@ export interface ApprovalPreview {
   appointmentDate: string | null;
   purpose: string | null;
   appointmentMode: string;
+  isCustomSlotRequest?: boolean;
+  isOpenSlotRequest?: boolean;
   canAct: boolean;
   expired: boolean;
   used: boolean;

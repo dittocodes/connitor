@@ -130,7 +130,22 @@ class NotificationsService:
     def _format_appt(self, visit: Visit) -> str:
         if not visit.appointmentDate:
             return "scheduled time"
+        purpose = (visit.purpose or "").upper()
+        is_open = purpose.startswith("[CUSTOM SLOT]") and (
+            visit.appointmentDate.hour == 0 and visit.appointmentDate.minute == 0
+        )
+        if is_open:
+            day = format_ist_datetime(visit.appointmentDate, "%d %b %Y")
+            return f"{day} (visitor requested a visiting slot — no preferred time)"
         return format_ist_datetime(visit.appointmentDate)
+
+    def _is_open_slot_request(self, visit: Visit) -> bool:
+        purpose = (visit.purpose or "").upper()
+        return purpose.startswith("[CUSTOM SLOT]") and bool(
+            visit.appointmentDate
+            and visit.appointmentDate.hour == 0
+            and visit.appointmentDate.minute == 0
+        )
 
     def _sms_user(self, user: User, message: str) -> None:
         if user.phone:
@@ -228,12 +243,23 @@ class NotificationsService:
         name = self._visitor_name(visitor)
         appt = self._format_appt(visit)
         purpose = (visit.purpose or "").strip() or "Not specified"
+        is_custom = purpose.upper().startswith("[CUSTOM SLOT]")
+        is_open = self._is_open_slot_request(visit)
+        if is_custom:
+            purpose = purpose[len("[CUSTOM SLOT]") :].strip() or "Visit requested"
         self._ensure_sms_approval_code(visit)
         _, approval_url = VisitApprovalLinkService(self.db).create_link(visit)
-        dashboard_message = (
-            f"New appointment from {name} on {appt}. Purpose: {purpose}. "
-            "Approval link sent to doctor via email (and SMS if available)."
-        )
+        if is_open:
+            dashboard_message = (
+                f"Visit slot request from {name} for {appt}. Purpose: {purpose}. "
+                "Approval link sent to doctor via email (and SMS if available)."
+            )
+        else:
+            dashboard_message = (
+                f"{'Custom slot request' if is_custom else 'New appointment'} from {name} on {appt}. "
+                f"Purpose: {purpose}. "
+                "Approval link sent to doctor via email (and SMS if available)."
+            )
         self._add_notification(staff.id, visit.id, dashboard_message)
 
         if staff.email:
@@ -245,6 +271,7 @@ class NotificationsService:
                     appointment_date=appt,
                     purpose=purpose,
                     approval_url=approval_url,
+                    open_slot_request=is_open,
                 )
             except Exception as exc:
                 logger.error(
@@ -258,10 +285,16 @@ class NotificationsService:
             )
 
         if staff.phone:
-            sms_message = (
-                f"Connitor: New appointment from {name} on {appt}. "
-                f"Purpose: {purpose}. Approve or decline: {approval_url}"
-            )
+            if is_open:
+                sms_message = (
+                    f"Connitor: {name} wants a visiting slot on {appt}. "
+                    f"Purpose: {purpose}. Approve or decline: {approval_url}"
+                )
+            else:
+                sms_message = (
+                    f"Connitor: New appointment from {name} on {appt}. "
+                    f"Purpose: {purpose}. Approve or decline: {approval_url}"
+                )
             try:
                 self.sms.send_sms_only(staff.phone, sms_message)
             except Exception as exc:
@@ -838,14 +871,54 @@ class NotificationsService:
 
         self.db.commit()
 
-    def notify_on_delivery_exit(self, delivery) -> None:
+    def _delivery_exit_email_targets(
+        self, vendor, agent
+    ) -> list[tuple[str, str]]:
+        """Distributor + driver emails (entity fields, then linked User accounts)."""
+        targets: list[tuple[str, str]] = []
+        seen: set[str] = set()
+
+        def add(email: str | None, name: str) -> None:
+            if not email or "@" not in email:
+                return
+            key = email.strip().lower()
+            if key in seen or key.endswith("@placeholder.local"):
+                return
+            seen.add(key)
+            targets.append((email.strip(), name))
+
+        if vendor:
+            add(vendor.email, vendor.vendorName or "Distributor")
+            dist_users = (
+                self.db.query(User)
+                .filter(
+                    User.role == Role.DISTRIBUTOR.value,
+                    User.distributorId == vendor.id,
+                    User.isActive == True,  # noqa: E712
+                )
+                .all()
+            )
+            for u in dist_users:
+                add(u.email, u.name or vendor.vendorName or "Distributor")
+
+        if agent:
+            add(agent.email, agent.name or "Driver")
+            if agent.userId:
+                agent_user = self.db.get(User, agent.userId)
+                if agent_user:
+                    add(agent_user.email, agent_user.name or agent.name or "Driver")
+
+        return targets
+
+    def notify_on_delivery_exit(self, delivery) -> dict:
+        """Email distributor + driver (and staff) with gate entry/exit duration."""
         from app.models.delivery_entities import DeliveryAgent, DeliveryVehicle, Distributor
         from app.email_templates import build_delivery_exit_email
 
         branch = self.db.get(Branch, delivery.branchId)
-        vendor = self.db.get(Distributor, delivery.vendorId)
-        agent = self.db.get(DeliveryAgent, delivery.agentId)
-        vehicle = self.db.get(DeliveryVehicle, delivery.vehicleId)
+        vendor = self.db.get(Distributor, delivery.vendorId) if delivery.vendorId else None
+        agent = self.db.get(DeliveryAgent, delivery.agentId) if delivery.agentId else None
+        vehicle = self.db.get(DeliveryVehicle, delivery.vehicleId) if delivery.vehicleId else None
 
         from app.models.delivery_entities import DeliveryGateEntry, DeliveryGateExit
 
@@ -891,15 +964,32 @@ class NotificationsService:
         for receiving in self._receiving_users(delivery.branchId):
             self._add_system_notification(receiving.id, message)
             notify_users.append(receiving)
+
+        # In-app notify for distributor login accounts
+        if vendor:
+            for dist_user in (
+                self.db.query(User)
+                .filter(
+                    User.role == Role.DISTRIBUTOR.value,
+                    User.distributorId == vendor.id,
+                    User.isActive == True,  # noqa: E712
+                )
+                .all()
+            ):
+                self._add_system_notification(dist_user.id, message)
+                notify_users.append(dist_user)
+
         self._email_users(notify_users, subject, message)
 
-        email_targets: list[tuple[str, str]] = []
-        if vendor and vendor.email:
-            email_targets.append((vendor.email, vendor.vendorName or "Distributor"))
-        if agent and agent.email:
-            email_targets.append((agent.email, agent.name or "Driver"))
+        email_targets = self._delivery_exit_email_targets(vendor, agent)
+        if not email_targets:
+            logger.warning(
+                "Delivery exit %s: no distributor/driver email addresses found",
+                delivery.deliveryNumber,
+            )
 
         settings = get_settings()
+        sent: list[str] = []
         for to_email, recipient_name in email_targets:
             try:
                 subj, text_body, html_body = build_delivery_exit_email(
@@ -920,10 +1010,12 @@ class NotificationsService:
                 self.email._deliver_email(
                     to_email, subj, text_body, html_body, context="delivery exit"
                 )
+                sent.append(to_email)
             except Exception as exc:
                 logger.error("Failed delivery exit email to %s: %s", to_email, exc)
 
         self.db.commit()
+        return {"emailsSent": len(sent), "recipients": sent}
 
     def _add_system_notification(self, recipient_id: str, message: str) -> None:
         self.db.add(Notification(recipientId=recipient_id, visitId=None, message=message))

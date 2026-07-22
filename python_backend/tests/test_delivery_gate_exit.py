@@ -188,3 +188,26 @@ def test_process_qr_auto_exits_and_returns_duration(db):
     assert serialized["durationMinutes"] is not None
     assert serialized["entryTime"] is not None
     assert serialized["exitTime"] is not None
+
+
+def test_mark_exit_emails_distributor_and_driver(db):
+    branch = db.query(Branch).first()
+    delivery, user, _payload, _sig = _seed_received_delivery(db, branch.id)
+
+    gate = DeliveryGateService(db)
+    gate.allow_entry(user, delivery.id)
+    delivery = db.get(InboundDelivery, delivery.id)
+    delivery.status = DeliveryStatus.RECEIVED.value
+    db.commit()
+
+    with patch(
+        "app.services.messaging_service.EmailService._deliver_email"
+    ) as deliver:
+        deliver.return_value = None
+        result = gate.mark_exit(user, delivery.id)
+
+    assert result["status"] == DeliveryStatus.EXITED.value
+    assert result["emailsSent"] >= 2
+    emailed = {call.args[0].lower() for call in deliver.call_args_list}
+    assert "vendor@exit.test" in emailed
+    assert "driver@exit.test" in emailed

@@ -41,6 +41,14 @@ class IssuePassBody(BaseModel):
     revokeExisting: bool = False
 
 
+class VisitSlotBody(BaseModel):
+    admissionId: str
+    startTime: str
+    endTime: str
+    visitDate: str | None = None
+    label: str | None = None
+
+
 @router.post("/patients", status_code=201)
 def create_patient(
     body: PatientBody,
@@ -131,6 +139,43 @@ def revoke_pass(
     db: Annotated[Session, Depends(get_db)],
 ):
     return AttendantPassService(db).revoke_pass(user, pass_id)
+
+
+@router.get("/visit-slots")
+def list_visit_slots(
+    user: Annotated[dict, Depends(require_permission("VIEW_ATTENDANT_PASS"))],
+    db: Annotated[Session, Depends(get_db)],
+    branchId: str = Query(...),
+    admissionId: str | None = Query(None),
+):
+    return AttendantPassService(db).list_visit_slots(branchId, admission_id=admissionId)
+
+
+@router.get("/admissions/{admission_id}/visiting-hours")
+def get_visiting_hours(
+    admission_id: str,
+    user: Annotated[dict, Depends(require_permission("VIEW_ATTENDANT_PASS"))],
+    db: Annotated[Session, Depends(get_db)],
+):
+    return AttendantPassService(db).get_visiting_hours(admission_id)
+
+
+@router.post("/visit-slots", status_code=201)
+def create_visit_slot(
+    body: VisitSlotBody,
+    user: Annotated[dict, Depends(require_permission("MANAGE_ATTENDANT_PASS"))],
+    db: Annotated[Session, Depends(get_db)],
+):
+    return AttendantPassService(db).create_visit_slot(user, body.model_dump())
+
+
+@router.delete("/visit-slots/{slot_id}")
+def delete_visit_slot(
+    slot_id: str,
+    user: Annotated[dict, Depends(require_permission("MANAGE_ATTENDANT_PASS"))],
+    db: Annotated[Session, Depends(get_db)],
+):
+    return AttendantPassService(db).delete_visit_slot(user, slot_id)
 
 
 @router.post("/passes/scan")

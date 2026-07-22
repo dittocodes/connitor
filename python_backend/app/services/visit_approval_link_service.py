@@ -11,7 +11,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session, joinedload
 
 from app.config import get_doctor_approval_link_url, get_settings, is_test_mode_enabled
-from app.models import Visit, Visitor
+from app.models import DoctorAvailabilitySlot, Visit, Visitor
 from app.models.enums import VisitStatus
 from app.schemas.visitor_account import hash_token
 from app.utils.timezone import format_ist_datetime, now_ist
@@ -68,16 +68,37 @@ class VisitApprovalLinkService:
         visit = self._get_visit_for_token(token)
         visitor = visit.visitor
         doctor = visit.staff
+        linked_slot = (
+            self.db.query(DoctorAvailabilitySlot)
+            .filter(DoctorAvailabilitySlot.visitId == visit.id)
+            .first()
+        )
+        purpose = visit.purpose or ""
+        is_custom = linked_slot is None and bool(visit.appointmentDate)
+        if purpose.upper().startswith("[CUSTOM SLOT]"):
+            is_custom = True
+            purpose = purpose[len("[CUSTOM SLOT]") :].strip()
+        is_open = is_custom and bool(
+            visit.appointmentDate
+            and visit.appointmentDate.hour == 0
+            and visit.appointmentDate.minute == 0
+        )
+        if is_open and visit.appointmentDate:
+            appt_label = format_ist_datetime(visit.appointmentDate, "%d %b %Y")
+        elif visit.appointmentDate:
+            appt_label = format_ist_datetime(visit.appointmentDate)
+        else:
+            appt_label = None
         return {
             "visitId": visit.id,
             "status": visit.status,
             "visitorName": self._visitor_name(visitor) if visitor else "Visitor",
             "doctorName": doctor.name if doctor else visit.staffName,
-            "appointmentDate": format_ist_datetime(visit.appointmentDate)
-            if visit.appointmentDate
-            else None,
-            "purpose": visit.purpose,
+            "appointmentDate": appt_label,
+            "purpose": purpose,
             "appointmentMode": visit.appointmentMode,
+            "isCustomSlotRequest": is_custom,
+            "isOpenSlotRequest": is_open,
             "canAct": visit.status == VisitStatus.REQUEST_SENT.value,
             "expired": self._is_expired(visit),
             "used": visit.approvalLinkUsedAt is not None,

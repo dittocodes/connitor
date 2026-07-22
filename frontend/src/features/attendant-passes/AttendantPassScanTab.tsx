@@ -24,6 +24,8 @@ type ScanResult = {
   exitedAt?: string | null;
   durationMinutes?: number | null;
   govtIdImageUrl?: string;
+  emailsSent?: number;
+  emailRecipients?: string[];
   attendant?: {
     id?: string;
     name?: string;
@@ -166,10 +168,13 @@ export function AttendantPassScanTab({ branchId }: AttendantPassScanTabProps): R
       setResult(res);
       if (res.scanType === 'EXIT') {
         setScanType('ENTRY');
+        const emailed = Number(res.emailsSent ?? 0);
         toast.success(
-          res.durationMinutes != null
-            ? `Checked out — ${res.durationMinutes} min inside`
-            : 'Checked out',
+          emailed > 0
+            ? `Checked out — visit summary emailed to attendant`
+            : res.durationMinutes != null
+              ? `Checked out — ${res.durationMinutes} min inside`
+              : 'Checked out',
         );
       } else {
         setScanType('EXIT');
@@ -388,7 +393,9 @@ export function AttendantPassScanTab({ branchId }: AttendantPassScanTabProps): R
               </CardTitle>
               <p className="mt-1 text-sm text-muted-foreground">
                 {result.scanType === 'EXIT'
-                  ? 'Visit complete. Duration emails were sent to family, ward, and security.'
+                  ? Number(result.emailsSent ?? 0) > 0
+                    ? 'Visit complete. Summary emailed to the attendant, ward, and security.'
+                    : 'Visit complete. Duration recorded (email skipped if no address on file).'
                   : 'Attendant is inside. Scan the same QR again when they leave.'}
               </p>
             </div>

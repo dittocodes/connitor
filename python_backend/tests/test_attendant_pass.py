@@ -1,7 +1,7 @@
 """Tests for attendant visit pass lifecycle."""
 
 import uuid
-from datetime import timedelta
+from datetime import datetime, timedelta
 from io import BytesIO
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -217,7 +217,10 @@ async def test_scan_requires_govt_id_and_stores_url(db):
     pass_row = db.get(AttendantPass, issued["id"])
 
     upload = UploadFile(filename="aadhaar.jpg", file=BytesIO(b"\xff\xd8\xff"), headers={"content-type": "image/jpeg"})
-    with patch.object(svc.gcp, "upload_visitor_document", new_callable=AsyncMock) as up:
+    with (
+        patch.object(svc.gcp, "upload_visitor_document", new_callable=AsyncMock) as up,
+        patch("app.attendant.pass_service.now_ist", return_value=datetime(2026, 7, 22, 12, 0, 0)),
+    ):
         up.return_value = "local://attendant-govt-id/aadhaar.jpg"
         result = await svc.scan_pass(
             {"id": user["id"]},
@@ -330,13 +333,17 @@ async def test_entry_exit_duration_and_inside_block(db):
     )
     with patch.object(svc.gcp, "upload_visitor_document", new_callable=AsyncMock) as up:
         up.return_value = "local://id.jpg"
-        entry = await svc.scan_pass(
-            security,
-            qr_payload=pass_row.qrPayload,
-            signature=pass_row.qrSignature,
-            govt_id_file=upload,
-            scan_type="ENTRY",
-        )
+        with patch(
+            "app.attendant.pass_service.now_ist",
+            return_value=datetime(2026, 7, 22, 12, 0, 0),
+        ):
+            entry = await svc.scan_pass(
+                security,
+                qr_payload=pass_row.qrPayload,
+                signature=pass_row.qrSignature,
+                govt_id_file=upload,
+                scan_type="ENTRY",
+            )
     assert entry["scanType"] == "ENTRY"
     assert entry["isInside"] is True
     assert entry["enteredAt"] is not None

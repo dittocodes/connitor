@@ -103,6 +103,7 @@ export const AppointmentService = {
     email?: string;
     appointmentDate?: string;
     slotId?: string;
+    requestCustomSlot?: boolean;
     purpose: string;
     appointmentMode?: 'IN_PERSON' | 'ONLINE';
   }) {
@@ -114,6 +115,7 @@ export const AppointmentService = {
       bookingId: string;
       status: string;
       message: string;
+      isCustomSlotRequest?: boolean;
       appointmentDate?: string;
       doctorName?: string;
       departmentName?: string;
