@@ -8,6 +8,7 @@ Run from python_backend/:
 """
 from __future__ import annotations
 
+import os
 import random
 import sys
 from io import BytesIO
@@ -18,7 +19,7 @@ from app.constants.electronic_city_entities import ELECTRONIC_CITY_BRANCH_ID
 from app.database import SessionLocal
 from app.models.attendant_entities import Attendant, AttendantPass, AttendantPassScan
 
-API_BASE = "http://127.0.0.1:8001/api"
+API_BASE = os.environ.get("CONNITOR_API_BASE", "http://127.0.0.1:8002/api")
 WARD_EMAIL = "ward.admin@connitor-elcity.com"
 WARD_PASSWORD = "Connitor@123"
 SECURITY_EMAIL = "security@connitor-elcity.com"
@@ -168,9 +169,11 @@ def main() -> None:
 
     with httpx.Client(timeout=60.0) as client:
         step(1, "Health check")
-        health = client.get("http://127.0.0.1:8001/")
+        # API_BASE is .../api; health is the app root without /api
+        root = API_BASE.rstrip("/").removesuffix("/api") or "http://127.0.0.1:8002"
+        health = client.get(f"{root}/")
         if health.status_code != 200:
-            fail(f"Backend not reachable ({health.status_code})")
+            fail(f"Backend not reachable at {root}/ ({health.status_code})")
         ok("Backend is up")
 
         step(2, "Ward / hospital admin logs in")

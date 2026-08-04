@@ -188,7 +188,11 @@ class VisitorsService:
             if visit.status == VisitStatus.CHECKED_IN.value:
                 raise HTTPException(status_code=400, detail="ALREADY_CHECKED_IN")
             raise HTTPException(status_code=400, detail="VISIT_NOT_APPROVED")
-        if visit.appointmentDate and not visit.idProofVerified:
+        if (
+            visit.appointmentDate
+            and not visit.idProofVerified
+            and visit.visitSubType != "URGENT_PASSCODE"
+        ):
             raise HTTPException(status_code=400, detail="ID_PROOF_NOT_VERIFIED")
         visit.status = VisitStatus.CHECKED_IN.value
         visit.checkInTime = now_ist()

@@ -5,6 +5,7 @@ const FOOTER_LINKS = [
   { label: 'Sign in', href: '/visitor/login' },
   { label: 'Book appointment', href: '/book-appointment' },
   { label: 'How it works', href: '/book-appointment/how-it-works' },
+  { label: 'Distributor apply', href: '/vendor/register' },
   { label: 'Hospital staff', href: '#staff-portals' },
 ] as const;
 

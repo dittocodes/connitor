@@ -198,7 +198,12 @@ class AppointmentsService:
 
     def _reserve_slot(self, doctor_id: str, slot_id: str | None, appt_date: datetime | None) -> tuple[datetime, DoctorAvailabilitySlot | None]:
         if slot_id:
-            slot = self.db.get(DoctorAvailabilitySlot, slot_id)
+            q = self.db.query(DoctorAvailabilitySlot).filter(DoctorAvailabilitySlot.id == slot_id)
+            try:
+                q = q.with_for_update()
+            except Exception:
+                pass
+            slot = q.first()
             if not slot or slot.doctorId != doctor_id:
                 raise HTTPException(status_code=404, detail="Selected time slot not found.")
             if slot.isBooked:
@@ -327,6 +332,10 @@ class AppointmentsService:
         self.db.flush()
 
         if slot:
+            self.db.refresh(slot)
+            if slot.isBooked:
+                self.db.rollback()
+                raise HTTPException(status_code=409, detail="This time slot is no longer available.")
             slot.isBooked = True
             slot.visitId = visit.id
 

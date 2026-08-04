@@ -16,8 +16,12 @@ export interface DeliverySlot {
   branchId: string;
   slotStart: string;
   slotEnd: string;
+  capacityMinutes?: number;
+  bookedMinutes?: number;
+  remainingMinutes?: number;
   maxDeliveries: number;
   bookedCount: number;
+  /** Minutes still available in this hospital window */
   remaining: number;
   isActive: boolean;
 }
@@ -35,6 +39,72 @@ export interface DeliveryVehicle {
   id: string;
   registrationNumber: string;
   vehicleType: string | null;
+  lengthCm?: number | null;
+  breadthCm?: number | null;
+  heightCm?: number | null;
+  volumeCm3?: number | null;
+}
+
+export type PackageType = 'Small' | 'Medium' | 'Large' | 'Equipment' | 'Custom';
+export type VehicleCategory = 'Bike' | 'Auto' | 'SCV' | 'MCV' | 'LCV';
+
+export interface ConsignmentPackageLine {
+  packageType: PackageType;
+  qty: number;
+  remarks?: string;
+  customSize?: string;
+  customWeightKg?: number | string;
+  supportRequired?: string;
+}
+
+export interface DeliveryPricingQuote {
+  pricingModel?: string;
+  vehicleType?: string;
+  capacityUnits?: number;
+  usedUnits?: number;
+  overUnits?: number;
+  baseFee?: number;
+  handlingFee?: number;
+  slotMinutes?: number;
+  overCapacity?: boolean;
+  warning?: string | null;
+  packages?: ConsignmentPackageLine[];
+  cargoVolumeCm3?: number;
+  vehicleVolumeCm3?: number;
+  fillPercent?: number;
+  unloadMinutes: number;
+  ratePerMinute?: number;
+  fullUnloadMinutes?: number;
+  walletFee: number;
+  boxLengthCm?: number | null;
+  boxBreadthCm?: number | null;
+  boxHeightCm?: number | null;
+  totalBoxes: number;
+}
+
+export interface BookDeliveryPayload {
+  branchId: string;
+  slotId?: string | null;
+  expectedArrivalTime?: string | null;
+  poNumber?: string;
+  goodsType?: string;
+  packages?: ConsignmentPackageLine[];
+  vehicleCategory?: VehicleCategory;
+  totalBoxes?: number;
+  boxLengthCm?: number;
+  boxBreadthCm?: number;
+  boxHeightCm?: number;
+  vehicleId?: string;
+  vehicle?: {
+    registrationNumber: string;
+    vehicleType?: string;
+    lengthCm?: number;
+    breadthCm?: number;
+    heightCm?: number;
+  };
+  agentId?: string;
+  agent?: { name: string; email: string; phone?: string };
+  remarks?: string;
 }
 
 export interface DeliveryListItem {
@@ -49,19 +119,7 @@ export interface DeliveryListItem {
   vehicleNumber?: string | null;
   branchName?: string | null;
   branchId?: string;
-}
-
-export interface BookDeliveryPayload {
-  branchId: string;
-  slotId?: string | null;
-  expectedArrivalTime?: string | null;
-  goodsType: string;
-  totalBoxes: number;
-  vehicleId?: string;
-  vehicle?: { registrationNumber: string; vehicleType?: string };
-  agentId?: string;
-  agent?: { name: string; email: string; phone?: string };
-  remarks?: string;
+  walletFee?: number;
 }
 
 export const DistributorDeliveryService = {
@@ -72,10 +130,19 @@ export const DistributorDeliveryService = {
     return res.data.branches;
   },
 
-  async listSlots(branchId: string, date: string): Promise<DeliverySlot[]> {
+  async listSlots(
+    branchId: string,
+    date: string,
+    neededMinutes?: number,
+  ): Promise<DeliverySlot[]> {
     const res = await apiClient.get<{ slots: DeliverySlot[] }>(
       `/api/delivery/branches/${branchId}/slots`,
-      { params: { date } },
+      {
+        params: {
+          date,
+          ...(neededMinutes && neededMinutes > 0 ? { neededMinutes } : {}),
+        },
+      },
     );
     return res.data.slots;
   },
@@ -109,8 +176,29 @@ export const DistributorDeliveryService = {
   async createVehicle(data: {
     registrationNumber: string;
     vehicleType?: string;
+    lengthCm?: number;
+    breadthCm?: number;
+    heightCm?: number;
   }): Promise<DeliveryVehicle> {
     const res = await apiClient.post('/api/delivery/vehicles', data);
+    return res.data;
+  },
+
+  async quoteDelivery(data: {
+    packages?: ConsignmentPackageLine[];
+    vehicleCategory?: VehicleCategory;
+    vehicleType?: VehicleCategory;
+    totalBoxes?: number;
+    boxLengthCm?: number;
+    boxBreadthCm?: number;
+    boxHeightCm?: number;
+    vehicleId?: string;
+    vehicleVolumeCm3?: number;
+    vehicleLengthCm?: number;
+    vehicleBreadthCm?: number;
+    vehicleHeightCm?: number;
+  }): Promise<DeliveryPricingQuote> {
+    const res = await apiClient.post<DeliveryPricingQuote>('/api/delivery/deliveries/quote', data);
     return res.data;
   },
 

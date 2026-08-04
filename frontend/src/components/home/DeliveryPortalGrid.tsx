@@ -51,6 +51,9 @@ export function DeliveryPortalGrid() {
                     Sign in as {portal.label.toLowerCase()}
                   </Link>
                 </Button>
+                <Button asChild variant="outline" className="w-full border-amber-200">
+                  <Link href="/vendor/register">Apply to onboard</Link>
+                </Button>
                 <p className="text-center text-[11px] text-muted-foreground leading-tight">
                   Dashboard:{' '}
                   <span className="font-medium text-slate-600">{portal.dashboardPath}</span>

@@ -21,6 +21,7 @@ from app.models.delivery_entities import (
     DeliveryVehicle,
     Distributor,
     VendorBranchMapping,
+    VendorWallet,
 )
 import app.models.delivery_entities  # noqa: F401
 import app.models.attendant_entities  # noqa: F401
@@ -74,6 +75,8 @@ def _seed_vendor(db, branch_id: str) -> tuple[Distributor, User]:
         vendorName="Test Vendor",
         vendorType="MEDICAL",
         isActive=True,
+        verificationStatus="APPROVED",
+        onboardingStatus="APPROVED",
     )
     db.add(dist)
     db.flush()
@@ -84,6 +87,9 @@ def _seed_vendor(db, branch_id: str) -> tuple[Distributor, User]:
             approvalStatus="APPROVED",
         )
     )
+    from decimal import Decimal
+
+    db.add(VendorWallet(vendorId=dist.id, balance=Decimal("10000")))
     user = User(
         id=str(uuid.uuid4()),
         name="Distributor User",
@@ -118,6 +124,10 @@ def test_delivery_slot_booking(db):
         id=str(uuid.uuid4()),
         distributorId=dist.id,
         registrationNumber="KA01TEST",
+        lengthCm=50,
+        breadthCm=50,
+        heightCm=50,
+        volumeCm3=125000,
         isActive=True,
     )
     agent = DeliveryAgent(
@@ -139,15 +149,21 @@ def test_delivery_slot_booking(db):
             {
                 "branchId": branch.id,
                 "slotId": slot.id,
-                "goodsType": "Medical supplies",
-                "totalBoxes": 5,
+                "poNumber": "PO-1001",
+                "packages": [
+                    {"packageType": "Medium", "qty": 2, "remarks": "Fragile"},
+                    {"packageType": "Small", "qty": 1},
+                ],
+                "vehicleCategory": "Auto",
                 "vehicleId": vehicle.id,
                 "agentId": agent.id,
             },
         )
 
     assert result["status"] == "SCHEDULED"
-    assert result["goodsType"] == "Medical supplies"
+    assert result["poNumber"] == "PO-1001"
+    assert result["pricing"]["walletFee"] == 149
+    assert result["pricing"]["usedUnits"] == 5
     db.refresh(slot)
     assert slot.bookedCount == 1
 
@@ -176,6 +192,10 @@ def test_book_delivery_sends_driver_assignment_email(db):
         id=str(uuid.uuid4()),
         distributorId=dist.id,
         registrationNumber="KA01MAIL",
+        lengthCm=50,
+        breadthCm=50,
+        heightCm=50,
+        volumeCm3=125000,
         isActive=True,
     )
     agent = DeliveryAgent(
@@ -199,8 +219,8 @@ def test_book_delivery_sends_driver_assignment_email(db):
             {
                 "branchId": branch.id,
                 "expectedArrivalTime": (now_ist() + timedelta(hours=2)).isoformat(),
-                "goodsType": "Pharmaceuticals",
-                "totalBoxes": 3,
+                "packages": [{"packageType": "Small", "qty": 1}],
+                "vehicleCategory": "Bike",
                 "vehicleId": vehicle.id,
                 "agentId": agent.id,
                 "remarks": "Use loading bay B",

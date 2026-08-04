@@ -198,6 +198,8 @@ class Visit(Base):
     durationMinutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     visitCode: Mapped[str | None] = mapped_column(String(191), unique=True, nullable=True)
     visitQRCode: Mapped[str | None] = mapped_column(Text, nullable=True)
+    entryQrPayload: Mapped[str | None] = mapped_column(Text, nullable=True)
+    exitQrPayload: Mapped[str | None] = mapped_column(Text, nullable=True)
     isCodeUsed: Mapped[bool] = mapped_column(Boolean, default=True)
     status: Mapped[str] = mapped_column(String(50))
     rejectionReason: Mapped[str | None] = mapped_column(String(191), nullable=True)
@@ -240,6 +242,40 @@ class Visit(Base):
     staff = relationship("User", foreign_keys=[staffId])
     notifications = relationship("Notification", back_populates="visit")
     bookedSlot = relationship("DoctorAvailabilitySlot", back_populates="visit", uselist=False)
+
+
+class DoctorUrgentPasscode(Base):
+    __tablename__ = "DoctorUrgentPasscode"
+    __table_args__ = (
+        UniqueConstraint("branchId", "code", name="DoctorUrgentPasscode_branchId_code_key"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    code: Mapped[str] = mapped_column(String(6), index=True)
+    branchId: Mapped[str] = mapped_column(String(36), ForeignKey("Branch.id"), index=True)
+    staffId: Mapped[str] = mapped_column(String(36), ForeignKey("User.id"), index=True)
+    departmentId: Mapped[str | None] = mapped_column(String(36), ForeignKey("Department.id"), nullable=True)
+    subDepartmentId: Mapped[str | None] = mapped_column(String(36), ForeignKey("SubDepartment.id"), nullable=True)
+    note: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    purpose: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    theme: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    visitTime: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    recipientName: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    recipientPhone: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    recipientEmail: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="ACTIVE", index=True)
+    expiresAt: Mapped[datetime] = mapped_column(DateTime)
+    createdById: Mapped[str] = mapped_column(String(36), ForeignKey("User.id"))
+    verifiedAt: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    verifiedById: Mapped[str | None] = mapped_column(String(36), ForeignKey("User.id"), nullable=True)
+    redeemedAt: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    redeemedById: Mapped[str | None] = mapped_column(String(36), ForeignKey("User.id"), nullable=True)
+    visitId: Mapped[str | None] = mapped_column(String(36), ForeignKey("Visit.id"), nullable=True)
+    createdAt: Mapped[datetime] = mapped_column(DateTime, default=now_ist)
+    updatedAt: Mapped[datetime] = mapped_column(DateTime, default=now_ist, onupdate=now_ist)
+
+    staff = relationship("User", foreign_keys=[staffId])
+    branch = relationship("Branch")
 
 
 class Notification(Base):

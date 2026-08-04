@@ -9,12 +9,16 @@ from app.routers import (
     branches,
     delivery,
     departments,
+    doctor_urgent_passcode,
+    doctor_schedule,
     hospital_chains,
     notifications,
     public_appointment_approval,
     public_appointments,
     public_attendant_passes,
+    public_distributor_onboarding,
     public_registration,
+    public_urgent_passcodes,
     public_visitors,
     public_visits,
     root,
@@ -50,13 +54,33 @@ api_router.include_router(visitor_portal.router, prefix="/public/visitor-portal"
 api_router.include_router(visitor_accounts.router, prefix="/public/visitor-accounts", tags=["visitor-accounts"])
 api_router.include_router(visitor_auth.router, prefix="/public/visitor-auth", tags=["visitor-auth"])
 api_router.include_router(
+    public_urgent_passcodes.router,
+    prefix="/public/urgent-passcodes",
+    tags=["public-urgent-passcodes"],
+)
+api_router.include_router(
     appointments.router,
     prefix="/appointments",
     tags=["appointments"],
     dependencies=[],
 )
 api_router.include_router(staff.router, prefix="/staff", tags=["staff"])
+api_router.include_router(
+    doctor_urgent_passcode.staff_router,
+    prefix="/staff/urgent-passcodes",
+    tags=["urgent-passcodes"],
+)
+api_router.include_router(
+    doctor_schedule.router,
+    prefix="/staff/schedule",
+    tags=["doctor-schedule"],
+)
 api_router.include_router(security.router, prefix="/security", tags=["security"])
+api_router.include_router(
+    doctor_urgent_passcode.security_router,
+    prefix="/security/urgent-passcodes",
+    tags=["urgent-passcodes"],
+)
 api_router.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
 api_router.include_router(visitors.router, prefix="/visitors", tags=["visitors"])
 api_router.include_router(public_registration.router, prefix="/public/registration", tags=["public-registration"])
@@ -66,6 +90,11 @@ api_router.include_router(
     public_attendant_passes.router,
     prefix="/public/attendant-passes",
     tags=["public-attendant-passes"],
+)
+api_router.include_router(
+    public_distributor_onboarding.router,
+    prefix="/public/distributor-onboarding",
+    tags=["public-distributor-onboarding"],
 )
 api_router.include_router(analytics.router, prefix="/analytics", tags=["analytics"])
 api_router.include_router(zoom_webhooks.router, prefix="/webhooks", tags=["webhooks"])

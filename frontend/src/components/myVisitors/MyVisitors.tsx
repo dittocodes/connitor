@@ -20,6 +20,7 @@ import {
   Clock,
   User,
   Video,
+  KeyRound,
 } from 'lucide-react';
 
 // API Services
@@ -74,6 +75,8 @@ import { Calendar } from '@/components/ui/calendar';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
+import { UrgentPasscodeDialog } from '@/components/myVisitors/UrgentPasscodeDialog';
+import { DoctorSchedulePanel } from '@/components/myVisitors/DoctorSchedulePanel';
 
 type MyVisitorsProps = {
   user: UserProfile;
@@ -794,6 +797,7 @@ export default function MyVisitors({ user }: MyVisitorsProps) {
   );
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [searchTerm, setSearchTerm] = useState('');
+  const [urgentPasscodeOpen, setUrgentPasscodeOpen] = useState(false);
 
   const pendingCountRef = useRef<number | null>(null);
 
@@ -950,11 +954,19 @@ export default function MyVisitors({ user }: MyVisitorsProps) {
                 />
               </PopoverContent>
             </Popover>
+            <Button
+              type="button"
+              className="bg-indigo-600 hover:bg-indigo-700 shrink-0"
+              onClick={() => setUrgentPasscodeOpen(true)}
+            >
+              <KeyRound className="h-4 w-4 mr-2" />
+              Urgent passcode
+            </Button>
           </div>
         </header>
 
         <Tabs defaultValue="pending" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="pending" className="cursor-pointer">
               Pending{' '}
               <Badge variant="secondary" className="ml-2">
@@ -972,6 +984,9 @@ export default function MyVisitors({ user }: MyVisitorsProps) {
               <Badge variant="secondary" className="ml-2">
                 {recentHistoryVisits.length}
               </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="schedule" className="cursor-pointer">
+              Schedule
             </TabsTrigger>
           </TabsList>
 
@@ -1000,6 +1015,10 @@ export default function MyVisitors({ user }: MyVisitorsProps) {
               tab="history"
             />
           </TabsContent>
+
+          <TabsContent value="schedule" className="mt-6 w-full">
+            <DoctorSchedulePanel />
+          </TabsContent>
         </Tabs>
       </div>
       <RejectDialog
@@ -1014,6 +1033,7 @@ export default function MyVisitors({ user }: MyVisitorsProps) {
         onSuccess={handleRejectSuccess}
         visitor={visitorToApprove}
       />
+      <UrgentPasscodeDialog open={urgentPasscodeOpen} onOpenChange={setUrgentPasscodeOpen} />
     </>
   );
 }

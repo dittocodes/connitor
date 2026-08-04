@@ -97,10 +97,25 @@ class AgentVehicleService:
         existing = self.db.query(DeliveryVehicle).filter(DeliveryVehicle.registrationNumber == reg).first()
         if existing:
             raise bad_request("Vehicle registration already exists")
+        from app.delivery.delivery_pricing import vehicle_volume_from_dims
+
+        length = data.get("lengthCm")
+        breadth = data.get("breadthCm")
+        height = data.get("heightCm")
+        volume = vehicle_volume_from_dims(length, breadth, height)
+        if volume is None and data.get("volumeCm3") is not None:
+            try:
+                volume = float(data["volumeCm3"])
+            except (TypeError, ValueError):
+                volume = None
         vehicle = DeliveryVehicle(
             distributorId=dist_id,
             registrationNumber=reg,
             vehicleType=data.get("vehicleType"),
+            lengthCm=length,
+            breadthCm=breadth,
+            heightCm=height,
+            volumeCm3=volume,
             isActive=True,
         )
         self.db.add(vehicle)
@@ -165,18 +180,45 @@ class AgentVehicleService:
         if vehicle:
             if data.get("vehicleType"):
                 vehicle.vehicleType = data["vehicleType"]
+            self._apply_vehicle_dims(vehicle, data)
             self.db.flush()
             return vehicle
 
+        from app.delivery.delivery_pricing import vehicle_volume_from_dims
+
+        length = data.get("lengthCm")
+        breadth = data.get("breadthCm")
+        height = data.get("heightCm")
+        volume = vehicle_volume_from_dims(length, breadth, height)
         vehicle = DeliveryVehicle(
             distributorId=dist_id,
             registrationNumber=reg,
             vehicleType=data.get("vehicleType"),
+            lengthCm=length,
+            breadthCm=breadth,
+            heightCm=height,
+            volumeCm3=volume,
             isActive=True,
         )
         self.db.add(vehicle)
         self.db.flush()
         return vehicle
+
+    def _apply_vehicle_dims(self, vehicle: DeliveryVehicle, data: dict) -> None:
+        from app.delivery.delivery_pricing import vehicle_volume_from_dims
+
+        if any(k in data for k in ("lengthCm", "breadthCm", "heightCm", "volumeCm3")):
+            length = data.get("lengthCm", vehicle.lengthCm)
+            breadth = data.get("breadthCm", vehicle.breadthCm)
+            height = data.get("heightCm", vehicle.heightCm)
+            vehicle.lengthCm = length
+            vehicle.breadthCm = breadth
+            vehicle.heightCm = height
+            volume = vehicle_volume_from_dims(length, breadth, height)
+            if volume is not None:
+                vehicle.volumeCm3 = volume
+            elif data.get("volumeCm3") is not None:
+                vehicle.volumeCm3 = float(data["volumeCm3"])
 
     @staticmethod
     def _serialize_agent(agent: DeliveryAgent) -> dict:
@@ -195,5 +237,9 @@ class AgentVehicleService:
             "id": vehicle.id,
             "registrationNumber": vehicle.registrationNumber,
             "vehicleType": vehicle.vehicleType,
+            "lengthCm": float(vehicle.lengthCm) if vehicle.lengthCm is not None else None,
+            "breadthCm": float(vehicle.breadthCm) if vehicle.breadthCm is not None else None,
+            "heightCm": float(vehicle.heightCm) if vehicle.heightCm is not None else None,
+            "volumeCm3": float(vehicle.volumeCm3) if vehicle.volumeCm3 is not None else None,
             "isActive": vehicle.isActive,
         }

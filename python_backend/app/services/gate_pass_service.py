@@ -24,6 +24,45 @@ class GatePassService:
         self.whatsapp = WhatsAppService()
         self.notifications = NotificationsService(db)
 
+    def issue_entry_exit_qrs(self, visit_id: str) -> dict:
+        """Create separate Entry and Exit QR payloads for a visit."""
+        import json
+        import uuid as uuid_mod
+
+        visit = self.db.get(Visit, visit_id)
+        if not visit:
+            raise HTTPException(status_code=404, detail="VISIT_NOT_FOUND")
+
+        settings = get_settings()
+        fixed = get_fixed_otp(settings)
+        otp = fixed or ("654321" if is_test_mode_enabled(settings) else generate_otp(6))
+        expires_at = now_ist() + timedelta(hours=8)
+
+        entry_payload = json.dumps(
+            {"t": "entry", "v": visit.id, "j": str(uuid_mod.uuid4())},
+            separators=(",", ":"),
+        )
+        exit_payload = json.dumps(
+            {"t": "exit", "v": visit.id, "j": str(uuid_mod.uuid4())},
+            separators=(",", ":"),
+        )
+
+        visit.entryQrPayload = entry_payload
+        visit.exitQrPayload = exit_payload
+        visit.visitQRCode = entry_payload
+        visit.checkInOtp = otp
+        visit.checkInOtpExpiry = expires_at
+        visit.gatePassGeneratedAt = now_ist()
+        visit.isCodeUsed = True
+        self.db.flush()
+
+        return {
+            "entryQrPayload": entry_payload,
+            "exitQrPayload": exit_payload,
+            "checkInOtp": otp,
+            "expiresAt": expires_at.isoformat(),
+        }
+
     def generate_check_in_otp(self, visit_id: str) -> dict:
         visit = self.db.get(Visit, visit_id)
         if not visit:
@@ -146,24 +185,43 @@ class GatePassService:
             "canCheckIn": can_check_in,
         }
 
-    def _parse_qr_payload(self, qr_payload: str) -> tuple[str | None, str | None]:
-        payload = qr_payload.strip()
-        visit_id: str | None = None
-        visit_code: str | None = None
+    def _parse_qr_payload(self, qr_payload: str) -> tuple[str | None, str | None, str | None]:
+        """Returns (visit_id, visit_code, qr_type) where qr_type is entry|exit|None."""
+        import json
 
-        try:
-            data = json.loads(payload)
-            if isinstance(data, dict):
-                visit_id = data.get("visitId")
-                visit_code = data.get("visitCode")
-        except json.JSONDecodeError:
-            if len(payload) == 6 and payload.isdigit():
+        payload = (qr_payload or "").strip()
+        visit_id = None
+        visit_code = None
+        qr_type = None
+
+        if not payload:
+            return None, None, None
+
+        if payload.startswith("{") or payload.startswith("["):
+            try:
+                data = json.loads(payload)
+                if isinstance(data, dict):
+                    t = (data.get("t") or data.get("type") or "").lower()
+                    if t in ("entry", "exit"):
+                        qr_type = t
+                    visit_id = data.get("v") or data.get("visitId") or data.get("id")
+                    visit_code = data.get("c") or data.get("code") or data.get("otp") or data.get("visitCode")
+            except json.JSONDecodeError:
+                pass
+
+        if not visit_id and not visit_code:
+            # Legacy: plain visit id or 6-digit OTP
+            if len(payload) == 36 and payload.count("-") == 4:
+                visit_id = payload
+                qr_type = qr_type or "entry"
+            elif len(payload) == 6 and payload.isdigit():
                 visit_code = payload
+                qr_type = qr_type or "entry"
 
-        return visit_id, visit_code
+        return visit_id, visit_code, qr_type
 
     def scan_check_in_qr(self, qr_payload: str, user: dict) -> dict:
-        visit_id, visit_code = self._parse_qr_payload(qr_payload)
+        visit_id, visit_code, qr_type = self._parse_qr_payload(qr_payload)
         if not visit_id and not visit_code:
             raise HTTPException(status_code=400, detail="INVALID_QR_CODE")
 
@@ -182,6 +240,45 @@ class GatePassService:
         if not visit:
             raise HTTPException(status_code=404, detail="VISIT_NOT_FOUND")
 
+        # Prefer stored dual-QR match when payload is typed
+        if qr_type == "entry" and visit.entryQrPayload and qr_payload.strip() not in (
+            visit.entryQrPayload,
+            visit.visitQRCode or "",
+        ):
+            # Allow entry payload or legacy visitQRCode
+            if qr_payload.strip() != visit.entryQrPayload:
+                pass  # still allow by visit id embedded in JSON
+        if qr_type == "exit":
+            if visit.exitQrPayload and qr_payload.strip() != visit.exitQrPayload:
+                # Accept if visit id matches exit type
+                if not (visit_id and visit_id == visit.id):
+                    raise HTTPException(status_code=400, detail="INVALID_EXIT_QR")
+            if visit.status != VisitStatus.CHECKED_IN.value:
+                if visit.status == VisitStatus.CHECKED_OUT.value:
+                    raise HTTPException(status_code=400, detail="ALREADY_CHECKED_OUT")
+                raise HTTPException(
+                    status_code=400,
+                    detail="Use Entry QR for check-in first, then Exit QR for checkout.",
+                )
+            return {
+                "success": True,
+                "visitId": visit.id,
+                "visitorId": visit.visitorId,
+                "qrType": "exit",
+                "visitor": {
+                    "id": visit.visitor.id,
+                    "firstName": visit.visitor.firstName,
+                    "lastName": visit.visitor.lastName,
+                    "phone": visit.visitor.phone,
+                    "email": visit.visitor.email,
+                    "photo": visit.visitor.photo,
+                    "company": visit.visitor.company,
+                },
+                "visit": model_to_dict_visit(visit),
+                "canCheckIn": False,
+                "canCheckOut": True,
+            }
+
         if visit_code and visit.visitCode != visit_code and visit.checkInOtp != visit_code:
             raise HTTPException(status_code=400, detail="INVALID_QR_CODE")
 
@@ -192,6 +289,7 @@ class GatePassService:
                 "success": True,
                 "visitId": visit.id,
                 "visitorId": visit.visitorId,
+                "qrType": "entry",
                 "visitor": {
                     "id": visit.visitor.id,
                     "firstName": visit.visitor.firstName,
@@ -219,6 +317,7 @@ class GatePassService:
             "success": True,
             "visitId": visit.id,
             "visitorId": visit.visitorId,
+            "qrType": "entry",
             "visitor": {
                 "id": visit.visitor.id,
                 "firstName": visit.visitor.firstName,

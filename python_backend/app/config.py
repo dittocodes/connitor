@@ -167,6 +167,12 @@ class Settings(BaseSettings):
     hvts_test_mode: bool = Field(default=False, validation_alias="HVTS_TEST_MODE")
     delivery_module_enabled: bool = Field(default=True, validation_alias="DELIVERY_MODULE_ENABLED")
     delivery_wallet_enabled: bool = Field(default=False, validation_alias="DELIVERY_WALLET_ENABLED")
+    delivery_full_unload_minutes: float = Field(
+        default=60.0, validation_alias="DELIVERY_FULL_UNLOAD_MINUTES"
+    )
+    delivery_rate_per_minute: float = Field(
+        default=10.0, validation_alias="DELIVERY_RATE_PER_MINUTE"
+    )
     zeptomail_api_url: str | None = Field(default=None, validation_alias="ZEPTOMAIL_API_URL")
 
     whatsapp_api_url: str | None = Field(

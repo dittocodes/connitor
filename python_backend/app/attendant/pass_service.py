@@ -22,12 +22,13 @@ from app.models.attendant_entities import (
     AttendantPass,
     AttendantPassNumberSequence,
     AttendantPassScan,
+    PassPolicy,
     Patient,
 )
 from app.services.auth_service import AuthService
 from app.services.gcp_storage_service import GcpStorageService
 from app.services.messaging_service import EmailService
-from app.utils.timezone import format_ist_datetime, now_ist
+from app.utils.timezone import format_ist_datetime, now_ist, today_start_ist, today_end_ist
 
 logger = logging.getLogger(__name__)
 
@@ -336,6 +337,7 @@ class AttendantPassService:
             wardName=data.get("wardName"),
             roomNumber=data.get("roomNumber"),
             bedNumber=data.get("bedNumber"),
+            department=(data.get("department") or "").strip() or None,
             status="ACTIVE",
         )
         self.db.add(admission)
@@ -361,7 +363,10 @@ class AttendantPassService:
                 "An attendant is currently inside for this patient. "
                 "They must check out at security before another person can apply."
             )
-        email = AuthService.normalize_email(data["email"])
+        email = AuthService.normalize_email(data.get("email") or f"{str(data['phone']).strip()}@placeholder.local")
+        permissions = data.get("specialPermissions")
+        if isinstance(permissions, list):
+            permissions = ",".join(str(p) for p in permissions if p)
         attendant = Attendant(
             admissionId=admission.id,
             branchId=admission.branchId,
@@ -369,6 +374,13 @@ class AttendantPassService:
             email=email,
             phone=str(data["phone"]).strip(),
             relationship=data.get("relationship"),
+            photoUrl=data.get("photoUrl"),
+            idProofType=data.get("idProofType"),
+            idProofUrl=data.get("idProofUrl"),
+            remarks=(data.get("remarks") or "").strip() or None,
+            specialPermissions=(permissions or None),
+            maxEntries=data.get("maxEntries"),
+            isEmergency=bool(data.get("isEmergency")),
             status="PENDING",
         )
         self.db.add(attendant)
@@ -411,7 +423,16 @@ class AttendantPassService:
         self.db.commit()
         return self._serialize_attendant(attendant)
 
-    def issue_pass(self, user: dict, attendant_id: str, *, revoke_existing: bool = False) -> dict:
+    def issue_pass(
+        self,
+        user: dict,
+        attendant_id: str,
+        *,
+        revoke_existing: bool = False,
+        valid_from: datetime | str | None = None,
+        valid_to: datetime | str | None = None,
+        max_entries: int | None = None,
+    ) -> dict:
         attendant = (
             self.db.query(Attendant)
             .options(joinedload(Attendant.admission).joinedload(Admission.patient))
@@ -434,15 +455,32 @@ class AttendantPassService:
             self.db.flush()
 
         now = now_ist()
-        expires = now + timedelta(hours=PASS_VALIDITY_HOURS)
+        policy = self._get_or_create_policy(attendant.branchId)
+        hours = int(getattr(policy, "qrValidityHours", None) or PASS_VALIDITY_HOURS)
+
+        def _parse_dt(value: datetime | str | None) -> datetime | None:
+            if value is None or value == "":
+                return None
+            if isinstance(value, datetime):
+                return value
+            from app.utils.timezone import parse_to_ist_naive
+
+            return parse_to_ist_naive(str(value))
+
+        start = _parse_dt(valid_from) or now
+        end = _parse_dt(valid_to) or (start + timedelta(hours=hours))
+        entries = max_entries if max_entries is not None else attendant.maxEntries
+
         pass_row = AttendantPass(
             passNumber=self._next_pass_number(),
             attendantId=attendant.id,
             branchId=attendant.branchId,
             status="ACTIVE",
-            validFrom=now,
-            validTo=expires,
-            expiresAt=expires,
+            validFrom=start,
+            validTo=end,
+            expiresAt=end,
+            maxEntries=entries,
+            entriesUsed=0,
             approvedById=user.get("id"),
         )
         self.db.add(pass_row)
@@ -543,8 +581,14 @@ class AttendantPassService:
         if requested == "ENTRY":
             if self._is_inside(pass_row):
                 raise bad_request("Attendant is already inside — use the emailed checkout QR")
+            max_entries = pass_row.maxEntries
+            used = int(pass_row.entriesUsed or 0)
             if pass_row.exitedAt:
-                raise bad_request("This pass was already used for a completed visit")
+                if max_entries is not None and used >= max_entries:
+                    raise bad_request("Maximum allowed entries for this pass have been used")
+                # Allow another entry cycle when under maxEntries (or unlimited)
+            elif used > 0 and max_entries is not None and used >= max_entries:
+                raise bad_request("Maximum allowed entries for this pass have been used")
             attendant = pass_row.attendant or self.db.get(Attendant, pass_row.attendantId)
             if attendant:
                 hours = self.get_visiting_hours(attendant.admissionId)
@@ -565,6 +609,7 @@ class AttendantPassService:
             pass_row.enteredAt = now_ist()
             pass_row.exitedAt = None
             pass_row.durationMinutes = None
+            pass_row.entriesUsed = used + 1
             exit_payload = f"PASS-EXIT:{pass_row.id}:{pass_row.attendantId}:{pass_row.enteredAt.isoformat()}"
             pass_row.exitQrPayload = exit_payload
             pass_row.exitQrSignature = self._sign_payload(exit_payload)
@@ -845,6 +890,7 @@ class AttendantPassService:
             "wardName": admission.wardName,
             "roomNumber": admission.roomNumber,
             "bedNumber": admission.bedNumber,
+            "department": getattr(admission, "department", None),
             "branchId": admission.branchId,
             "admittedAt": admission.admittedAt.isoformat() if admission.admittedAt else None,
             "hasActivePass": active is not None,
@@ -861,6 +907,501 @@ class AttendantPassService:
             if patient
             else None,
         }
+
+    def _serialize_attendant(self, attendant: Attendant) -> dict:
+        admission = attendant.admission
+        return {
+            "id": attendant.id,
+            "name": attendant.name,
+            "email": attendant.email,
+            "phone": attendant.phone,
+            "relationship": attendant.relationship,
+            "photoUrl": getattr(attendant, "photoUrl", None),
+            "idProofType": getattr(attendant, "idProofType", None),
+            "idProofUrl": getattr(attendant, "idProofUrl", None),
+            "remarks": getattr(attendant, "remarks", None),
+            "specialPermissions": getattr(attendant, "specialPermissions", None),
+            "maxEntries": getattr(attendant, "maxEntries", None),
+            "isEmergency": bool(getattr(attendant, "isEmergency", False)),
+            "status": attendant.status,
+            "admissionId": attendant.admissionId,
+            "branchId": attendant.branchId,
+            "createdAt": attendant.createdAt.isoformat() if attendant.createdAt else None,
+            "admission": self._serialize_admission(admission) if admission else None,
+        }
+
+    def _serialize_pass(self, pass_row: AttendantPass, *, full: bool = False) -> dict:
+        data = {
+            "id": pass_row.id,
+            "passNumber": pass_row.passNumber,
+            "status": pass_row.status,
+            "attendantId": pass_row.attendantId,
+            "branchId": pass_row.branchId,
+            "validFrom": pass_row.validFrom.isoformat() if pass_row.validFrom else None,
+            "validTo": pass_row.validTo.isoformat() if pass_row.validTo else None,
+            "expiresAt": pass_row.expiresAt.isoformat() if pass_row.expiresAt else None,
+            "enteredAt": pass_row.enteredAt.isoformat() if pass_row.enteredAt else None,
+            "exitedAt": pass_row.exitedAt.isoformat() if pass_row.exitedAt else None,
+            "durationMinutes": pass_row.durationMinutes,
+            "maxEntries": getattr(pass_row, "maxEntries", None),
+            "entriesUsed": int(getattr(pass_row, "entriesUsed", 0) or 0),
+            "isInside": self._is_inside(pass_row),
+        }
+        if full:
+            attendant = pass_row.attendant
+            if not attendant:
+                attendant = self.db.get(Attendant, pass_row.attendantId)
+            data["qrPayload"] = pass_row.qrPayload
+            data["qrSignature"] = pass_row.qrSignature
+            data["attendant"] = self._serialize_attendant(attendant) if attendant else None
+        return data
+
+    def _get_or_create_policy(self, branch_id: str) -> PassPolicy:
+        row = (
+            self.db.query(PassPolicy)
+            .filter(PassPolicy.branchId == branch_id, PassPolicy.isActive.is_(True))
+            .order_by(PassPolicy.policyCode.asc())
+            .first()
+        )
+        if row:
+            return row
+        row = PassPolicy(
+            branchId=branch_id,
+            policyCode="DEFAULT",
+            name="Default AMS policy",
+            maxPassesPerPatient=2,
+            defaultVisitStart=DEFAULT_VISIT_START,
+            defaultVisitEnd=DEFAULT_VISIT_END,
+            isActive=True,
+        )
+        self.db.add(row)
+        self.db.commit()
+        self.db.refresh(row)
+        return row
+
+    def dashboard_summary(self, branch_id: str) -> dict:
+        day_start = today_start_ist()
+        day_end = today_end_ist()
+        patients_admitted = (
+            self.db.query(Admission)
+            .filter(Admission.branchId == branch_id, Admission.status == "ACTIVE")
+            .count()
+        )
+        attendants_registered = (
+            self.db.query(Attendant).filter(Attendant.branchId == branch_id).count()
+        )
+        currently_inside = (
+            self.db.query(AttendantPass)
+            .filter(
+                AttendantPass.branchId == branch_id,
+                AttendantPass.enteredAt.isnot(None),
+                AttendantPass.exitedAt.is_(None),
+                AttendantPass.status != "EXPIRED",
+            )
+            .count()
+        )
+        exited_today = (
+            self.db.query(AttendantPass)
+            .filter(
+                AttendantPass.branchId == branch_id,
+                AttendantPass.exitedAt >= day_start,
+                AttendantPass.exitedAt <= day_end,
+            )
+            .count()
+        )
+        pending_approval = (
+            self.db.query(Attendant)
+            .filter(Attendant.branchId == branch_id, Attendant.status == "PENDING")
+            .count()
+        )
+        emergency_today = (
+            self.db.query(Attendant)
+            .filter(
+                Attendant.branchId == branch_id,
+                Attendant.isEmergency.is_(True),
+                Attendant.createdAt >= day_start,
+                Attendant.createdAt <= day_end,
+            )
+            .count()
+        )
+
+        recent_passes = (
+            self.db.query(AttendantPass)
+            .options(
+                joinedload(AttendantPass.attendant)
+                .joinedload(Attendant.admission)
+                .joinedload(Admission.patient)
+            )
+            .filter(AttendantPass.branchId == branch_id)
+            .order_by(AttendantPass.updatedAt.desc())
+            .limit(15)
+            .all()
+        )
+        activity = []
+        for p in recent_passes:
+            att = p.attendant
+            adm = att.admission if att else None
+            patient = adm.patient if adm else None
+            if p.exitedAt:
+                status = "Exited"
+                when = p.exitedAt
+            elif p.enteredAt:
+                status = "Entered"
+                when = p.enteredAt
+            else:
+                status = p.status
+                when = p.createdAt
+            activity.append(
+                {
+                    "time": when.isoformat() if when else None,
+                    "name": att.name if att else "—",
+                    "patient": (
+                        f"{patient.firstName} {patient.lastName}".strip()
+                        if patient
+                        else "—"
+                    ),
+                    "ward": adm.wardName if adm else None,
+                    "bed": adm.bedNumber if adm else None,
+                    "status": status,
+                    "passNumber": p.passNumber,
+                    "passId": p.id,
+                }
+            )
+
+        return {
+            "stats": {
+                "patientsAdmitted": patients_admitted,
+                "attendantsRegistered": attendants_registered,
+                "currentlyInside": currently_inside,
+                "exitedToday": exited_today,
+                "pendingApproval": pending_approval,
+                "emergencyPasses": emergency_today,
+            },
+            "recentActivity": activity,
+        }
+
+    def search_attendants(
+        self,
+        branch_id: str,
+        *,
+        q: str | None = None,
+        status: str | None = None,
+        limit: int = 50,
+    ) -> dict:
+        query = (
+            self.db.query(AttendantPass)
+            .options(
+                joinedload(AttendantPass.attendant)
+                .joinedload(Attendant.admission)
+                .joinedload(Admission.patient)
+            )
+            .join(Attendant, Attendant.id == AttendantPass.attendantId)
+            .join(Admission, Admission.id == Attendant.admissionId)
+            .join(Patient, Patient.id == Admission.patientId)
+            .filter(AttendantPass.branchId == branch_id)
+        )
+        term = (q or "").strip()
+        if term:
+            pattern = f"%{term}%"
+            query = query.filter(
+                or_(
+                    Attendant.name.ilike(pattern),
+                    Attendant.phone.ilike(pattern),
+                    AttendantPass.passNumber.ilike(pattern),
+                    Patient.mrn.ilike(pattern),
+                    Patient.firstName.ilike(pattern),
+                    Patient.lastName.ilike(pattern),
+                    func.concat(Patient.firstName, " ", Patient.lastName).ilike(pattern),
+                )
+            )
+
+        status_key = (status or "ALL").upper()
+        day_start = today_start_ist()
+        if status_key == "INSIDE":
+            query = query.filter(
+                AttendantPass.enteredAt.isnot(None), AttendantPass.exitedAt.is_(None)
+            )
+        elif status_key == "EXITED":
+            query = query.filter(AttendantPass.exitedAt.isnot(None))
+        elif status_key == "EXPIRED":
+            query = query.filter(AttendantPass.status == "EXPIRED")
+        elif status_key in ("CANCELLED", "REVOKED"):
+            query = query.filter(AttendantPass.status == "REVOKED")
+        elif status_key == "TODAY":
+            query = query.filter(AttendantPass.createdAt >= day_start)
+
+        rows = query.order_by(AttendantPass.createdAt.desc()).limit(limit).all()
+        return {"items": [self._serialize_pass(p, full=True) for p in rows]}
+
+    def list_active_inside(self, branch_id: str, *, ward: str | None = None) -> dict:
+        query = (
+            self.db.query(AttendantPass)
+            .options(
+                joinedload(AttendantPass.attendant)
+                .joinedload(Attendant.admission)
+                .joinedload(Admission.patient)
+            )
+            .join(Attendant, Attendant.id == AttendantPass.attendantId)
+            .join(Admission, Admission.id == Attendant.admissionId)
+            .filter(
+                AttendantPass.branchId == branch_id,
+                AttendantPass.enteredAt.isnot(None),
+                AttendantPass.exitedAt.is_(None),
+            )
+        )
+        if ward:
+            query = query.filter(Admission.wardName.ilike(f"%{ward.strip()}%"))
+        rows = query.order_by(AttendantPass.enteredAt.desc()).all()
+        items = []
+        now = now_ist()
+        for p in rows:
+            data = self._serialize_pass(p, full=True)
+            if p.enteredAt:
+                data["durationMinutesLive"] = int((now - p.enteredAt).total_seconds() // 60)
+            items.append(data)
+        return {"items": items}
+
+    def extend_pass(self, user: dict, pass_id: str, *, valid_to: datetime | str) -> dict:
+        pass_row = self.db.get(AttendantPass, pass_id)
+        if not pass_row:
+            raise not_found("Pass")
+        if pass_row.status not in ("ACTIVE", "EXPIRED"):
+            raise bad_request("Pass cannot be extended")
+        from app.utils.timezone import parse_to_ist_naive
+
+        end = parse_to_ist_naive(valid_to) if isinstance(valid_to, str) else valid_to
+        pass_row.validTo = end
+        pass_row.expiresAt = end
+        if pass_row.status == "EXPIRED":
+            pass_row.status = "ACTIVE"
+        self.db.commit()
+        return self._serialize_pass(pass_row, full=True)
+
+    def suspend_pass(self, user: dict, pass_id: str) -> dict:
+        return self.revoke_pass(user, pass_id)
+
+    def force_exit(self, user: dict, pass_id: str) -> dict:
+        pass_row = (
+            self.db.query(AttendantPass)
+            .options(joinedload(AttendantPass.attendant))
+            .filter(AttendantPass.id == pass_id)
+            .first()
+        )
+        if not pass_row:
+            raise not_found("Pass")
+        if not self._is_inside(pass_row):
+            raise bad_request("Attendant is not currently inside")
+        exit_time = now_ist()
+        pass_row.exitedAt = exit_time
+        if pass_row.enteredAt:
+            pass_row.durationMinutes = int((exit_time - pass_row.enteredAt).total_seconds() // 60)
+        self.db.add(
+            AttendantPassScan(
+                passId=pass_row.id,
+                scannedById=user.get("id") or pass_row.approvedById or pass_row.attendantId,
+                scanType="EXIT",
+                govtIdType="STAFF_FORCE_EXIT",
+            )
+        )
+        self.db.commit()
+        try:
+            self._notify_visit_exit(pass_row)
+        except Exception:
+            pass
+        return self._serialize_pass(pass_row, full=True)
+
+    def shift_change(self, user: dict, data: dict) -> dict:
+        admission_id = data.get("admissionId")
+        if not admission_id:
+            raise bad_request("admissionId is required")
+        inside = self._inside_pass_for_admission(admission_id)
+        if inside:
+            self.force_exit(user, inside.id)
+        active = self._active_pass_for_admission(admission_id)
+        if active and active.status == "ACTIVE":
+            active.status = "REVOKED"
+            self.db.flush()
+
+        create_data = {
+            "admissionId": admission_id,
+            "name": data["name"],
+            "email": data.get("email") or f"{str(data['phone']).strip()}@placeholder.local",
+            "phone": data["phone"],
+            "relationship": data.get("relationship"),
+            "remarks": data.get("remarks"),
+            "maxEntries": data.get("maxEntries"),
+        }
+        attendant_result = self._create_attendant(create_data)
+        attendant_id = attendant_result["id"]
+        self.approve_attendant(user, attendant_id)
+        issued = self.issue_pass(
+            user,
+            attendant_id,
+            revoke_existing=True,
+            valid_from=data.get("validFrom"),
+            valid_to=data.get("validTo"),
+            max_entries=data.get("maxEntries"),
+        )
+        return {"attendant": attendant_result, "pass": issued}
+
+    def emergency_pass(self, user: dict, data: dict) -> dict:
+        admission_id = data.get("admissionId")
+        if not admission_id:
+            raise bad_request("admissionId is required")
+        inside = self._inside_pass_for_admission(admission_id)
+        if inside:
+            self.force_exit(user, inside.id)
+        hours = float(data.get("validityHours") or 2)
+        now = now_ist()
+        create_data = {
+            "admissionId": admission_id,
+            "name": data["name"],
+            "email": data.get("email")
+            or f"{str(data['phone']).strip()}@placeholder.local",
+            "phone": data["phone"],
+            "relationship": data.get("relationship") or "Other",
+            "remarks": data.get("reason") or "Emergency pass",
+            "isEmergency": True,
+            "maxEntries": data.get("maxEntries") or 1,
+        }
+        attendant_result = self._create_attendant(create_data)
+        attendant_id = attendant_result["id"]
+        self.approve_attendant(user, attendant_id)
+        issued = self.issue_pass(
+            user,
+            attendant_id,
+            revoke_existing=True,
+            valid_from=now.isoformat(),
+            valid_to=(now + timedelta(hours=hours)).isoformat(),
+            max_entries=create_data["maxEntries"],
+        )
+        return {"attendant": attendant_result, "pass": issued}
+
+    def get_policy(self, branch_id: str) -> dict:
+        row = self._get_or_create_policy(branch_id)
+        return self._serialize_policy(row)
+
+    def update_policy(self, user: dict, branch_id: str, data: dict) -> dict:
+        row = self._get_or_create_policy(branch_id)
+        for key, attr in (
+            ("maxPassesPerPatient", "maxPassesPerPatient"),
+            ("maxIcuAttendants", "maxIcuAttendants"),
+            ("allowNightStay", "allowNightStay"),
+            ("qrValidityHours", "qrValidityHours"),
+            ("defaultVisitStart", "defaultVisitStart"),
+            ("defaultVisitEnd", "defaultVisitEnd"),
+            ("smsEnabled", "smsEnabled"),
+            ("whatsappEnabled", "whatsappEnabled"),
+            ("approvalRequired", "approvalRequired"),
+            ("idProofMandatory", "idProofMandatory"),
+            ("photoMandatory", "photoMandatory"),
+            ("emergencySkipId", "emergencySkipId"),
+        ):
+            if key in data and data[key] is not None:
+                setattr(row, attr, data[key])
+        self.db.commit()
+        self.db.refresh(row)
+        return self._serialize_policy(row)
+
+    def _serialize_policy(self, row: PassPolicy) -> dict:
+        return {
+            "id": row.id,
+            "branchId": row.branchId,
+            "policyCode": row.policyCode,
+            "name": row.name,
+            "maxPassesPerPatient": row.maxPassesPerPatient,
+            "maxIcuAttendants": getattr(row, "maxIcuAttendants", 1),
+            "allowNightStay": bool(getattr(row, "allowNightStay", False)),
+            "qrValidityHours": int(getattr(row, "qrValidityHours", PASS_VALIDITY_HOURS) or PASS_VALIDITY_HOURS),
+            "defaultVisitStart": row.defaultVisitStart,
+            "defaultVisitEnd": row.defaultVisitEnd,
+            "smsEnabled": bool(getattr(row, "smsEnabled", True)),
+            "whatsappEnabled": bool(getattr(row, "whatsappEnabled", True)),
+            "approvalRequired": bool(getattr(row, "approvalRequired", True)),
+            "idProofMandatory": bool(getattr(row, "idProofMandatory", True)),
+            "photoMandatory": bool(getattr(row, "photoMandatory", False)),
+            "emergencySkipId": bool(getattr(row, "emergencySkipId", True)),
+            "isActive": row.isActive,
+        }
+
+    def reports_summary(
+        self,
+        branch_id: str,
+        *,
+        period: str = "daily",
+    ) -> dict:
+        now = now_ist()
+        if period == "weekly":
+            start = now - timedelta(days=7)
+        elif period == "monthly":
+            start = now - timedelta(days=30)
+        else:
+            start = today_start_ist()
+
+        passes = (
+            self.db.query(AttendantPass)
+            .options(
+                joinedload(AttendantPass.attendant)
+                .joinedload(Attendant.admission)
+                .joinedload(Admission.patient)
+            )
+            .filter(
+                AttendantPass.branchId == branch_id,
+                AttendantPass.createdAt >= start,
+            )
+            .all()
+        )
+        by_ward: dict[str, int] = {}
+        by_relationship: dict[str, int] = {}
+        durations: list[int] = []
+        emergency = 0
+        expired = 0
+        for p in passes:
+            att = p.attendant
+            adm = att.admission if att else None
+            ward = (adm.wardName if adm else None) or "Unknown"
+            by_ward[ward] = by_ward.get(ward, 0) + 1
+            rel = (att.relationship if att else None) or "Unknown"
+            by_relationship[rel] = by_relationship.get(rel, 0) + 1
+            if att and getattr(att, "isEmergency", False):
+                emergency += 1
+            if p.status == "EXPIRED":
+                expired += 1
+            if p.durationMinutes is not None:
+                durations.append(int(p.durationMinutes))
+
+        avg_stay = round(sum(durations) / len(durations), 1) if durations else 0
+        return {
+            "period": period,
+            "from": start.isoformat(),
+            "to": now.isoformat(),
+            "totalPasses": len(passes),
+            "byWard": by_ward,
+            "byRelationship": by_relationship,
+            "averageStayMinutes": avg_stay,
+            "emergencyPasses": emergency,
+            "expiredPasses": expired,
+            "overstay": sum(1 for d in durations if d > 240),
+        }
+
+    def list_public_branches(self) -> list[dict]:
+        branches = (
+            self.db.query(Branch)
+            .options(joinedload(Branch.hospitalChain))
+            .order_by(Branch.name)
+            .all()
+        )
+        return [
+            {
+                "id": b.id,
+                "name": b.name,
+                "city": b.city,
+                "state": b.state,
+                "hospitalChainId": b.hospitalChainId,
+                "hospitalChainName": b.hospitalChain.name if b.hospitalChain else None,
+            }
+            for b in branches
+        ]
 
     def _email_pass(self, attendant: Attendant, pass_row: AttendantPass) -> bool:
         if not attendant.email or "@placeholder.local" in attendant.email:
@@ -929,61 +1470,3 @@ class AttendantPassService:
                 "Failed to email attendant checkout QR to %s: %s", attendant.email, exc
             )
             return False
-
-    def _serialize_attendant(self, attendant: Attendant) -> dict:
-        admission = attendant.admission
-        return {
-            "id": attendant.id,
-            "name": attendant.name,
-            "email": attendant.email,
-            "phone": attendant.phone,
-            "relationship": attendant.relationship,
-            "status": attendant.status,
-            "admissionId": attendant.admissionId,
-            "branchId": attendant.branchId,
-            "createdAt": attendant.createdAt.isoformat() if attendant.createdAt else None,
-            "admission": self._serialize_admission(admission) if admission else None,
-        }
-
-    def _serialize_pass(self, pass_row: AttendantPass, *, full: bool = False) -> dict:
-        data = {
-            "id": pass_row.id,
-            "passNumber": pass_row.passNumber,
-            "status": pass_row.status,
-            "attendantId": pass_row.attendantId,
-            "branchId": pass_row.branchId,
-            "validFrom": pass_row.validFrom.isoformat() if pass_row.validFrom else None,
-            "validTo": pass_row.validTo.isoformat() if pass_row.validTo else None,
-            "expiresAt": pass_row.expiresAt.isoformat() if pass_row.expiresAt else None,
-            "enteredAt": pass_row.enteredAt.isoformat() if pass_row.enteredAt else None,
-            "exitedAt": pass_row.exitedAt.isoformat() if pass_row.exitedAt else None,
-            "durationMinutes": pass_row.durationMinutes,
-            "isInside": self._is_inside(pass_row),
-        }
-        if full:
-            attendant = pass_row.attendant
-            if not attendant:
-                attendant = self.db.get(Attendant, pass_row.attendantId)
-            data["qrPayload"] = pass_row.qrPayload
-            data["qrSignature"] = pass_row.qrSignature
-            data["attendant"] = self._serialize_attendant(attendant) if attendant else None
-        return data
-
-    def list_public_branches(self) -> list[dict]:
-        branches = (
-            self.db.query(Branch)
-            .options(joinedload(Branch.hospitalChain))
-            .order_by(Branch.name)
-            .all()
-        )
-        return [
-            {
-                "id": b.id,
-                "name": b.name,
-                "city": b.city,
-                "state": b.state,
-                "hospitalChainId": b.hospitalChainId,
-                "hospitalChainName": b.hospitalChain.name if b.hospitalChain else None,
-            }
-            for b in branches
-        ]

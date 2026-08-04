@@ -78,14 +78,18 @@ export function PreRegistrationWizard() {
   useEffect(() => {
     if (getVisitorToken()) {
       toast.info('You are already signed in.');
-      router.replace('/visitor/dashboard');
+      const dest =
+        returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//')
+          ? returnTo
+          : '/visitor/dashboard';
+      router.replace(dest);
       return;
     }
     const stored = sessionStorage.getItem(STORAGE_KEY);
     if (stored) {
       setAccountId(stored);
     }
-  }, [router]);
+  }, [router, returnTo]);
 
   const basicForm = useForm<BasicInfoValues>({
     resolver: zodResolver(basicInfoSchema),

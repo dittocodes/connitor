@@ -194,6 +194,14 @@ class InboundDeliveryService:
         if not vendor_id:
             raise bad_request("vendorId is required")
 
+        vendor = self.db.get(Distributor, vendor_id)
+        if not vendor:
+            raise bad_request("Distributor not found")
+        if vendor.verificationStatus != "APPROVED":
+            raise bad_request(
+                "Distributor profile is not verified yet — wait for hospital review before booking"
+            )
+
         mapping = (
             self.db.query(VendorBranchMapping)
             .filter(
@@ -206,26 +214,88 @@ class InboundDeliveryService:
         if not mapping:
             raise bad_request("Distributor is not approved for this hospital branch")
 
-        goods_type = (data.get("goodsType") or "").strip()
-        if not goods_type:
-            raise bad_request("goodsType is required")
-        total_boxes = int(data.get("totalBoxes") or 0)
-        if total_boxes < 1:
-            raise bad_request("totalBoxes must be at least 1")
+        packages = data.get("packages") or []
+        vehicle_payload = data.get("vehicle") if isinstance(data.get("vehicle"), dict) else {}
+        vehicle_category = (
+            (data.get("vehicleCategory") or data.get("vehicleType") or (vehicle_payload or {}).get("vehicleType") or "")
+            .strip()
+        )
+
+        from app.delivery.delivery_pricing import compute_consignment_fee, compute_delivery_fee, vehicle_volume_from_dims
+
+        use_v2 = bool(packages) or bool(vehicle_category)
+        fee_info: dict
+        if use_v2:
+            if not packages:
+                raise bad_request("Add at least one package to the consignment")
+            if not vehicle_category:
+                raise bad_request("Vehicle type is required (Bike, Auto, SCV, MCV, or LCV)")
+            fee_info = compute_consignment_fee(packages=packages, vehicle_type=vehicle_category)
+            goods_type = (data.get("goodsType") or "").strip()
+            if not goods_type:
+                goods_type = ", ".join(
+                    sorted({p["packageType"] for p in fee_info["packages"]})
+                )
+            total_boxes = int(fee_info["totalBoxes"])
+        else:
+            goods_type = (data.get("goodsType") or "").strip()
+            if not goods_type:
+                raise bad_request("goodsType is required")
+            total_boxes = int(data.get("totalBoxes") or 0)
+            if total_boxes < 1:
+                raise bad_request("totalBoxes must be at least 1")
 
         agent_svc = AgentVehicleService(self.db)
-        vehicle = agent_svc.resolve_vehicle(user, data.get("vehicle") or data.get("vehicleId"))
+        vehicle_input = data.get("vehicle") or data.get("vehicleId")
+        if isinstance(vehicle_input, dict) and vehicle_category and not vehicle_input.get("vehicleType"):
+            vehicle_input = {**vehicle_input, "vehicleType": vehicle_category}
+        vehicle = agent_svc.resolve_vehicle(user, vehicle_input)
         agent = agent_svc.resolve_agent(user, data.get("agent") or data.get("agentId"))
         if not vehicle:
             raise bad_request("vehicle is required")
         if not agent:
             raise bad_request("driver is required")
 
+        if use_v2:
+            if vehicle_category:
+                vehicle.vehicleType = vehicle_category
+                self.db.flush()
+        else:
+            vehicle_volume = None
+            if vehicle.volumeCm3 is not None:
+                vehicle_volume = float(vehicle.volumeCm3)
+            else:
+                vehicle_volume = vehicle_volume_from_dims(vehicle.lengthCm, vehicle.breadthCm, vehicle.heightCm)
+            if vehicle_volume is None or vehicle_volume <= 0:
+                raise bad_request(
+                    "Vehicle cargo volume is required — set length, breadth, and height (cm) on the vehicle"
+                )
+            try:
+                box_l = float(data.get("boxLengthCm"))
+                box_b = float(data.get("boxBreadthCm"))
+                box_h = float(data.get("boxHeightCm"))
+            except (TypeError, ValueError) as exc:
+                raise bad_request("boxLengthCm, boxBreadthCm, and boxHeightCm are required") from exc
+
+            fee_info = compute_delivery_fee(
+                total_boxes=total_boxes,
+                box_length_cm=box_l,
+                box_breadth_cm=box_b,
+                box_height_cm=box_h,
+                vehicle_volume_cm3=vehicle_volume,
+            )
+
         slot_id = data.get("slotId")
         expected_arrival = data.get("expectedArrivalTime")
         slot = None
         if slot_id:
-            slot = DeliverySlotService(self.db).reserve_slot(slot_id)
+            need_minutes = int(
+                data.get("slotMinutes")
+                or fee_info.get("slotMinutes")
+                or fee_info.get("unloadMinutes")
+                or 10
+            )
+            slot = DeliverySlotService(self.db).reserve_slot(slot_id, minutes=need_minutes)
             if slot.branchId != branch_id:
                 raise bad_request("Slot does not belong to selected branch")
             expected_arrival = slot.slotStart
@@ -254,14 +324,39 @@ class InboundDeliveryService:
             goodsType=goods_type,
             deliveryType=data.get("deliveryType", DeliveryType.STANDARD.value),
             status=DeliveryStatus.SCHEDULED.value,
+            poNumber=(data.get("poNumber") or "").strip() or None,
             expectedArrivalTime=expected_arrival,
             expectedDeliveryDate=expected_arrival.date() if expected_arrival else None,
             totalBoxes=total_boxes,
             remarks=data.get("remarks"),
+            boxLengthCm=fee_info.get("boxLengthCm"),
+            boxBreadthCm=fee_info.get("boxBreadthCm"),
+            boxHeightCm=fee_info.get("boxHeightCm"),
+            cargoVolumeCm3=fee_info.get("cargoVolumeCm3"),
+            vehicleVolumeCm3=fee_info.get("vehicleVolumeCm3"),
+            unloadMinutes=fee_info.get("unloadMinutes"),
+            walletFee=Decimal(str(fee_info["walletFee"])),
             createdById=user.get("id"),
         )
         self.db.add(delivery)
         self.db.flush()
+
+        if use_v2:
+            for pkg in fee_info.get("packages") or []:
+                note_parts = [p for p in [pkg.get("remarks"), pkg.get("customSize"), pkg.get("supportRequired")] if p]
+                self.db.add(
+                    InboundDeliveryItem(
+                        deliveryId=delivery.id,
+                        itemName=pkg["packageType"],
+                        quantityOrdered=int(pkg["qty"]),
+                        quantityReceived=0,
+                        unit=", ".join(note_parts) if note_parts else f"{pkg['unitWeight']}u",
+                    )
+                )
+
+        self._deduct_wallet(
+            vendor_id, Decimal(str(fee_info["walletFee"])), delivery.id, user.get("id")
+        )
         self._history(delivery.id, None, DeliveryStatus.SCHEDULED.value, user.get("id"), "Booked by distributor")
         self._generate_qr(delivery)
         self.db.commit()
@@ -273,7 +368,48 @@ class InboundDeliveryService:
 
         result = self._serialize(delivery, full=True)
         result["qr"] = self._qr_payload(delivery)
+        result["pricing"] = fee_info
         return result
+
+    def quote_delivery(self, user: dict, data: dict) -> dict:
+        """Preview fee without booking (v2 packages or legacy volume)."""
+        vendor_id = user.get("distributorId") if user.get("role") == "DISTRIBUTOR" else data.get("vendorId")
+        if not vendor_id:
+            raise bad_request("vendorId is required")
+
+        from app.delivery.delivery_pricing import compute_consignment_fee, compute_delivery_fee, vehicle_volume_from_dims
+
+        packages = data.get("packages") or []
+        vehicle_category = (data.get("vehicleCategory") or data.get("vehicleType") or "").strip()
+        if packages or vehicle_category:
+            if not packages:
+                raise bad_request("Add at least one package to the consignment")
+            if not vehicle_category:
+                raise bad_request("Vehicle type is required")
+            return compute_consignment_fee(packages=packages, vehicle_type=vehicle_category)
+
+        vehicle_volume = data.get("vehicleVolumeCm3")
+        if vehicle_volume is None and data.get("vehicleId"):
+            vehicle = self.db.get(DeliveryVehicle, data["vehicleId"])
+            if not vehicle or (user.get("role") == "DISTRIBUTOR" and vehicle.distributorId != vendor_id):
+                raise bad_request("Invalid vehicle")
+            vehicle_volume = float(vehicle.volumeCm3) if vehicle.volumeCm3 is not None else vehicle_volume_from_dims(
+                vehicle.lengthCm, vehicle.breadthCm, vehicle.heightCm
+            )
+        if vehicle_volume is None:
+            vehicle_volume = vehicle_volume_from_dims(
+                data.get("vehicleLengthCm"), data.get("vehicleBreadthCm"), data.get("vehicleHeightCm")
+            )
+        if vehicle_volume is None:
+            raise bad_request("Vehicle volume is required for quote")
+
+        return compute_delivery_fee(
+            total_boxes=int(data.get("totalBoxes") or 0),
+            box_length_cm=float(data.get("boxLengthCm")),
+            box_breadth_cm=float(data.get("boxBreadthCm")),
+            box_height_cm=float(data.get("boxHeightCm")),
+            vehicle_volume_cm3=float(vehicle_volume),
+        )
 
     def list_today_deliveries(self, user: dict, branch_id: str | None = None) -> dict:
         from sqlalchemy import or_
@@ -464,6 +600,12 @@ class InboundDeliveryService:
                     "invoiceNumber": d.invoiceNumber,
                     "totalBoxes": d.totalBoxes,
                     "remarks": d.remarks,
+                    "boxLengthCm": float(d.boxLengthCm) if d.boxLengthCm is not None else None,
+                    "boxBreadthCm": float(d.boxBreadthCm) if d.boxBreadthCm is not None else None,
+                    "boxHeightCm": float(d.boxHeightCm) if d.boxHeightCm is not None else None,
+                    "cargoVolumeCm3": float(d.cargoVolumeCm3) if d.cargoVolumeCm3 is not None else None,
+                    "vehicleVolumeCm3": float(d.vehicleVolumeCm3) if d.vehicleVolumeCm3 is not None else None,
+                    "unloadMinutes": float(d.unloadMinutes) if d.unloadMinutes is not None else None,
                     "expectedArrivalTime": d.expectedArrivalTime.isoformat() if d.expectedArrivalTime else None,
                     "actualArrivalTime": d.actualArrivalTime.isoformat() if d.actualArrivalTime else None,
                     "walletFee": float(d.walletFee or 0),

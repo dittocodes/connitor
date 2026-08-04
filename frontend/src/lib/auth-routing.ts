@@ -11,7 +11,7 @@ export const ROLE_DASHBOARD_PATHS: Record<string, string> = {
   RECEIVING: '/dashboard/receiving',
   PURCHASE: '/dashboard/delivery',
   DISTRIBUTOR: '/vendor/deliveries',
-  WARD_ADMIN: '/dashboard/attendant-passes',
+  WARD_ADMIN: '/dashboard/ams',
 };
 
 export function getDashboardPathForRole(role: string): string {

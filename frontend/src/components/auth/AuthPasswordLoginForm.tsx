@@ -250,6 +250,14 @@ export function AuthPasswordLoginForm() {
                 All roles
               </Link>
             </p>
+            {deliveryPortal?.id === 'DISTRIBUTOR' ? (
+              <p className="text-center text-sm text-muted-foreground">
+                New distributor?{' '}
+                <Link href="/vendor/register" className="text-amber-700 hover:underline font-medium">
+                  Apply to onboard
+                </Link>
+              </p>
+            ) : null}
             <p className="text-center text-sm text-muted-foreground">
               Prefer OTP?{' '}
               <Link href="/auth/login-otp" className="text-teal-600 hover:underline font-medium">

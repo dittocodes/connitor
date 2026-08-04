@@ -29,6 +29,8 @@ class BranchDeliverySlot(Base):
     slotEnd: Mapped[datetime] = mapped_column(DateTime)
     maxDeliveries: Mapped[int] = mapped_column(Integer, default=1)
     bookedCount: Mapped[int] = mapped_column(Integer, default=0)
+    # Minute pool inside the window (e.g. 120-min hospital window; each booking consumes unload minutes)
+    bookedMinutes: Mapped[int] = mapped_column(Integer, default=0)
     isActive: Mapped[bool] = mapped_column(Boolean, default=True)
     createdAt: Mapped[datetime] = mapped_column(DateTime, default=now_ist)
     updatedAt: Mapped[datetime] = mapped_column(DateTime, default=now_ist, onupdate=now_ist)
@@ -100,12 +102,55 @@ class Distributor(Base):
     state: Mapped[str | None] = mapped_column(String(100), nullable=True)
     isActive: Mapped[bool] = mapped_column(Boolean, default=True)
     verificationStatus: Mapped[str] = mapped_column(String(20), default="PENDING")
+    # Onboarding / India hospital vendor profile
+    legalEntityType: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    tradeName: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    cin: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    udyamNumber: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    website: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    yearEstablished: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    gstRegistrationType: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    registeredAddressJson: Mapped[str | None] = mapped_column(Text, nullable=True)
+    operatingAddressJson: Mapped[str | None] = mapped_column(Text, nullable=True)
+    serviceableStatesJson: Mapped[str | None] = mapped_column(Text, nullable=True)
+    supplyCategoriesJson: Mapped[str | None] = mapped_column(Text, nullable=True)
+    deliveryMode: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    goodsDescription: Mapped[str | None] = mapped_column(Text, nullable=True)
+    accountsEmail: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    dispatchPhone: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    alternatePhone: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    designation: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    preferredLanguage: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    onboardingStatus: Mapped[str] = mapped_column(String(30), default="APPROVED")
+    rejectionReason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    submittedAt: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    reviewedAt: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    reviewedById: Mapped[str | None] = mapped_column(String(36), ForeignKey("User.id"), nullable=True)
+    termsAcceptedAt: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     createdAt: Mapped[datetime] = mapped_column(DateTime, default=now_ist)
     updatedAt: Mapped[datetime] = mapped_column(DateTime, default=now_ist, onupdate=now_ist)
 
     agents: Mapped[list["DeliveryAgent"]] = relationship(back_populates="distributor")
     vehicles: Mapped[list["DeliveryVehicle"]] = relationship(back_populates="distributor")
     branchMappings: Mapped[list["VendorBranchMapping"]] = relationship(back_populates="vendor")
+    documents: Mapped[list["DistributorDocument"]] = relationship(
+        back_populates="distributor", cascade="all, delete-orphan"
+    )
+
+
+class DistributorDocument(Base):
+    __tablename__ = "DistributorDocument"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    distributorId: Mapped[str] = mapped_column(String(36), ForeignKey("Distributor.id"), index=True)
+    documentType: Mapped[str] = mapped_column(String(50), index=True)
+    documentNumber: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    expiresAt: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    fileUrl: Mapped[str | None] = mapped_column(Text, nullable=True)
+    verificationStatus: Mapped[str] = mapped_column(String(20), default="PENDING")
+    createdAt: Mapped[datetime] = mapped_column(DateTime, default=now_ist)
+
+    distributor: Mapped["Distributor"] = relationship(back_populates="documents")
 
 
 class DeliveryAgent(Base):
@@ -131,6 +176,10 @@ class DeliveryVehicle(Base):
     distributorId: Mapped[str] = mapped_column(String(36), ForeignKey("Distributor.id"), index=True)
     registrationNumber: Mapped[str] = mapped_column(String(30), unique=True)
     vehicleType: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    lengthCm: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
+    breadthCm: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
+    heightCm: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
+    volumeCm3: Mapped[float | None] = mapped_column(Numeric(18, 2), nullable=True)
     isActive: Mapped[bool] = mapped_column(Boolean, default=True)
     createdAt: Mapped[datetime] = mapped_column(DateTime, default=now_ist)
 
@@ -178,6 +227,12 @@ class InboundDelivery(Base):
     totalBoxes: Mapped[int] = mapped_column(Integer, default=0)
     remarks: Mapped[str | None] = mapped_column(Text, nullable=True)
     urgentReason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    boxLengthCm: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
+    boxBreadthCm: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
+    boxHeightCm: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
+    cargoVolumeCm3: Mapped[float | None] = mapped_column(Numeric(18, 2), nullable=True)
+    vehicleVolumeCm3: Mapped[float | None] = mapped_column(Numeric(18, 2), nullable=True)
+    unloadMinutes: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
     walletFee: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=0)
     isActive: Mapped[bool] = mapped_column(Boolean, default=True)
     createdById: Mapped[str | None] = mapped_column(String(36), ForeignKey("User.id"), nullable=True)

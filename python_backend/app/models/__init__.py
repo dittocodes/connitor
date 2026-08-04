@@ -8,6 +8,7 @@ from app.models.entities import (
     User,
     Visit,
     Visitor,
+    DoctorUrgentPasscode,
 )
 from app.models.enums import (
     AppointmentMode,
@@ -41,6 +42,7 @@ from app.models.delivery_entities import (  # noqa: F401 — register ORM tables
     DeliveryAgent,
     DeliveryVehicle,
     Distributor,
+    DistributorDocument,
     DockAssignment,
     GrnRecord,
     InboundDelivery,

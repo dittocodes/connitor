@@ -20,11 +20,18 @@ import {
   type TabViewMode,
   type VisitorSearchData,
 } from '@/lib/api/visitors-api';
-import { ClipboardCheck, Phone, AlertCircle, Loader2, QrCode } from 'lucide-react';
+import { ClipboardCheck, Phone, AlertCircle, Loader2, QrCode, KeyRound } from 'lucide-react';
 import { PhoneLookupFlow } from './PhoneLookupFlow';
 import { QrCheckInScanner } from '@/components/security/QrCheckInScanner';
 import { VisitorService } from '@/lib/services/visitorService';
+import {
+  UrgentPasscodeService,
+  type ConfirmVerifyUrgentPasscodeResponse,
+} from '@/lib/services/urgentPasscodeService';
 import { toast } from 'sonner';
+import { QRCodeSVG } from 'qrcode.react';
+
+type ExtendedViewMode = TabViewMode | 'urgent_passcode' | 'urgent_handoff';
 
 export interface CheckInTabProps {
   /** Branch ID for the check-in operation */
@@ -53,7 +60,7 @@ export function CheckInTab({
   className,
 }: CheckInTabProps): React.ReactElement {
   // View mode state
-  const [viewMode, setViewMode] = React.useState<TabViewMode>('qr');
+  const [viewMode, setViewMode] = React.useState<ExtendedViewMode>('qr');
   const [qrState, setQrState] = React.useState<OtpVerificationState>('idle');
   const [qrError, setQrError] = React.useState<string | undefined>(undefined);
 
@@ -69,6 +76,12 @@ export function CheckInTab({
   // Check-in state
   const [isCheckingIn, setIsCheckingIn] = React.useState(false);
   const [isCheckingOut, setIsCheckingOut] = React.useState(false);
+
+  const [urgentCode, setUrgentCode] = React.useState('');
+  const [urgentLoading, setUrgentLoading] = React.useState(false);
+  const [urgentError, setUrgentError] = React.useState<string | undefined>();
+  const [urgentHandoff, setUrgentHandoff] =
+    React.useState<ConfirmVerifyUrgentPasscodeResponse | null>(null);
 
   // Refs for focus management
   const otpInputRef = React.useRef<HTMLInputElement>(null);
@@ -195,6 +208,9 @@ export function CheckInTab({
     setVisitorData(null);
     setIsCheckingIn(false);
     setIsCheckingOut(false);
+    setUrgentCode('');
+    setUrgentHandoff(null);
+    setUrgentError(undefined);
   }, []);
 
   const handleQrScan = React.useCallback(
@@ -348,6 +364,23 @@ export function CheckInTab({
     setViewMode('phone');
   }, []);
 
+  const handleUrgentVerify = React.useCallback(async (): Promise<void> => {
+    if (urgentCode.length !== 6) return;
+    setUrgentLoading(true);
+    setUrgentError(undefined);
+    try {
+      await UrgentPasscodeService.verify(urgentCode);
+      const handoff = await UrgentPasscodeService.confirmVerify(urgentCode);
+      setUrgentHandoff(handoff);
+      setViewMode('urgent_handoff');
+      announceStatus('Passcode verified. Ask visitor to register and book on the link or QR.');
+    } catch (error) {
+      setUrgentError(error instanceof Error ? error.message : 'Verification failed');
+    } finally {
+      setUrgentLoading(false);
+    }
+  }, [urgentCode, announceStatus]);
+
   /**
    * Handles visitor found from phone lookup
    */
@@ -430,6 +463,99 @@ export function CheckInTab({
           onVisitorFound={handleVisitorFound}
           onBack={() => setViewMode('qr')}
         />
+      ) : viewMode === 'urgent_handoff' && urgentHandoff ? (
+        <div className="max-w-md mx-auto space-y-6">
+          <div className="text-center space-y-2">
+            <h2 className="text-xl font-semibold text-gray-900">Ask visitor to register</h2>
+            <p className="text-sm text-gray-500">
+              Meeting{' '}
+              <span className="font-medium text-gray-800">
+                {urgentHandoff.host.name ?? 'Doctor'}
+              </span>
+              {urgentHandoff.note ? ` — ${urgentHandoff.note}` : ''}
+            </p>
+            <p className="text-sm text-indigo-800 bg-indigo-50 border border-indigo-100 rounded-md px-3 py-2">
+              Visitor registers, books with this doctor (no further approval), then shows Entry QR
+              for check-in and Exit QR for checkout.
+            </p>
+          </div>
+          <div className="bg-white border border-gray-200 rounded-lg p-6 space-y-4 text-center">
+            <div className="flex justify-center">
+              <QRCodeSVG value={urgentHandoff.registerUrl} size={200} level="M" includeMargin />
+            </div>
+            <p className="text-xs break-all text-muted-foreground">{urgentHandoff.registerUrl}</p>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() => {
+                void navigator.clipboard.writeText(urgentHandoff.registerUrl);
+                toast.success('Registration link copied');
+              }}
+            >
+              Copy link
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              Link valid ~{urgentHandoff.gateTokenExpiresInMinutes} minutes. After booking, scan
+              their Entry QR on this tab.
+            </p>
+            <Button type="button" className="w-full" onClick={handleCancel}>
+              Done — back to QR scan
+            </Button>
+          </div>
+        </div>
+      ) : viewMode === 'urgent_passcode' ? (
+        <div className="max-w-md mx-auto space-y-6">
+          <div className="text-center space-y-2">
+            <h2 className="text-xl font-semibold text-gray-900">Doctor urgent passcode</h2>
+            <p className="text-sm text-gray-500">
+              Enter the 6-digit code the visitor received from their doctor
+            </p>
+          </div>
+          <div className="bg-white border border-gray-200 rounded-lg p-6 space-y-4">
+            <div className="flex justify-center">
+              <InputOTP
+                maxLength={6}
+                value={urgentCode}
+                onChange={setUrgentCode}
+                onComplete={() => void handleUrgentVerify()}
+                disabled={urgentLoading}
+              >
+                <InputOTPGroup>
+                  <InputOTPSlot index={0} />
+                  <InputOTPSlot index={1} />
+                  <InputOTPSlot index={2} />
+                  <InputOTPSlot index={3} />
+                  <InputOTPSlot index={4} />
+                  <InputOTPSlot index={5} />
+                </InputOTPGroup>
+              </InputOTP>
+            </div>
+            {urgentError && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{urgentError}</AlertDescription>
+              </Alert>
+            )}
+            <Button
+              className="w-full bg-indigo-600 hover:bg-indigo-700"
+              disabled={urgentCode.length !== 6 || urgentLoading}
+              onClick={() => void handleUrgentVerify()}
+            >
+              {urgentLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Verifying…
+                </>
+              ) : (
+                'Verify passcode'
+              )}
+            </Button>
+            <Button type="button" variant="outline" className="w-full" onClick={() => setViewMode('qr')}>
+              Back
+            </Button>
+          </div>
+        </div>
       ) : viewMode === 'otp' ? (
         // OTP Verification View (fallback)
         <div className="max-w-md mx-auto space-y-6">
@@ -583,6 +709,19 @@ export function CheckInTab({
             >
               <Phone className="h-4 w-4 mr-2" aria-hidden="true" />
               Check Visitor by Phone
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full border-indigo-200 text-indigo-900"
+              onClick={() => {
+                setUrgentCode('');
+                setUrgentError(undefined);
+                setViewMode('urgent_passcode');
+              }}
+              aria-label="Doctor urgent passcode check-in"
+            >
+              <KeyRound className="h-4 w-4 mr-2" aria-hidden="true" />
+              Doctor urgent passcode
             </Button>
           </div>
 

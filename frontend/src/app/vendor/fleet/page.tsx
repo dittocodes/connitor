@@ -24,6 +24,9 @@ export default function VendorFleetPage(): React.ReactElement {
   const [phone, setPhone] = React.useState('');
   const [reg, setReg] = React.useState('');
   const [vType, setVType] = React.useState('');
+  const [vLength, setVLength] = React.useState('');
+  const [vBreadth, setVBreadth] = React.useState('');
+  const [vHeight, setVHeight] = React.useState('');
 
   const load = React.useCallback(async () => {
     try {
@@ -68,14 +71,27 @@ export default function VendorFleetPage(): React.ReactElement {
       toast.error('Registration required');
       return;
     }
+    const lengthCm = parseFloat(vLength);
+    const breadthCm = parseFloat(vBreadth);
+    const heightCm = parseFloat(vHeight);
+    if (!(lengthCm > 0 && breadthCm > 0 && heightCm > 0)) {
+      toast.error('Enter vehicle length, breadth, and height (cm)');
+      return;
+    }
     try {
       await DistributorDeliveryService.createVehicle({
         registrationNumber: reg.trim(),
         vehicleType: vType.trim() || undefined,
+        lengthCm,
+        breadthCm,
+        heightCm,
       });
       toast.success('Vehicle added');
       setReg('');
       setVType('');
+      setVLength('');
+      setVBreadth('');
+      setVHeight('');
       await load();
     } catch {
       toast.error('Failed to add vehicle');
@@ -168,6 +184,32 @@ export default function VendorFleetPage(): React.ReactElement {
                 <Label>Type (optional)</Label>
                 <Input value={vType} onChange={(e) => setVType(e.target.value)} />
               </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <Label>L (cm)</Label>
+                  <Input
+                    type="number"
+                    value={vLength}
+                    onChange={(e) => setVLength(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label>B (cm)</Label>
+                  <Input
+                    type="number"
+                    value={vBreadth}
+                    onChange={(e) => setVBreadth(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label>H (cm)</Label>
+                  <Input
+                    type="number"
+                    value={vHeight}
+                    onChange={(e) => setVHeight(e.target.value)}
+                  />
+                </div>
+              </div>
               <Button className="bg-amber-600 hover:bg-amber-700" onClick={() => void addVehicle()}>
                 Save vehicle
               </Button>
@@ -186,6 +228,14 @@ export default function VendorFleetPage(): React.ReactElement {
                     <li key={v.id} className="rounded-lg border p-3">
                       <p className="font-medium">{v.registrationNumber}</p>
                       <p className="text-muted-foreground">{v.vehicleType ?? '—'}</p>
+                      {v.volumeCm3 != null && (
+                        <p className="text-xs text-muted-foreground">
+                          Volume {v.volumeCm3.toLocaleString()} cm³
+                          {v.lengthCm != null
+                            ? ` (${v.lengthCm}×${v.breadthCm}×${v.heightCm} cm)`
+                            : ''}
+                        </p>
+                      )}
                     </li>
                   ))}
                 </ul>

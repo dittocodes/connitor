@@ -33,14 +33,29 @@ const apiClient = axios.create({
   },
 });
 
-/** Next.js uses trailingSlash: true — API paths need a slash before the query string. */
-function withApiTrailingSlash(url: string | undefined): string | undefined {
+/**
+ * Normalize /api paths for the active base URL.
+ * - Same-origin (Next rewrite + trailingSlash: true): keep a trailing slash.
+ * - Direct Python backend (absolute NEXT_PUBLIC_BACKEND_API_URL): strip it —
+ *   FastAPI 307-redirects slash→no-slash and browsers drop the POST body on redirect.
+ */
+function normalizeApiUrl(
+  url: string | undefined,
+  baseURL: string | undefined,
+): string | undefined {
   if (!url || !url.startsWith('/api/')) {
     return url;
   }
   const queryIndex = url.indexOf('?');
   const path = queryIndex >= 0 ? url.slice(0, queryIndex) : url;
   const query = queryIndex >= 0 ? url.slice(queryIndex) : '';
+  const hitsPythonDirectly = Boolean(baseURL && /^https?:\/\//i.test(baseURL));
+
+  if (hitsPythonDirectly) {
+    const stripped = path.endsWith('/') ? path.slice(0, -1) : path;
+    return `${stripped}${query}`;
+  }
+
   if (path.endsWith('/')) {
     return url;
   }
@@ -62,7 +77,7 @@ if (typeof window !== 'undefined') {
     (config) => {
       const busyConfig = config as BusyTrackedConfig;
       busyConfig.baseURL = resolveBaseUrl();
-      busyConfig.url = withApiTrailingSlash(busyConfig.url);
+      busyConfig.url = normalizeApiUrl(busyConfig.url, busyConfig.baseURL);
 
       const token = getStoredAuthToken();
       if (token && !busyConfig.headers.Authorization) {

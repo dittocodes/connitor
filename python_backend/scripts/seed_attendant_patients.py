@@ -242,7 +242,7 @@ def run() -> None:
             print(f"  MRN={row['mrn']}  ward={row['wardName']}")
         print(f"\nWard login: {WARD_ADMIN_EMAIL} / {WARD_ADMIN_PASSWORD}")
         print("Hospital admin: hospital.admin@connitor-elcity.com / Connitor@123")
-        print("Dashboard: /dashboard/attendant-passes")
+        print("Dashboard: /dashboard/ams")
         print("Public apply: /attendant-pass/apply")
     finally:
         db.close()

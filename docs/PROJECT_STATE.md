@@ -19,7 +19,11 @@
 | **Dept Hierarchy**        | 🟢 Live        | Developer | Spec: `docs/features/department-hierarchy/` |
 | **Hospital Admin Role**   | 🟢 Live        | Agent     | `docs/features/hospital-admin/` |
 | **Delivery Management**   | 🟢 Live        | Agent     | Full suite redesign: distributor portal, hospital ops, receiving board, security gate (`frontend/src/features/delivery-management/`) |
-| **Gate exit + duration**  | 🟢 Live        | Agent     | Same-QR exit for deliveries (after GRN) and attendants; duration emails; one-inside booking block |
+| **Distributor Onboarding** | 🟢 Live        | Agent     | Self-serve apply `/vendor/register`; hospital review on delivery vendors; `docs/features/distributor-onboarding/` |
+| **Urgent visit passcode**  | 🟢 Live        | Agent     | Gate verify → visitor register/book (auto-approved) → Entry/Exit QR — `docs/features/urgent-visit-passcode/` |
+| **Doctor schedule slots**  | 🟢 Live        | Agent     | Doctors publish slots in My Visitors → Schedule; booked exclusive; urgent bypasses calendar — `docs/features/doctor-schedule-slots/` |
+| **Delivery shared-minute slots** | 🟢 Live | Agent | Hospital 2h windows; distributors consume unload minutes — `docs/features/delivery-shared-minute-slots/` |
+| **Attendant Management (AMS)** | 🟢 Live | Agent | Full AMS under `/dashboard/ams` on attendant-pass foundation — `docs/features/attendant-management/` |
 | **Rule/UI alignment**     | 🟢 Done        | Agent     | Delivery status transitions + exit-after-GRN; attendant expired ACTIVE + branch scan + honest email toast; El City demo portals |
 | **F-005** Visitor Mgmt    | 🏗 In Progress | Developer | Spec: `docs/specs/F-005-visitor-mgmt`    |
 | **Visitor Pre-Registration** | 🟢 Live     | Agent     | `docs/features/visitor-pre-registration/` |
@@ -52,7 +56,9 @@
   - Apollo Chain ID: `aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa`
   - Chennai Branch ID: `dddddddd-dddd-4ddd-8ddd-dddddddddddd`
   - Hospital Admin ID: `55554444-4444-4444-4444-444444444444`, Phone: `9123456780`
-- **Directory Map:**
-  - Specs: `docs/specs/`
-  - Architecture/Guides: `docs/knowledge/`
-  - Feature Specs: `docs/features/e2e-test-setup/`
+- **AMS:** Staff UI at `/dashboard/ams/*` (dashboard, register, search, active, shift-change, emergency, reports, settings). Migration: `python scripts/migrate_ams_register_fields.py --yes` in `python_backend/`. Legacy `/dashboard/attendant-passes` redirects to AMS.
+- **Gate exit + duration:** Same-QR exit for deliveries (after GRN) and attendants; duration emails; one-inside booking block.
+- **Urgent visit passcode:** Doctor issues code → security **confirm-verify** → visitor `/visitor/urgent` registers + books (auto-APPROVED) → Entry/Exit QR for check-in/out. Migrate: `python scripts/migrate_doctor_urgent_passcode.py --yes`, `migrate_urgent_passcode_share.py --yes`, `migrate_urgent_passcode_gate_flow.py --yes`.
+- **Doctor schedule:** My Visitors → Schedule publishes `DoctorAvailabilitySlot`s; public booking locks exclusivity; urgent passcode bypasses calendar.
+- **Delivery volume pricing:** Distributor book form uses package types (Small→Custom) + vehicle type (Bike→LCV) fees with over-capacity handling; wallet debit on book. Legacy volume formula still accepted by API without packages.
+- **Delivery windows:** Hospital admin publishes multi-hour windows on `/dashboard/delivery-slots`; each booking consumes unload minutes (`slotMinutes`); remaining minutes stay available. Migrate: `python scripts/migrate_delivery_slot_minutes.py --yes`.

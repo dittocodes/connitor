@@ -95,6 +95,12 @@ class DistributorService:
                     "approvalStatus": m.approvalStatus,
                     "branchId": m.branchId,
                     "vendor": self._serialize(d),
+                    "vendorId": d.id,
+                    "verificationStatus": d.verificationStatus,
+                    "onboardingStatus": getattr(d, "onboardingStatus", None),
+                    "contactPerson": d.contactPerson,
+                    "vendorType": d.vendorType,
+                    "gstNumber": d.gstNumber,
                 }
                 for m, d in rows
             ]
@@ -107,7 +113,34 @@ class DistributorService:
             "vendorName": d.vendorName,
             "vendorType": d.vendorType,
             "gstNumber": d.gstNumber,
+            "panNumber": d.panNumber,
             "verificationStatus": d.verificationStatus,
+            "onboardingStatus": getattr(d, "onboardingStatus", None),
             "email": d.email,
             "phone": d.phone,
+            "contactPerson": d.contactPerson,
+            "city": d.city,
+            "state": d.state,
         }
+
+    def get_distributor(self, distributor_id: str) -> dict:
+        from app.delivery.onboarding_service import DistributorOnboardingService
+
+        return DistributorOnboardingService(self.db).get_distributor_detail(distributor_id)
+
+    def set_verification(
+        self,
+        user: dict,
+        distributor_id: str,
+        *,
+        status: str,
+        rejection_reason: str | None = None,
+    ) -> dict:
+        from app.delivery.onboarding_service import DistributorOnboardingService
+
+        return DistributorOnboardingService(self.db).set_verification_status(
+            user,
+            distributor_id,
+            status=status,
+            rejection_reason=rejection_reason,
+        )

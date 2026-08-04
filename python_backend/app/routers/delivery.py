@@ -63,12 +63,37 @@ class DeliveryBookBody(BaseModel):
     expectedArrivalTime: str | None = None
     goodsType: str
     totalBoxes: int
+    boxLengthCm: float
+    boxBreadthCm: float
+    boxHeightCm: float
     vehicleId: str | None = None
     vehicle: dict | None = None
     agentId: str | None = None
     agent: dict | None = None
     remarks: str | None = None
     deliveryType: str = "STANDARD"
+
+
+class DeliveryQuoteBody(BaseModel):
+    totalBoxes: int
+    boxLengthCm: float
+    boxBreadthCm: float
+    boxHeightCm: float
+    vehicleId: str | None = None
+    vehicleVolumeCm3: float | None = None
+    vehicleLengthCm: float | None = None
+    vehicleBreadthCm: float | None = None
+    vehicleHeightCm: float | None = None
+    vendorId: str | None = None
+
+
+class VehicleCreateBody(BaseModel):
+    registrationNumber: str
+    vehicleType: str | None = None
+    lengthCm: float | None = None
+    breadthCm: float | None = None
+    heightCm: float | None = None
+    volumeCm3: float | None = None
 
 
 class AgentCreateBody(BaseModel):
@@ -78,17 +103,14 @@ class AgentCreateBody(BaseModel):
     licenseNumber: str | None = None
 
 
-class VehicleCreateBody(BaseModel):
-    registrationNumber: str
-    vehicleType: str | None = None
-
-
 class SlotBulkCreateBody(BaseModel):
     startDate: str
     endDate: str
-    slotMinutes: int = 60
-    maxDeliveries: int = 1
+    slotMinutes: int = 120
+    maxDeliveries: int = 999
     windows: list[dict] | None = None
+    # windows = one shared pool per time range (default); grid = chop into slotMinutes chunks
+    mode: str = "windows"
 
 
 @router.get("/deliveries")
@@ -128,6 +150,15 @@ def book_delivery(
     db: Annotated[Session, Depends(get_db)],
 ):
     return InboundDeliveryService(db).book_delivery(user, body.model_dump())
+
+
+@router.post("/deliveries/quote")
+def quote_delivery(
+    body: DeliveryQuoteBody,
+    user: Annotated[dict, Depends(require_permission("CREATE_DELIVERY"))],
+    db: Annotated[Session, Depends(get_db)],
+):
+    return InboundDeliveryService(db).quote_delivery(user, body.model_dump())
 
 
 @router.get("/distributors/me/branches")
@@ -178,11 +209,22 @@ def list_branch_slots(
     user: Annotated[dict, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
     date: str | None = Query(None),
+    neededMinutes: int | None = Query(
+        None,
+        description="Only return windows with at least this many minutes remaining",
+    ),
+    includeFull: bool = Query(False),
 ):
     from datetime import date as date_type
 
     slot_date = date_type.fromisoformat(date) if date else None
-    return DeliverySlotService(db).list_slots(branch_id, user, slot_date=slot_date)
+    return DeliverySlotService(db).list_slots(
+        branch_id,
+        user,
+        slot_date=slot_date,
+        needed_minutes=neededMinutes,
+        include_full=includeFull,
+    )
 
 
 @router.post("/branches/{branch_id}/slots", status_code=201)
@@ -250,6 +292,35 @@ def create_distributor(
     db: Annotated[Session, Depends(get_db)],
 ):
     return DistributorService(db).create_distributor(user, body.model_dump())
+
+
+@router.get("/distributors/{distributor_id}")
+def get_distributor(
+    distributor_id: str,
+    user: Annotated[dict, Depends(require_permission("VIEW_VENDOR"))],
+    db: Annotated[Session, Depends(get_db)],
+):
+    return DistributorService(db).get_distributor(distributor_id)
+
+
+class DistributorVerificationBody(BaseModel):
+    status: str
+    rejectionReason: str | None = None
+
+
+@router.post("/distributors/{distributor_id}/verification")
+def set_distributor_verification(
+    distributor_id: str,
+    body: DistributorVerificationBody,
+    user: Annotated[dict, Depends(require_permission("CREATE_VENDOR"))],
+    db: Annotated[Session, Depends(get_db)],
+):
+    return DistributorService(db).set_verification(
+        user,
+        distributor_id,
+        status=body.status,
+        rejection_reason=body.rejectionReason,
+    )
 
 
 @router.post("/security/scan-qr")
