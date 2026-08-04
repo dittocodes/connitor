@@ -23,6 +23,7 @@
 | **Urgent visit passcode**  | 🟢 Live        | Agent     | Gate verify → visitor register/book (auto-approved) → Entry/Exit QR — `docs/features/urgent-visit-passcode/` |
 | **Doctor schedule slots**  | 🟢 Live        | Agent     | Doctors publish slots in My Visitors → Schedule; booked exclusive; urgent bypasses calendar — `docs/features/doctor-schedule-slots/` |
 | **Delivery shared-minute slots** | 🟢 Live | Agent | Hospital 2h windows; distributors consume unload minutes — `docs/features/delivery-shared-minute-slots/` |
+| **3-module completion doc** | 🟢 Done     | Agent     | Detailed what’s-complete for urgent + schedule + delivery: `docs/MODULES-COMPLETE.md` |
 | **Attendant Management (AMS)** | 🟢 Live | Agent | Full AMS under `/dashboard/ams` on attendant-pass foundation — `docs/features/attendant-management/` |
 | **Rule/UI alignment**     | 🟢 Done        | Agent     | Delivery status transitions + exit-after-GRN; attendant expired ACTIVE + branch scan + honest email toast; El City demo portals |
 | **F-005** Visitor Mgmt    | 🏗 In Progress | Developer | Spec: `docs/specs/F-005-visitor-mgmt`    |
