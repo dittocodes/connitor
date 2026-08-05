@@ -230,6 +230,76 @@ def test_book_delivery_sends_driver_assignment_email(db):
     mock_notify.notify_on_scheduled_delivery.assert_called_once()
 
 
+def test_book_delivery_dummy_payment_zero_balance(db):
+    """DUMMY payment credits then debits so booking works with empty wallet."""
+    from decimal import Decimal
+
+    from app.models.delivery_entities import WalletTransaction
+
+    branch = db.query(Branch).first()
+    dist, user = _seed_vendor(db, branch.id)
+    wallet = db.query(VendorWallet).filter(VendorWallet.vendorId == dist.id).first()
+    wallet.balance = Decimal("0")
+    db.commit()
+
+    vehicle = DeliveryVehicle(
+        id=str(uuid.uuid4()),
+        distributorId=dist.id,
+        registrationNumber="KA01DUMMY",
+        lengthCm=50,
+        breadthCm=50,
+        heightCm=50,
+        volumeCm3=125000,
+        isActive=True,
+    )
+    agent = DeliveryAgent(
+        id=str(uuid.uuid4()),
+        distributorId=dist.id,
+        name="Dummy Driver",
+        email="dummydriver@test.com",
+        isActive=True,
+    )
+    db.add_all([vehicle, agent])
+    db.commit()
+
+    user_dict = {"id": user.id, "role": "DISTRIBUTOR", "distributorId": dist.id}
+    with patch.object(InboundDeliveryService, "_generate_qr"), patch(
+        "app.delivery.inbound_delivery_service.NotificationsService"
+    ):
+        result = InboundDeliveryService(db).book_delivery(
+            user_dict,
+            {
+                "branchId": branch.id,
+                "expectedArrivalTime": (now_ist() + timedelta(hours=2)).isoformat(),
+                "packages": [{"packageType": "Small", "qty": 1}],
+                "vehicleCategory": "Bike",
+                "vehicleId": vehicle.id,
+                "agentId": agent.id,
+                "paymentMethod": "DUMMY",
+            },
+        )
+
+    assert result["status"] == "SCHEDULED"
+    assert result["paymentMethod"] == "DUMMY"
+    assert result["pricing"]["walletFee"] == 48
+    db.refresh(wallet)
+    assert float(wallet.balance) == 0.0
+
+    txs = (
+        db.query(WalletTransaction)
+        .filter(WalletTransaction.walletId == wallet.id)
+        .order_by(WalletTransaction.createdAt.asc())
+        .all()
+    )
+    assert len(txs) >= 2
+    credit = next(t for t in txs if t.referenceType == "DUMMY_PAYMENT")
+    debit = next(t for t in txs if t.referenceType == "DELIVERY")
+    assert credit.transactionType == "CREDIT"
+    assert float(credit.amount) == 48.0
+    assert debit.transactionType == "DEBIT"
+    assert float(debit.amount) == -48.0
+
+
 def test_bulk_create_slots(db):
     branch = db.query(Branch).first()
     admin = {"id": str(uuid.uuid4()), "role": "HOSPITAL_ADMIN", "branchId": branch.id}

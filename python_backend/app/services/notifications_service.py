@@ -871,6 +871,90 @@ class NotificationsService:
 
         self.db.commit()
 
+    def _notify_delivery_hold_parties(
+        self, delivery, *, subject: str, message: str
+    ) -> None:
+        from app.models.delivery_entities import DeliveryAgent, Distributor
+
+        vendor = self.db.get(Distributor, delivery.vendorId) if delivery.vendorId else None
+        agent = self.db.get(DeliveryAgent, delivery.agentId) if delivery.agentId else None
+
+        recipients: list[User] = []
+
+        if vendor:
+            dist_users = (
+                self.db.query(User)
+                .filter(
+                    User.distributorId == vendor.id,
+                    User.isActive == True,  # noqa: E712
+                )
+                .all()
+            )
+            for u in dist_users:
+                self._add_system_notification(u.id, message)
+                recipients.append(u)
+
+        for admin in (
+            self.db.query(User)
+            .filter(User.role == Role.SUPER_ADMIN.value, User.isActive == True)  # noqa: E712
+            .all()
+        ):
+            self._add_system_notification(admin.id, message)
+            recipients.append(admin)
+
+        for admin in self._hospital_admins_for_branch(delivery.branchId):
+            self._add_system_notification(admin.id, message)
+            recipients.append(admin)
+
+        self._email_users(recipients, subject, message)
+
+        if agent and agent.email:
+            try:
+                self.email.send_notification(agent.email, subject, message)
+            except Exception as exc:
+                logger.error("Failed hold email to driver %s: %s", agent.email, exc)
+
+    def notify_on_delivery_hold(self, delivery) -> None:
+        from app.models.delivery_entities import Distributor
+
+        vendor = self.db.get(Distributor, delivery.vendorId) if delivery.vendorId else None
+        vendor_name = vendor.vendorName if vendor else "Distributor"
+        arrival = (
+            format_ist_datetime(delivery.expectedArrivalTime)
+            if delivery.expectedArrivalTime
+            else "unscheduled"
+        )
+        reason = (delivery.holdReason or "Hospital internal delivery").strip()
+        until = (
+            format_ist_datetime(delivery.holdUntil) if delivery.holdUntil else "not specified"
+        )
+        subject = f"Delivery on hold — {delivery.deliveryNumber}"
+        message = (
+            f"Delivery {delivery.deliveryNumber} ({vendor_name}) is ON HOLD for hospital internal "
+            f"delivery. Original arrival: {arrival}. Reason: {reason}. Hold until: {until}. "
+            f"Gate entry is blocked until Security releases the hold. Slot time is unchanged."
+        )
+        self._notify_delivery_hold_parties(delivery, subject=subject, message=message)
+
+    def notify_on_delivery_hold_released(self, delivery, *, prior_reason: str | None = None) -> None:
+        from app.models.delivery_entities import Distributor
+
+        vendor = self.db.get(Distributor, delivery.vendorId) if delivery.vendorId else None
+        vendor_name = vendor.vendorName if vendor else "Distributor"
+        arrival = (
+            format_ist_datetime(delivery.expectedArrivalTime)
+            if delivery.expectedArrivalTime
+            else "unscheduled"
+        )
+        reason = (prior_reason or "hospital internal delivery").strip()
+        subject = f"Delivery hold released — {delivery.deliveryNumber}"
+        message = (
+            f"Hold released for delivery {delivery.deliveryNumber} ({vendor_name}). "
+            f"Original arrival still applies: {arrival}. Previous hold reason: {reason}. "
+            f"Gate entry is allowed again."
+        )
+        self._notify_delivery_hold_parties(delivery, subject=subject, message=message)
+
     def _delivery_exit_email_targets(
         self, vendor, agent
     ) -> list[tuple[str, str]]:

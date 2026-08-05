@@ -105,6 +105,8 @@ export interface BookDeliveryPayload {
   agentId?: string;
   agent?: { name: string; email: string; phone?: string };
   remarks?: string;
+  /** Demo gateway: credits fee then debits so booking works at zero wallet balance */
+  paymentMethod?: 'DUMMY' | 'WALLET';
 }
 
 export interface DeliveryListItem {
@@ -120,6 +122,8 @@ export interface DeliveryListItem {
   branchName?: string | null;
   branchId?: string;
   walletFee?: number;
+  holdReason?: string | null;
+  holdUntil?: string | null;
 }
 
 export const DistributorDeliveryService = {

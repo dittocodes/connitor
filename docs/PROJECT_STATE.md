@@ -23,6 +23,9 @@
 | **Urgent visit passcode**  | 🟢 Live        | Agent     | Gate verify → visitor register/book (auto-approved) → Entry/Exit QR — `docs/features/urgent-visit-passcode/` |
 | **Doctor schedule slots**  | 🟢 Live        | Agent     | Doctors publish slots in My Visitors → Schedule; booked exclusive; urgent bypasses calendar — `docs/features/doctor-schedule-slots/` |
 | **Delivery shared-minute slots** | 🟢 Live | Agent | Hospital 2h windows; distributors consume unload minutes — `docs/features/delivery-shared-minute-slots/` |
+| **Dummy delivery payment** | 🟢 Live | Agent | Book wizard Details → fake UPI/Card pay → `paymentMethod=DUMMY` credit+debit; demo only |
+| **Delivery hold (internal bypass)** | 🟢 Live | Agent | Security hold/release on Today's Deliveries; notify vendor/driver/admins — `docs/features/delivery-hold-bypass/` |
+| **E2E headed QA report** | 🟢 Done | Agent | Profiles 13/13 + workflows 10/10 + payment 4/4; `docs/E2E-QA-REPORT.md` |
 | **3-module completion doc** | 🟢 Done     | Agent     | Detailed what’s-complete for urgent + schedule + delivery: `docs/MODULES-COMPLETE.md` |
 | **App completion checklist** | 🟢 Done    | Agent     | Full-app deep analysis + checkboxes: `docs/APPLICATION-COMPLETION-CHECKLIST.md` |
 | **Attendant Management (AMS)** | 🟢 Live | Agent | Full AMS under `/dashboard/ams` on attendant-pass foundation — `docs/features/attendant-management/` |
@@ -62,5 +65,6 @@
 - **Gate exit + duration:** Same-QR exit for deliveries (after GRN) and attendants; duration emails; one-inside booking block.
 - **Urgent visit passcode:** Doctor issues code → security **confirm-verify** → visitor `/visitor/urgent` registers + books (auto-APPROVED) → Entry/Exit QR for check-in/out. Migrate: `python scripts/migrate_doctor_urgent_passcode.py --yes`, `migrate_urgent_passcode_share.py --yes`, `migrate_urgent_passcode_gate_flow.py --yes`.
 - **Doctor schedule:** My Visitors → Schedule publishes `DoctorAvailabilitySlot`s; public booking locks exclusivity; urgent passcode bypasses calendar.
-- **Delivery volume pricing:** Distributor book form uses package types (Small→Custom) + vehicle type (Bike→LCV) fees with over-capacity handling; wallet debit on book. Legacy volume formula still accepted by API without packages.
+- **Delivery volume pricing:** Distributor book form uses package types (Small→Custom) + vehicle type (Bike→LCV) fees with over-capacity handling; wizard **Payment** step uses dummy UPI/Card (`paymentMethod=DUMMY` credits then debits wallet). Legacy volume formula still accepted by API without packages.
 - **Delivery windows:** Hospital admin publishes multi-hour windows on `/dashboard/delivery-slots`; each booking consumes unload minutes (`slotMinutes`); remaining minutes stay available. Migrate: `python scripts/migrate_delivery_slot_minutes.py --yes`.
+- **Delivery hold:** Security puts distributor bookings `ON_HOLD` from Today's Deliveries (reason + optional until); notifies distributor/driver/hospital admin/super admin; release restores original `SCHEDULED` time. Migrate: `python scripts/migrate_delivery_hold.py --yes`.

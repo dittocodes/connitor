@@ -76,6 +76,11 @@ class DeliveryGateService:
             return "INFO", f"Checkout QR not ready for exit (status {status})."
 
         # ENTRY QR
+        if status == DeliveryStatus.ON_HOLD.value:
+            return (
+                "INFO",
+                "Delivery is on hold for hospital internal delivery — release hold before entry.",
+            )
         if status in (DeliveryStatus.SCHEDULED.value, DeliveryStatus.APPROVED.value):
             return "ALLOW_ENTRY", "QR valid — allow vehicle entry."
         if status in (
@@ -125,6 +130,11 @@ class DeliveryGateService:
         )
         if not delivery:
             raise not_found("Delivery")
+        if delivery.status == DeliveryStatus.ON_HOLD.value:
+            reason = (delivery.holdReason or "hospital internal delivery").strip()
+            raise bad_request(
+                f"Delivery is on hold — cannot allow entry until Security releases the hold. Reason: {reason}"
+            )
         if delivery.status not in (
             DeliveryStatus.SCHEDULED.value,
             DeliveryStatus.APPROVED.value,

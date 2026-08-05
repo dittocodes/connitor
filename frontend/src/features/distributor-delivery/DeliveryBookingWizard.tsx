@@ -29,7 +29,9 @@ import { Textarea } from '@/components/ui/textarea';
 
 type Step = 1 | 2;
 
-const WIZARD_STEPS = ['Details', 'Review'];
+const WIZARD_STEPS = ['Details', 'Payment'];
+
+type PayMethod = 'UPI' | 'CARD';
 
 const PACKAGE_TYPES: PackageType[] = ['Small', 'Medium', 'Large', 'Equipment', 'Custom'];
 const VEHICLE_TYPES: VehicleCategory[] = ['Bike', 'Auto', 'SCV', 'MCV', 'LCV'];
@@ -148,6 +150,11 @@ export function DeliveryBookingWizard(): React.ReactElement {
   const [agentPhone, setAgentPhone] = React.useState('');
   const [packages, setPackages] = React.useState<PackageRow[]>([newPackageRow()]);
   const [loading, setLoading] = React.useState(false);
+  const [payMethod, setPayMethod] = React.useState<PayMethod>('UPI');
+  const [upiId, setUpiId] = React.useState('');
+  const [cardNumber, setCardNumber] = React.useState('');
+  const [cardExpiry, setCardExpiry] = React.useState('');
+  const [cardCvv, setCardCvv] = React.useState('');
   const [success, setSuccess] = React.useState<{
     deliveryNumber: string;
     walletFee?: number;
@@ -240,10 +247,25 @@ export function DeliveryBookingWizard(): React.ReactElement {
           : undefined,
     }));
 
-  const submit = async () => {
+  const canPay = (): boolean => {
+    if (payMethod === 'UPI') return upiId.trim().length >= 3;
+    return cardNumber.replace(/\s/g, '').length >= 12 && cardExpiry.trim().length >= 3 && cardCvv.trim().length >= 3;
+  };
+
+  const submit = async (simulateFailure = false) => {
     if (!vehicleCategory) return;
+    if (simulateFailure) {
+      toast.error('Payment failed (simulated). Try again or go back to edit details.');
+      return;
+    }
+    if (!canPay()) {
+      toast.error(payMethod === 'UPI' ? 'Enter a UPI ID' : 'Enter card details');
+      return;
+    }
     setLoading(true);
     try {
+      // Brief fake gateway delay for demo UX
+      await new Promise((r) => setTimeout(r, 1200));
       const driverEmail =
         agentEmail.trim() ||
         `${agentPhone.trim().replace(/\D/g, '') || 'driver'}@delivery.local`;
@@ -272,19 +294,20 @@ export function DeliveryBookingWizard(): React.ReactElement {
                 phone: agentPhone.trim() || undefined,
               }
             : undefined,
+        paymentMethod: 'DUMMY' as const,
       };
       const result = await DistributorDeliveryService.bookDelivery(payload);
       setSuccess({
         deliveryNumber: result.deliveryNumber,
         walletFee: result.pricing?.walletFee ?? result.walletFee,
       });
-      toast.success('Delivery booked');
+      toast.success('Payment successful — delivery booked');
     } catch (e: unknown) {
       const detail =
         typeof e === 'object' && e && 'response' in e
           ? String((e as { response?: { data?: { detail?: string } } }).response?.data?.detail ?? '')
           : '';
-      toast.error(detail || 'Booking failed');
+      toast.error(detail || 'Payment / booking failed');
     } finally {
       setLoading(false);
     }
@@ -301,7 +324,7 @@ export function DeliveryBookingWizard(): React.ReactElement {
           </p>
           {success.walletFee != null && (
             <p className="text-sm text-slate-700">
-              Wallet charged: <strong>₹{success.walletFee.toFixed(2)}</strong>
+              Paid: <strong>₹{success.walletFee.toFixed(2)}</strong>
             </p>
           )}
           <p className="mx-auto max-w-md text-sm text-muted-foreground">
@@ -706,7 +729,7 @@ export function DeliveryBookingWizard(): React.ReactElement {
               disabled={!canReview()}
               onClick={() => setStep(2)}
             >
-              Continue to review
+              Continue to payment
             </Button>
           </CardContent>
         </Card>
@@ -715,7 +738,10 @@ export function DeliveryBookingWizard(): React.ReactElement {
       {step === 2 && (
         <Card>
           <CardHeader>
-            <CardTitle>Review & confirm</CardTitle>
+            <CardTitle>Payment</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Demo payment only — no real money is charged. Complete payment to confirm the booking.
+            </p>
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
             <dl className="grid gap-2 sm:grid-cols-2">
@@ -757,16 +783,18 @@ export function DeliveryBookingWizard(): React.ReactElement {
               <div>
                 <dt className="text-muted-foreground">Packages</dt>
                 <dd className="font-medium">
-                  {packages
-                    .map((p) => `${p.packageType}×${p.qty}`)
-                    .join(', ')}
+                  {packages.map((p) => `${p.packageType}×${p.qty}`).join(', ')}
                 </dd>
               </div>
             </dl>
+
             {feePreview && (
-              <div className="rounded-lg border bg-slate-50 p-4 space-y-1">
-                <p className="font-semibold text-slate-900">
-                  Wallet charge: ₹{feePreview.walletFee.toFixed(2)}
+              <div className="rounded-lg border border-sky-200 bg-sky-50 p-4 space-y-1">
+                <p className="text-xs font-medium uppercase tracking-wide text-sky-800">
+                  Amount due
+                </p>
+                <p className="text-2xl font-semibold text-sky-950">
+                  ₹{feePreview.walletFee.toFixed(2)}
                 </p>
                 <p className="text-muted-foreground">
                   {feePreview.usedUnits} units / {feePreview.capacityUnits} capacity · base ₹
@@ -776,16 +804,95 @@ export function DeliveryBookingWizard(): React.ReactElement {
                 </p>
               </div>
             )}
-            <div className="flex gap-2">
-              <Button type="button" variant="outline" onClick={() => setStep(1)}>
+
+            <div className="space-y-3 rounded-lg border p-4">
+              <Label>Payment method</Label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={payMethod === 'UPI' ? 'default' : 'outline'}
+                  className={payMethod === 'UPI' ? 'bg-amber-600 hover:bg-amber-700' : ''}
+                  onClick={() => setPayMethod('UPI')}
+                >
+                  UPI
+                </Button>
+                <Button
+                  type="button"
+                  variant={payMethod === 'CARD' ? 'default' : 'outline'}
+                  className={payMethod === 'CARD' ? 'bg-amber-600 hover:bg-amber-700' : ''}
+                  onClick={() => setPayMethod('CARD')}
+                >
+                  Card
+                </Button>
+              </div>
+
+              {payMethod === 'UPI' ? (
+                <div>
+                  <Label htmlFor="upi-id">UPI ID</Label>
+                  <Input
+                    id="upi-id"
+                    placeholder="name@upi"
+                    value={upiId}
+                    onChange={(e) => setUpiId(e.target.value)}
+                    autoComplete="off"
+                  />
+                </div>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
+                    <Label htmlFor="card-number">Card number</Label>
+                    <Input
+                      id="card-number"
+                      placeholder="4111 1111 1111 1111"
+                      value={cardNumber}
+                      onChange={(e) => setCardNumber(e.target.value)}
+                      autoComplete="off"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="card-expiry">Expiry</Label>
+                    <Input
+                      id="card-expiry"
+                      placeholder="MM/YY"
+                      value={cardExpiry}
+                      onChange={(e) => setCardExpiry(e.target.value)}
+                      autoComplete="off"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="card-cvv">CVV</Label>
+                    <Input
+                      id="card-cvv"
+                      placeholder="123"
+                      value={cardCvv}
+                      onChange={(e) => setCardCvv(e.target.value)}
+                      autoComplete="off"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" onClick={() => setStep(1)} disabled={loading}>
                 Back
               </Button>
               <Button
-                className="flex-1 bg-amber-600 hover:bg-amber-700"
+                type="button"
+                variant="outline"
                 disabled={loading}
-                onClick={() => void submit()}
+                onClick={() => void submit(true)}
               >
-                {loading ? 'Booking…' : 'Confirm & charge wallet'}
+                Simulate failure
+              </Button>
+              <Button
+                className="flex-1 bg-amber-600 hover:bg-amber-700 min-w-[10rem]"
+                disabled={loading || !feePreview || !canPay()}
+                onClick={() => void submit(false)}
+              >
+                {loading
+                  ? 'Processing…'
+                  : `Pay ₹${(feePreview?.walletFee ?? 0).toFixed(2)}`}
               </Button>
             </div>
           </CardContent>

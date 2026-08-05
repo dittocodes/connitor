@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 export const DELIVERY_STATUS_LABELS: Record<string, string> = {
   DRAFT: 'Draft',
   SCHEDULED: 'Scheduled',
+  ON_HOLD: 'On hold',
   ARRIVED_AT_GATE: 'At gate',
   GATE_VERIFIED: 'Gate verified',
   APPROVED: 'Approved',
@@ -19,6 +20,7 @@ export const DELIVERY_STATUS_LABELS: Record<string, string> = {
 const STATUS_CLASS: Record<string, string> = {
   DRAFT: 'border-slate-200 bg-slate-50 text-slate-700',
   SCHEDULED: 'border-amber-200 bg-amber-50 text-amber-900',
+  ON_HOLD: 'border-rose-200 bg-rose-50 text-rose-900',
   ARRIVED_AT_GATE: 'border-orange-200 bg-orange-50 text-orange-900',
   GATE_VERIFIED: 'border-orange-200 bg-orange-50 text-orange-900',
   APPROVED: 'border-sky-200 bg-sky-50 text-sky-900',

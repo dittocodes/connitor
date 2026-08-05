@@ -21,6 +21,7 @@ class Role(str, enum.Enum):
 class DeliveryStatus(str, enum.Enum):
     DRAFT = "DRAFT"
     SCHEDULED = "SCHEDULED"
+    ON_HOLD = "ON_HOLD"
     APPROVED = "APPROVED"
     ARRIVED_AT_GATE = "ARRIVED_AT_GATE"
     GATE_VERIFIED = "GATE_VERIFIED"

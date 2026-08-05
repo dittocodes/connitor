@@ -42,11 +42,17 @@ EDITABLE = {DeliveryStatus.DRAFT.value, DeliveryStatus.SCHEDULED.value}
 ALLOWED_TRANSITIONS: dict[str, set[str]] = {
     DeliveryStatus.DRAFT.value: {DeliveryStatus.SCHEDULED.value, DeliveryStatus.REJECTED.value},
     DeliveryStatus.SCHEDULED.value: {
+        DeliveryStatus.ON_HOLD.value,
         DeliveryStatus.ARRIVED_AT_GATE.value,
         DeliveryStatus.GATE_VERIFIED.value,
         DeliveryStatus.REJECTED.value,
     },
+    DeliveryStatus.ON_HOLD.value: {
+        DeliveryStatus.SCHEDULED.value,
+        DeliveryStatus.REJECTED.value,
+    },
     DeliveryStatus.APPROVED.value: {
+        DeliveryStatus.ON_HOLD.value,
         DeliveryStatus.ARRIVED_AT_GATE.value,
         DeliveryStatus.GATE_VERIFIED.value,
         DeliveryStatus.REJECTED.value,
@@ -354,9 +360,13 @@ class InboundDeliveryService:
                     )
                 )
 
-        self._deduct_wallet(
-            vendor_id, Decimal(str(fee_info["walletFee"])), delivery.id, user.get("id")
-        )
+        fee_amount = Decimal(str(fee_info["walletFee"]))
+        payment_method = (data.get("paymentMethod") or "WALLET").strip().upper()
+        if payment_method == "DUMMY":
+            self._credit_wallet_dummy(vendor_id, fee_amount, delivery.id, user.get("id"))
+        elif payment_method not in ("WALLET", ""):
+            raise bad_request("paymentMethod must be WALLET or DUMMY")
+        self._deduct_wallet(vendor_id, fee_amount, delivery.id, user.get("id"))
         self._history(delivery.id, None, DeliveryStatus.SCHEDULED.value, user.get("id"), "Booked by distributor")
         self._generate_qr(delivery)
         self.db.commit()
@@ -369,6 +379,7 @@ class InboundDeliveryService:
         result = self._serialize(delivery, full=True)
         result["qr"] = self._qr_payload(delivery)
         result["pricing"] = fee_info
+        result["paymentMethod"] = payment_method if payment_method else "WALLET"
         return result
 
     def quote_delivery(self, user: dict, data: dict) -> dict:
@@ -430,6 +441,7 @@ class InboundDeliveryService:
                 InboundDelivery.status.in_(
                     [
                         DeliveryStatus.SCHEDULED.value,
+                        DeliveryStatus.ON_HOLD.value,
                         DeliveryStatus.ARRIVED_AT_GATE.value,
                         DeliveryStatus.GATE_VERIFIED.value,
                         DeliveryStatus.APPROVED.value,
@@ -501,12 +513,34 @@ class InboundDeliveryService:
         )
         return base
 
-    def _deduct_wallet(self, vendor_id: str, amount: Decimal, delivery_id: str, user_id: str | None) -> None:
+    def _ensure_wallet(self, vendor_id: str) -> VendorWallet:
         wallet = self.db.query(VendorWallet).filter(VendorWallet.vendorId == vendor_id).first()
         if not wallet:
             wallet = VendorWallet(vendorId=vendor_id, balance=Decimal("0"))
             self.db.add(wallet)
             self.db.flush()
+        return wallet
+
+    def _credit_wallet_dummy(
+        self, vendor_id: str, amount: Decimal, delivery_id: str, user_id: str | None
+    ) -> None:
+        """Demo gateway: credit quoted fee so the following debit can succeed at zero balance."""
+        if amount <= 0:
+            return
+        wallet = self._ensure_wallet(vendor_id)
+        wallet.balance += amount
+        self.db.add(
+            WalletTransaction(
+                walletId=wallet.id,
+                amount=amount,
+                transactionType="CREDIT",
+                referenceType="DUMMY_PAYMENT",
+                referenceId=delivery_id,
+            )
+        )
+
+    def _deduct_wallet(self, vendor_id: str, amount: Decimal, delivery_id: str, user_id: str | None) -> None:
+        wallet = self._ensure_wallet(vendor_id)
         if wallet.balance < amount:
             raise bad_request("Insufficient wallet balance")
         wallet.balance -= amount
@@ -539,6 +573,84 @@ class InboundDeliveryService:
                     expiresAt=now_ist() + timedelta(hours=48),
                 )
             )
+
+    def hold_delivery(
+        self, delivery_id: str, user: dict, reason: str, hold_until: str | None = None
+    ) -> dict:
+        reason_clean = (reason or "").strip()
+        if not reason_clean:
+            raise bad_request("Hold reason is required")
+
+        delivery = self.db.get(InboundDelivery, delivery_id)
+        if not delivery:
+            raise not_found("Delivery")
+        if delivery.status not in (
+            DeliveryStatus.SCHEDULED.value,
+            DeliveryStatus.APPROVED.value,
+        ):
+            raise bad_request(
+                f"Only SCHEDULED/APPROVED deliveries can be put on hold (current: {delivery.status})"
+            )
+
+        until = None
+        if hold_until:
+            from app.utils.timezone import parse_to_ist_naive
+
+            until = parse_to_ist_naive(hold_until) if isinstance(hold_until, str) else hold_until
+
+        delivery.holdReason = reason_clean
+        delivery.holdUntil = until
+        delivery.heldAt = now_ist()
+        delivery.heldById = user.get("id")
+        result = self.transition_status(
+            delivery_id,
+            user,
+            DeliveryStatus.ON_HOLD.value,
+            f"On hold for internal delivery: {reason_clean}",
+        )
+
+        try:
+            from app.services.notifications_service import NotificationsService
+
+            fresh = self.db.get(InboundDelivery, delivery_id)
+            if fresh:
+                NotificationsService(self.db).notify_on_delivery_hold(fresh)
+        except Exception:
+            pass
+
+        return result
+
+    def release_hold(self, delivery_id: str, user: dict) -> dict:
+        delivery = self.db.get(InboundDelivery, delivery_id)
+        if not delivery:
+            raise not_found("Delivery")
+        if delivery.status != DeliveryStatus.ON_HOLD.value:
+            raise bad_request(f"Delivery is not on hold (current: {delivery.status})")
+
+        prior_reason = delivery.holdReason or "internal delivery"
+        delivery.holdReason = None
+        delivery.holdUntil = None
+        delivery.heldAt = None
+        delivery.heldById = None
+        result = self.transition_status(
+            delivery_id,
+            user,
+            DeliveryStatus.SCHEDULED.value,
+            f"Hold released — original schedule restored (was: {prior_reason})",
+        )
+
+        try:
+            from app.services.notifications_service import NotificationsService
+
+            fresh = self.db.get(InboundDelivery, delivery_id)
+            if fresh:
+                NotificationsService(self.db).notify_on_delivery_hold_released(
+                    fresh, prior_reason=prior_reason
+                )
+        except Exception:
+            pass
+
+        return result
 
     def transition_status(self, delivery_id: str, user: dict, new_status: str, remarks: str = "") -> dict:
         delivery = self.db.get(InboundDelivery, delivery_id)
@@ -609,6 +721,10 @@ class InboundDeliveryService:
                     "expectedArrivalTime": d.expectedArrivalTime.isoformat() if d.expectedArrivalTime else None,
                     "actualArrivalTime": d.actualArrivalTime.isoformat() if d.actualArrivalTime else None,
                     "walletFee": float(d.walletFee or 0),
+                    "holdReason": d.holdReason,
+                    "holdUntil": d.holdUntil.isoformat() if d.holdUntil else None,
+                    "heldAt": d.heldAt.isoformat() if d.heldAt else None,
+                    "heldById": d.heldById,
                     "items": [
                         {
                             "id": i.id,

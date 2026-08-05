@@ -94,6 +94,9 @@ export default function VendorDeliveriesPage(): React.ReactElement {
                           ? ` · ${formatIstDateTime(d.expectedArrivalTime)}`
                           : ''}
                       </p>
+                      {d.status === 'ON_HOLD' && d.holdReason ? (
+                        <p className="mt-1 text-sm text-rose-800">On hold: {d.holdReason}</p>
+                      ) : null}
                     </div>
                     <DeliveryStatusBadge status={d.status} />
                   </Link>

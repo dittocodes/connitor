@@ -61,24 +61,35 @@ class DeliveryBookBody(BaseModel):
     branchId: str
     slotId: str | None = None
     expectedArrivalTime: str | None = None
-    goodsType: str
-    totalBoxes: int
-    boxLengthCm: float
-    boxBreadthCm: float
-    boxHeightCm: float
+    poNumber: str | None = None
+    goodsType: str | None = None
+    totalBoxes: int | None = None
+    boxLengthCm: float | None = None
+    boxBreadthCm: float | None = None
+    boxHeightCm: float | None = None
+    packages: list[dict] | None = None
+    vehicleCategory: str | None = None
+    vehicleType: str | None = None
     vehicleId: str | None = None
     vehicle: dict | None = None
     agentId: str | None = None
     agent: dict | None = None
     remarks: str | None = None
     deliveryType: str = "STANDARD"
+    slotMinutes: int | None = None
+    vendorId: str | None = None
+    # WALLET = require balance; DUMMY = demo pay (credit then debit)
+    paymentMethod: str = "WALLET"
 
 
 class DeliveryQuoteBody(BaseModel):
-    totalBoxes: int
-    boxLengthCm: float
-    boxBreadthCm: float
-    boxHeightCm: float
+    totalBoxes: int | None = None
+    boxLengthCm: float | None = None
+    boxBreadthCm: float | None = None
+    boxHeightCm: float | None = None
+    packages: list[dict] | None = None
+    vehicleCategory: str | None = None
+    vehicleType: str | None = None
     vehicleId: str | None = None
     vehicleVolumeCm3: float | None = None
     vehicleLengthCm: float | None = None
@@ -352,6 +363,32 @@ def allow_entry(
     gateId: str | None = Query(None),
 ):
     return DeliveryGateService(db).allow_entry(user, delivery_id, gateId)
+
+
+class DeliveryHoldBody(BaseModel):
+    reason: str
+    holdUntil: str | None = None
+
+
+@router.post("/security/hold/{delivery_id}")
+def hold_delivery(
+    delivery_id: str,
+    body: DeliveryHoldBody,
+    user: Annotated[dict, Depends(require_permission("ALLOW_ENTRY"))],
+    db: Annotated[Session, Depends(get_db)],
+):
+    return InboundDeliveryService(db).hold_delivery(
+        delivery_id, user, body.reason, body.holdUntil
+    )
+
+
+@router.post("/security/release-hold/{delivery_id}")
+def release_hold(
+    delivery_id: str,
+    user: Annotated[dict, Depends(require_permission("ALLOW_ENTRY"))],
+    db: Annotated[Session, Depends(get_db)],
+):
+    return InboundDeliveryService(db).release_hold(delivery_id, user)
 
 
 @router.post("/security/mark-exit/{delivery_id}")
