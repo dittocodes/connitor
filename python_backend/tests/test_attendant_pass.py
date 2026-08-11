@@ -390,6 +390,9 @@ async def test_entry_exit_duration_and_inside_block(db):
     assert exit_result["isInside"] is False
     assert exit_result["durationMinutes"] is not None
     assert exit_result["durationMinutes"] >= 0
+    db.refresh(pass_row)
+    assert pass_row.status == "USED"
+    assert svc._active_pass_for_admission(admission.id) is None
 
     lookup2 = svc.lookup_admission_by_mrn(branch.id, "MRN-100")
     assert lookup2["hasAttendantInside"] is False

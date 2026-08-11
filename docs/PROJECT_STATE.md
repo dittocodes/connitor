@@ -25,7 +25,7 @@
 | **Delivery shared-minute slots** | 🟢 Live | Agent | Hospital 2h windows; distributors consume unload minutes — `docs/features/delivery-shared-minute-slots/` |
 | **Dummy delivery payment** | 🟢 Live | Agent | Book wizard Details → fake UPI/Card pay → `paymentMethod=DUMMY` credit+debit; demo only |
 | **Delivery hold (internal bypass)** | 🟢 Live | Agent | Security hold/release on Today's Deliveries; notify vendor/driver/admins — `docs/features/delivery-hold-bypass/` |
-| **E2E headed QA report** | 🟢 Done | Agent | Profiles 13/13 + workflows 10/10 + payment 4/4; `docs/E2E-QA-REPORT.md` |
+| **E2E headed QA report** | 🟢 Done | Agent | 2026-08-10: logins 12/12 + Playwright 36/36 (visitor 5/5, delivery pay 4/4 re-run); `docs/E2E-QA-REPORT.md` |
 | **3-module completion doc** | 🟢 Done     | Agent     | Detailed what’s-complete for urgent + schedule + delivery: `docs/MODULES-COMPLETE.md` |
 | **App completion checklist** | 🟢 Done    | Agent     | Full-app deep analysis + checkboxes: `docs/APPLICATION-COMPLETION-CHECKLIST.md` |
 | **Attendant Management (AMS)** | 🟢 Live | Agent | Full AMS under `/dashboard/ams` on attendant-pass foundation — `docs/features/attendant-management/` |

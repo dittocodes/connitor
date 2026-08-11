@@ -626,6 +626,8 @@ class AttendantPassService:
                 pass_row.durationMinutes = max(
                     0, int((exit_time - pass_row.enteredAt).total_seconds() // 60)
                 )
+            # Visit finished — pass is no longer active (new attendant can be approved)
+            pass_row.status = "USED"
 
         self.db.add(
             AttendantPassScan(
@@ -953,6 +955,8 @@ class AttendantPassService:
                 attendant = self.db.get(Attendant, pass_row.attendantId)
             data["qrPayload"] = pass_row.qrPayload
             data["qrSignature"] = pass_row.qrSignature
+            data["exitQrPayload"] = pass_row.exitQrPayload
+            data["exitQrSignature"] = pass_row.exitQrSignature
             data["attendant"] = self._serialize_attendant(attendant) if attendant else None
         return data
 
@@ -1123,6 +1127,8 @@ class AttendantPassService:
             )
         elif status_key == "EXITED":
             query = query.filter(AttendantPass.exitedAt.isnot(None))
+        elif status_key in ("USED", "COMPLETED"):
+            query = query.filter(AttendantPass.status == "USED")
         elif status_key == "EXPIRED":
             query = query.filter(AttendantPass.status == "EXPIRED")
         elif status_key in ("CANCELLED", "REVOKED"):
@@ -1195,6 +1201,8 @@ class AttendantPassService:
         pass_row.exitedAt = exit_time
         if pass_row.enteredAt:
             pass_row.durationMinutes = int((exit_time - pass_row.enteredAt).total_seconds() // 60)
+        # Staff force-exit also closes the pass so it is no longer active
+        pass_row.status = "USED"
         self.db.add(
             AttendantPassScan(
                 passId=pass_row.id,

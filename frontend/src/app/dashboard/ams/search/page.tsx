@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-const FILTERS = ['All', 'Inside', 'Exited', 'Expired', 'Cancelled', 'Today'];
+const FILTERS = ['All', 'Inside', 'Exited', 'Used', 'Expired', 'Cancelled', 'Today'];
 
 export default function AmsSearchPage(): React.ReactElement {
   const user = useAuthSession<{ branchId?: string }>();
@@ -128,6 +128,23 @@ export default function AmsSearchPage(): React.ReactElement {
                       <Button
                         size="sm"
                         variant="outline"
+                        className="text-red-700 border-red-200"
+                        disabled={row.status !== 'ACTIVE'}
+                        onClick={async () => {
+                          try {
+                            await AttendantPassService.revokePass(row.id);
+                            toast.success('Pass revoked — no longer active');
+                            void load();
+                          } catch {
+                            toast.error('Revoke failed');
+                          }
+                        }}
+                      >
+                        Revoke
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
                         onClick={async () => {
                           try {
                             await AttendantPassService.suspendPass(row.id);
@@ -147,14 +164,14 @@ export default function AmsSearchPage(): React.ReactElement {
                           onClick={async () => {
                             try {
                               await AttendantPassService.forceExit(row.id);
-                              toast.success('Marked exit');
+                              toast.success('Checked out — pass closed');
                               void load();
                             } catch {
                               toast.error('Exit failed');
                             }
                           }}
                         >
-                          Exit
+                          Force checkout
                         </Button>
                       )}
                       <Button size="sm" variant="ghost" onClick={() => window.print()}>

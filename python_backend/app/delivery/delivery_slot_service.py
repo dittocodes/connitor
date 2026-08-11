@@ -56,8 +56,8 @@ class DeliverySlotService:
             BranchDeliverySlot.slotStart < day_end,
         )
         if not include_full:
-            # Distributors only see windows that have not started yet
-            query = query.filter(BranchDeliverySlot.slotStart > now_ist())
+            # Show windows that are still open (not ended), even if they already started
+            query = query.filter(BranchDeliverySlot.slotEnd > now_ist())
         rows = query.order_by(BranchDeliverySlot.slotStart.asc()).all()
         need = max(0, int(needed_minutes or 0))
         slots_out = []

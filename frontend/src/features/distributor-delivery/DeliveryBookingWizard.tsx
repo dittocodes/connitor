@@ -446,9 +446,15 @@ export function DeliveryBookingWizard(): React.ReactElement {
                     Your unload needs ~{feePreview?.slotMinutes ?? 10} min. Remaining time stays
                     open for other distributors.
                   </p>
-                  <Select value={slotId} onValueChange={setSlotId}>
+                  <Select value={slotId || undefined} onValueChange={setSlotId} disabled={slots.length === 0}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select hospital window" />
+                      <SelectValue
+                        placeholder={
+                          slots.length === 0
+                            ? 'No open windows for this date'
+                            : 'Select hospital window'
+                        }
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       {slots.map((s) => (
@@ -461,6 +467,43 @@ export function DeliveryBookingWizard(): React.ReactElement {
                       ))}
                     </SelectContent>
                   </Select>
+                  {slots.length === 0 && (
+                    <div className="mt-2 space-y-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                      <p>
+                        No delivery windows left for this date (they may have ended, or hospital has
+                        not published any).
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="border-amber-300 bg-white"
+                          onClick={() => {
+                            const d = new Date(`${slotDate}T12:00:00`);
+                            d.setDate(d.getDate() + 1);
+                            const y = d.getFullYear();
+                            const m = String(d.getMonth() + 1).padStart(2, '0');
+                            const day = String(d.getDate()).padStart(2, '0');
+                            setSlotDate(`${y}-${m}-${day}`);
+                            setSlotId('');
+                          }}
+                        >
+                          Try next day
+                        </Button>
+                        {allowUnscheduled && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="bg-amber-600 hover:bg-amber-700"
+                            onClick={() => setUseUnscheduled(true)}
+                          >
+                            Use unscheduled arrival
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </section>

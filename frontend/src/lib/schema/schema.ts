@@ -153,20 +153,42 @@ export const BranchSchema = z.object({
   country: z.string().min(1, 'Country is required.'),
 });
 
-export const HospitalChainResponseSchema = HospitalChainSchema.extend({
+// Response schemas must accept seeded landline phones (e.g. 08040110001 = 11 chars).
+// Create/update forms keep the stricter 10-digit rule above.
+export const HospitalChainResponseSchema = z.object({
   id: z.string(),
+  name: z.string(),
+  phone: z.string().min(1),
+  email: z.string().email(),
+  street: z.string(),
+  city: z.string(),
+  state: z.string(),
+  pinCode: z.string().min(1),
+  country: z.string(),
+  createdAt: z.string().optional(),
+  updatedAt: z.string().optional(),
 });
 
-export const BranchResponseSchema = BranchSchema.extend({
+export const BranchResponseSchema = z.object({
   id: z.string(),
+  name: z.string(),
+  email: z.string().email(),
+  phone: z.string().min(1),
+  street: z.string(),
+  city: z.string(),
+  state: z.string(),
+  pinCode: z.string().min(1),
+  country: z.string(),
   hospitalChainId: z.string(),
   hospitalChain: z
     .object({
       id: z.string(),
       name: z.string(),
     })
+    .passthrough()
     .optional(),
   createdAt: z.string(),
+  updatedAt: z.string().optional(),
   qrCode: z.string().nullable().optional(),
 });
 

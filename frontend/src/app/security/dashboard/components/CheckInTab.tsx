@@ -381,6 +381,13 @@ export function CheckInTab({
     }
   }, [urgentCode, announceStatus]);
 
+  /** Always open the registration form on this frontend (not API / PUBLIC_FRONTEND_URL host). */
+  const urgentRegisterUrl = React.useMemo((): string => {
+    if (!urgentHandoff?.gateToken) return urgentHandoff?.registerUrl ?? '';
+    if (typeof window === 'undefined') return urgentHandoff.registerUrl;
+    return `${window.location.origin}/visitor/urgent/?token=${encodeURIComponent(urgentHandoff.gateToken)}`;
+  }, [urgentHandoff]);
+
   /**
    * Handles visitor found from phone lookup
    */
@@ -481,19 +488,27 @@ export function CheckInTab({
           </div>
           <div className="bg-white border border-gray-200 rounded-lg p-6 space-y-4 text-center">
             <div className="flex justify-center">
-              <QRCodeSVG value={urgentHandoff.registerUrl} size={200} level="M" includeMargin />
+              <QRCodeSVG value={urgentRegisterUrl} size={200} level="M" includeMargin />
             </div>
-            <p className="text-xs break-all text-muted-foreground">{urgentHandoff.registerUrl}</p>
+            <p className="text-xs break-all text-muted-foreground">{urgentRegisterUrl}</p>
             <Button
               type="button"
               variant="outline"
               className="w-full"
               onClick={() => {
-                void navigator.clipboard.writeText(urgentHandoff.registerUrl);
+                void navigator.clipboard.writeText(urgentRegisterUrl);
                 toast.success('Registration link copied');
               }}
             >
               Copy link
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              className="w-full"
+              onClick={() => window.open(urgentRegisterUrl, '_blank', 'noopener,noreferrer')}
+            >
+              Open registration form
             </Button>
             <p className="text-xs text-muted-foreground">
               Link valid ~{urgentHandoff.gateTokenExpiresInMinutes} minutes. After booking, scan

@@ -62,12 +62,13 @@ export default function AmsActivePage(): React.ReactElement {
                 <th className="py-2">Time In</th>
                 <th className="py-2">Duration</th>
                 <th className="py-2">Status</th>
+                <th className="py-2">Actions</th>
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-6 text-muted-foreground">
+                  <td colSpan={7} className="py-6 text-muted-foreground">
                     No attendants currently inside.
                   </td>
                 </tr>
@@ -82,6 +83,41 @@ export default function AmsActivePage(): React.ReactElement {
                     </td>
                     <td className="py-2">{row.durationMinutesLive ?? row.durationMinutes ?? 0} min</td>
                     <td className="py-2 text-emerald-700">Inside</td>
+                    <td className="py-2">
+                      <div className="flex flex-wrap gap-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={async () => {
+                            try {
+                              await AttendantPassService.forceExit(row.id);
+                              toast.success('Checked out — pass closed');
+                              void load();
+                            } catch {
+                              toast.error('Checkout failed');
+                            }
+                          }}
+                        >
+                          Force checkout
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-red-700 border-red-200"
+                          onClick={async () => {
+                            try {
+                              await AttendantPassService.revokePass(row.id);
+                              toast.success('Pass revoked');
+                              void load();
+                            } catch {
+                              toast.error('Revoke failed');
+                            }
+                          }}
+                        >
+                          Revoke
+                        </Button>
+                      </div>
+                    </td>
                   </tr>
                 ))
               )}
