@@ -304,7 +304,10 @@ class InboundDeliveryService:
             slot = DeliverySlotService(self.db).reserve_slot(slot_id, minutes=need_minutes)
             if slot.branchId != branch_id:
                 raise bad_request("Slot does not belong to selected branch")
-            expected_arrival = slot.slotStart
+            
+            # Offset start time by the minutes already booked before this reservation
+            previous_booked = max(0, int(slot.bookedMinutes or 0) - need_minutes)
+            expected_arrival = slot.slotStart + timedelta(minutes=previous_booked)
         elif expected_arrival:
             settings_row = (
                 self.db.query(BranchDeliverySettings)
