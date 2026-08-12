@@ -25,7 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
+
 
 type Step = 1 | 2;
 
@@ -201,8 +201,15 @@ export function DeliveryBookingWizard(): React.ReactElement {
 
   React.useEffect(() => {
     if (vehicleMode === 'existing' && selectedVehicle?.vehicleType) {
-      const vt = selectedVehicle.vehicleType as VehicleCategory;
-      if (VEHICLE_TYPES.includes(vt)) setVehicleCategory(vt);
+      const vt = selectedVehicle.vehicleType.toUpperCase();
+      let matched = VEHICLE_TYPES.find((t) => t.toUpperCase() === vt);
+      if (!matched) {
+        if (vt.includes('TRUCK')) matched = 'MCV';
+        else if (vt.includes('VAN')) matched = 'SCV';
+        else if (vt.includes('AUTO')) matched = 'Auto';
+        else matched = 'Bike';
+      }
+      setVehicleCategory(matched as VehicleCategory);
     }
   }, [vehicleMode, selectedVehicle]);
 
@@ -543,13 +550,33 @@ export function DeliveryBookingWizard(): React.ReactElement {
                   </SelectContent>
                 </Select>
               ) : (
-                <div>
-                  <Label>Vehicle Number</Label>
-                  <Input
-                    placeholder="KA01AB1234"
-                    value={vehicleReg}
-                    onChange={(e) => setVehicleReg(e.target.value.toUpperCase())}
-                  />
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <Label>Vehicle Number</Label>
+                    <Input
+                      placeholder="KA01AB1234"
+                      value={vehicleReg}
+                      onChange={(e) => setVehicleReg(e.target.value.toUpperCase())}
+                    />
+                  </div>
+                  <div>
+                    <Label>Vehicle Type</Label>
+                    <Select
+                      value={vehicleCategory}
+                      onValueChange={(val: VehicleCategory) => setVehicleCategory(val)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {VEHICLE_TYPES.map((t) => (
+                          <SelectItem key={t} value={t}>
+                            {t}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               )}
 

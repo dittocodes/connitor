@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { Camera, Loader2 } from 'lucide-react';
+import { Camera, Loader2, RefreshCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface LivePhotoStepProps {
@@ -12,13 +12,14 @@ interface LivePhotoStepProps {
 export function LivePhotoStep({ onCapture, loading }: LivePhotoStepProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [streaming, setStreaming] = useState(false);
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
   const [error, setError] = useState('');
 
-  const startCamera = async () => {
+  const startCamera = async (mode = facingMode) => {
     setError('');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user' },
+        video: { facingMode: mode },
         audio: false,
       });
       if (videoRef.current) {
@@ -29,6 +30,18 @@ export function LivePhotoStep({ onCapture, loading }: LivePhotoStepProps) {
     } catch {
       setError('Camera access is required for live photo capture.');
     }
+  };
+
+  const flipCamera = async () => {
+    const newMode = facingMode === 'user' ? 'environment' : 'user';
+    setFacingMode(newMode);
+    
+    if (videoRef.current?.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach((t) => t.stop());
+    }
+    
+    await startCamera(newMode);
   };
 
   const capture = () => {
@@ -64,7 +77,7 @@ export function LivePhotoStep({ onCapture, loading }: LivePhotoStepProps) {
         <video ref={videoRef} className="h-full w-full object-cover" playsInline muted />
         {!streaming && (
           <div className="absolute inset-0 flex items-center justify-center">
-            <Button type="button" variant="secondary" onClick={startCamera}>
+            <Button type="button" variant="secondary" onClick={() => startCamera()}>
               <Camera className="mr-2 h-4 w-4" />
               Start camera
             </Button>
@@ -72,10 +85,15 @@ export function LivePhotoStep({ onCapture, loading }: LivePhotoStepProps) {
         )}
       </div>
       {streaming && (
-        <Button type="button" onClick={capture} disabled={loading}>
-          {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-          Capture photo
-        </Button>
+        <div className="flex gap-2">
+          <Button type="button" onClick={capture} disabled={loading} className="flex-1">
+            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            Capture photo
+          </Button>
+          <Button type="button" variant="outline" size="icon" onClick={flipCamera} disabled={loading}>
+            <RefreshCcw className="h-4 w-4" />
+          </Button>
+        </div>
       )}
     </div>
   );

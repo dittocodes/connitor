@@ -74,7 +74,7 @@ export default function AmsReportsPage(): React.ReactElement {
           ].map(([label, value]) => (
             <Card key={String(label)} className="rounded-xl">
               <CardContent className="pt-4">
-                <p className="text-xs uppercase text-muted-foreground">{label}</p>
+                <p className="text-xs uppercase text-muted-foreground">{String(label)}</p>
                 <p className="text-2xl font-bold">{String(value ?? 0)}</p>
               </CardContent>
             </Card>
