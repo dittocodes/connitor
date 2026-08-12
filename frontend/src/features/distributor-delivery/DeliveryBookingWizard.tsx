@@ -453,7 +453,7 @@ export function DeliveryBookingWizard(): React.ReactElement {
                     Your unload needs ~{feePreview?.slotMinutes ?? 10} min. Remaining time stays
                     open for other distributors.
                   </p>
-                  <Select value={slotId || undefined} onValueChange={setSlotId} disabled={slots.length === 0}>
+                  <Select value={slotId} onValueChange={setSlotId} disabled={slots.length === 0}>
                     <SelectTrigger>
                       <SelectValue
                         placeholder={

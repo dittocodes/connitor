@@ -195,8 +195,8 @@ class DeliverySlotService:
         )
         if not slot or not slot.isActive:
             raise bad_request("Delivery slot not available")
-        if slot.slotStart <= now_ist():
-            raise bad_request("Delivery slot has already started")
+        if slot.slotEnd <= now_ist():
+            raise bad_request("Delivery window has already ended")
 
         need = int(minutes) if minutes is not None else 10
         if need < 1:
