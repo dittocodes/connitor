@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { toast } from 'sonner';
-import { Copy, KeyRound, Loader2, Plus } from 'lucide-react';
+import { Copy, KeyRound, Loader2, Mail, MessageSquare, Plus, Share2, Smartphone } from 'lucide-react';
 import {
   UrgentPasscodeService,
   type UrgentPasscodeItem,
@@ -27,6 +27,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 
 const VISIT_THEMES = [
@@ -56,6 +64,21 @@ function fromDatetimeLocalValue(local: string): string | undefined {
   return d.toISOString();
 }
 
+function formatPasscodeShareText(item: UrgentPasscodeItem): string {
+  const lines = [
+    `🏥 Hospital Urgent Visit Passcode: ${item.code}`,
+    `Please present this 6-digit passcode to hospital security at the entrance for urgent entry.`,
+    `Valid until: ${new Date(item.expiresAt).toLocaleString()}`,
+  ];
+  if (item.theme) {
+    lines.push(`Theme: ${item.theme}`);
+  }
+  if (item.purpose) {
+    lines.push(`Purpose: ${item.purpose}`);
+  }
+  return lines.join('\n');
+}
+
 export function UrgentPasscodeDialog({
   open,
   onOpenChange,
@@ -69,6 +92,9 @@ export function UrgentPasscodeDialog({
   const [purpose, setPurpose] = React.useState('');
   const [theme, setTheme] = React.useState<string>('');
   const [visitTime, setVisitTime] = React.useState('');
+  const [recipientName, setRecipientName] = React.useState('');
+  const [recipientPhone, setRecipientPhone] = React.useState('');
+  const [recipientEmail, setRecipientEmail] = React.useState('');
   const [issued, setIssued] = React.useState<UrgentPasscodeItem | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [list, setList] = React.useState<UrgentPasscodeItem[]>([]);
@@ -99,6 +125,9 @@ export function UrgentPasscodeDialog({
     setPurpose('');
     setTheme('');
     setVisitTime('');
+    setRecipientName('');
+    setRecipientPhone('');
+    setRecipientEmail('');
   }, []);
 
   React.useEffect(() => {
@@ -115,6 +144,9 @@ export function UrgentPasscodeDialog({
     setPurpose(row.purpose ?? '');
     setTheme(row.theme ?? '');
     setVisitTime(toDatetimeLocalValue(row.visitTime));
+    setRecipientName(row.recipientName ?? '');
+    setRecipientPhone(row.recipientPhone ?? '');
+    setRecipientEmail(row.recipientEmail ?? '');
   };
 
   const buildPayload = () => ({
@@ -122,6 +154,9 @@ export function UrgentPasscodeDialog({
     purpose: purpose.trim() || undefined,
     theme: theme.trim() || undefined,
     visitTime: fromDatetimeLocalValue(visitTime),
+    recipientName: recipientName.trim() || undefined,
+    recipientPhone: recipientPhone.trim() || undefined,
+    recipientEmail: recipientEmail.trim() || undefined,
   });
 
   const ensurePasscode = async (): Promise<UrgentPasscodeItem> => {
@@ -146,7 +181,7 @@ export function UrgentPasscodeDialog({
       }
       toast.success(
         mode === 'generate'
-          ? 'Urgent passcode created — copy and share it with your visitor'
+          ? 'Urgent passcode created — share it with your visitor'
           : 'Passcode details updated',
       );
       await loadList();
@@ -164,6 +199,53 @@ export function UrgentPasscodeDialog({
     } catch {
       toast.error('Copy failed');
     }
+  };
+
+  const copyFullMessage = async (item: UrgentPasscodeItem) => {
+    try {
+      await navigator.clipboard.writeText(formatPasscodeShareText(item));
+      toast.success('Full passcode message copied to clipboard');
+    } catch {
+      toast.error('Copy failed');
+    }
+  };
+
+  const handleNativeShare = async (item: UrgentPasscodeItem) => {
+    const shareText = formatPasscodeShareText(item);
+    if (typeof navigator !== 'undefined' && 'share' in navigator) {
+      try {
+        await navigator.share({
+          title: 'Hospital Urgent Visit Passcode',
+          text: shareText,
+        });
+        toast.success('Passcode shared');
+      } catch (err: unknown) {
+        if ((err as Error)?.name !== 'AbortError') {
+          toast.error('Could not open share menu');
+        }
+      }
+    } else {
+      await copyFullMessage(item);
+    }
+  };
+
+  const handleWhatsAppShare = (item: UrgentPasscodeItem) => {
+    const shareText = formatPasscodeShareText(item);
+    const url = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleEmailShare = (item: UrgentPasscodeItem) => {
+    const shareText = formatPasscodeShareText(item);
+    const subject = `Hospital Urgent Visit Passcode - ${item.code}`;
+    const url = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(shareText)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleSmsShare = (item: UrgentPasscodeItem) => {
+    const shareText = formatPasscodeShareText(item);
+    const url = `sms:?body=${encodeURIComponent(shareText)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   const revoke = async (id: string) => {
@@ -317,19 +399,111 @@ export function UrgentPasscodeDialog({
             />
           </div>
 
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="urgent-recipient-name">Recipient Name (optional)</Label>
+              <Input
+                id="urgent-recipient-name"
+                placeholder="e.g. John Doe"
+                value={recipientName}
+                onChange={(e) => setRecipientName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="urgent-recipient-phone">Recipient Phone / Email (optional)</Label>
+              <Input
+                id="urgent-recipient-phone"
+                placeholder="e.g. +1234567890 or mail@example.com"
+                value={recipientPhone || recipientEmail}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val.includes('@')) {
+                    setRecipientEmail(val);
+                    setRecipientPhone('');
+                  } else {
+                    setRecipientPhone(val);
+                    setRecipientEmail('');
+                  }
+                }}
+              />
+            </div>
+          </div>
+
           {issued && issued.status === 'ACTIVE' && (
-            <div className="rounded-lg border border-indigo-200 bg-indigo-50/80 p-4 text-center space-y-2">
-              <p className="text-sm text-muted-foreground">Share this code with the visitor</p>
+            <div className="rounded-lg border border-indigo-200 bg-indigo-50/80 p-4 text-center space-y-3">
+              <p className="text-sm font-medium text-indigo-950">Passcode ready for visitor</p>
               <p className="text-4xl font-mono font-bold tracking-[0.3em] text-indigo-900">
                 {issued.code}
               </p>
               <p className="text-xs text-muted-foreground">
                 Valid until {new Date(issued.expiresAt).toLocaleString()}
               </p>
-              <Button type="button" variant="outline" size="sm" onClick={() => void copyCode(issued.code)}>
-                <Copy className="h-4 w-4 mr-2" />
-                Copy code
-              </Button>
+              
+              <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+                <Button
+                  type="button"
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                  size="sm"
+                  onClick={() => void handleNativeShare(issued)}
+                >
+                  <Share2 className="h-4 w-4 mr-1.5" />
+                  Share (Apps / Device)
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="border-emerald-600 text-emerald-700 hover:bg-emerald-50"
+                  onClick={() => handleWhatsAppShare(issued)}
+                >
+                  <MessageSquare className="h-4 w-4 mr-1.5 text-emerald-600" />
+                  WhatsApp
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="border-blue-600 text-blue-700 hover:bg-blue-50"
+                  onClick={() => handleEmailShare(issued)}
+                >
+                  <Mail className="h-4 w-4 mr-1.5 text-blue-600" />
+                  Email
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="border-purple-600 text-purple-700 hover:bg-purple-50"
+                  onClick={() => handleSmsShare(issued)}
+                >
+                  <Smartphone className="h-4 w-4 mr-1.5 text-purple-600" />
+                  SMS
+                </Button>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button type="button" variant="outline" size="sm">
+                      <Copy className="h-4 w-4 mr-1.5" />
+                      More Options
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>Passcode Options</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => void copyCode(issued.code)}>
+                      <KeyRound className="h-4 w-4 mr-2" />
+                      Copy 6-digit code only
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => void copyFullMessage(issued)}>
+                      <Copy className="h-4 w-4 mr-2" />
+                      Copy full invitation message
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
           )}
 
@@ -364,12 +538,52 @@ export function UrgentPasscodeDialog({
                         <span className="ml-2 font-sans text-muted-foreground">{row.theme}</span>
                       ) : null}
                     </button>
-                    <Badge variant="outline">{row.status}</Badge>
-                    {row.status === 'ACTIVE' && (
-                      <Button type="button" variant="ghost" size="sm" onClick={() => void revoke(row.id)}>
-                        Revoke
-                      </Button>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline">{row.status}</Badge>
+                      {row.status === 'ACTIVE' && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" title="Share passcode">
+                              <Share2 className="h-3.5 w-3.5 text-indigo-600" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Share Passcode {row.code}</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => void handleNativeShare(row)}>
+                              <Share2 className="h-4 w-4 mr-2" />
+                              Share via Apps (Phone / Laptop)
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleWhatsAppShare(row)}>
+                              <MessageSquare className="h-4 w-4 mr-2 text-emerald-600" />
+                              WhatsApp
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleEmailShare(row)}>
+                              <Mail className="h-4 w-4 mr-2 text-blue-600" />
+                              Email
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleSmsShare(row)}>
+                              <Smartphone className="h-4 w-4 mr-2 text-purple-600" />
+                              SMS
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => void copyFullMessage(row)}>
+                              <Copy className="h-4 w-4 mr-2" />
+                              Copy full message
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => void copyCode(row.code)}>
+                              <KeyRound className="h-4 w-4 mr-2" />
+                              Copy code only
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
+                      {row.status === 'ACTIVE' && (
+                        <Button type="button" variant="ghost" size="sm" onClick={() => void revoke(row.id)}>
+                          Revoke
+                        </Button>
+                      )}
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -402,3 +616,4 @@ export function UrgentPasscodeDialog({
     </Dialog>
   );
 }
+
