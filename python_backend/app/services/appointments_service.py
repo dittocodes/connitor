@@ -248,7 +248,7 @@ class AppointmentsService:
                 detail="Another request is already pending for that time. Please choose another time.",
             )
 
-    def book_appointment(self, data: dict) -> dict:
+    def book_appointment(self, data: dict, *, defer_notifications: bool = False) -> dict:
         branch, dept, sub, doctor = self._validate_booking_chain(
             data["branchId"],
             data["departmentId"],
@@ -342,11 +342,12 @@ class AppointmentsService:
         self.db.commit()
         self.db.refresh(visit)
 
-        self.notifications.notify_staff_on_visit_request(visit, doctor, visitor)
-        self.notifications.notify_security_on_new_visit_request(visit, doctor, visitor)
-        self.notifications.notify_visitor_booking_received(
-            visit, doctor, visitor, branch=branch, department=dept, sub_department=sub
-        )
+        if not defer_notifications:
+            self.notifications.notify_staff_on_visit_request(visit, doctor, visitor)
+            self.notifications.notify_security_on_new_visit_request(visit, doctor, visitor)
+            self.notifications.notify_visitor_booking_received(
+                visit, doctor, visitor, branch=branch, department=dept, sub_department=sub
+            )
 
         message = (
             "Visit slot requested. The doctor has been emailed and will approve or decline."

@@ -1,6 +1,6 @@
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from fastapi.security import HTTPAuthorizationCredentials
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy.orm import Session
@@ -11,6 +11,7 @@ from app.dependencies.visitor_auth import _decode_visitor_token, visitor_securit
 from app.models import VisitorAccount
 from app.models.enums import ProfileStatus
 from app.services.appointments_service import AppointmentsService
+from app.services.visit_notification_dispatch import dispatch_new_visit_request_notifications
 
 router = APIRouter()
 
@@ -84,6 +85,7 @@ def list_doctor_slots(
 def book_appointment(
     body: BookAppointmentBody,
     db: Annotated[Session, Depends(get_db)],
+    background_tasks: BackgroundTasks,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(visitor_security)] = None,
 ):
     payload = body.model_dump()
@@ -101,7 +103,9 @@ def book_appointment(
                     payload["email"] = account.email
         except Exception:
             pass
-    return AppointmentsService(db).book_appointment(payload)
+    result = AppointmentsService(db).book_appointment(payload, defer_notifications=True)
+    background_tasks.add_task(dispatch_new_visit_request_notifications, result["bookingId"])
+    return result
 
 
 @router.get("/{booking_id}/status")
