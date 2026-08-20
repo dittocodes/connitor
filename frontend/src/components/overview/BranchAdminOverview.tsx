@@ -21,6 +21,7 @@ import { useOverviewSessionUser } from '@/hooks/useOverviewSessionUser';
 import { BranchService } from '@/lib/services/branchService';
 import { UserService } from '@/lib/services/userService';
 import { VisitorService } from '@/lib/services/visitorService';
+import { DASHBOARD_REFRESH_MS } from '@/lib/dashboard-refresh';
 import { AnalyticsService, type VisitorTrends } from '@/lib/services/analyticsService';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -93,13 +94,15 @@ export default function BranchAdminOverview() {
         date: today,
       });
       return res.data as VisitorSummary[];
-    }
+    },
+    { refreshInterval: DASHBOARD_REFRESH_MS },
   );
 
   // Fetch visitor trends from analytics API
   const { data: visitorTrends } = useSWR<VisitorTrends>(
     branchId ? [`/api/analytics/branch-admin/visitor-trends`, branchId, trendPeriod] : null,
-    () => AnalyticsService.getBranchVisitorTrends(branchId!, trendPeriod)
+    () => AnalyticsService.getBranchVisitorTrends(branchId!, trendPeriod),
+    { refreshInterval: DASHBOARD_REFRESH_MS },
   );
 
   const summary = useMemo(() => rawSummary ?? [], [rawSummary]);

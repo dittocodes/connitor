@@ -885,7 +885,7 @@ export function SecurityVisitorLogs({ user }: SecurityVisitorLogsProps) {
         date: formattedDate,
         // branchId: user.branchId, // Removed to fix type error
       }),
-    { refreshInterval: 30000 },
+    { refreshInterval: 5_000 },
   );
 
   const visitorsByStatus = useMemo(() => {

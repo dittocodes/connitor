@@ -76,7 +76,6 @@ import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { UrgentPasscodeDialog } from '@/components/myVisitors/UrgentPasscodeDialog';
-import { DoctorSchedulePanel } from '@/components/myVisitors/DoctorSchedulePanel';
 
 type MyVisitorsProps = {
   user: UserProfile;
@@ -806,7 +805,7 @@ export default function MyVisitors({ user }: MyVisitorsProps) {
     isLoading: isLoadingPending,
     mutate: mutatePending,
   } = useSWR('/api/staff/pending-visits', StaffService.getPendingVisits, {
-    refreshInterval: 10_000,
+    refreshInterval: 5_000,
   });
 
   const {
@@ -814,7 +813,7 @@ export default function MyVisitors({ user }: MyVisitorsProps) {
     isLoading: isLoadingHistory,
     mutate: mutateHistory,
   } = useSWR('/api/staff/history', StaffService.getVisitorHistory, {
-    refreshInterval: 30_000,
+    refreshInterval: 5_000,
   });
 
   useEffect(() => {
@@ -966,7 +965,7 @@ export default function MyVisitors({ user }: MyVisitorsProps) {
         </header>
 
         <Tabs defaultValue="pending" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="pending" className="cursor-pointer">
               Pending{' '}
               <Badge variant="secondary" className="ml-2">
@@ -984,9 +983,6 @@ export default function MyVisitors({ user }: MyVisitorsProps) {
               <Badge variant="secondary" className="ml-2">
                 {recentHistoryVisits.length}
               </Badge>
-            </TabsTrigger>
-            <TabsTrigger value="schedule" className="cursor-pointer">
-              Schedule
             </TabsTrigger>
           </TabsList>
 
@@ -1014,10 +1010,6 @@ export default function MyVisitors({ user }: MyVisitorsProps) {
               isLoading={isLoadingHistory}
               tab="history"
             />
-          </TabsContent>
-
-          <TabsContent value="schedule" className="mt-6 w-full">
-            <DoctorSchedulePanel />
           </TabsContent>
         </Tabs>
       </div>

@@ -58,6 +58,9 @@ class SecurityServicePhase4Tests(unittest.TestCase):
         visit.checkOutTime = None
         visit.appointmentMode = "IN_PERSON"
         visit.zoomJoinUrl = None
+        visit.visitorType = None
+        visit.meetingStatus = None
+        visit.visitorPassId = "ELC-260816-0001"
 
         result = self.service._serialize_appointment(visit)
 
@@ -66,6 +69,7 @@ class SecurityServicePhase4Tests(unittest.TestCase):
         self.assertEqual(result["appointmentMode"], "IN_PERSON")
         self.assertFalse(result["isOnline"])
         self.assertIsNone(result["zoomJoinUrl"])
+        self.assertEqual(result["visitorPassId"], "ELC-260816-0001")
 
     def test_serialize_appointment_online_fields(self) -> None:
         from app.models.enums import AppointmentMode
@@ -86,6 +90,7 @@ class SecurityServicePhase4Tests(unittest.TestCase):
         visit.checkOutTime = None
         visit.appointmentMode = AppointmentMode.ONLINE.value
         visit.zoomJoinUrl = "https://zoom.us/j/999"
+        visit.visitorPassId = None
 
         result = self.service._serialize_appointment(visit)
 

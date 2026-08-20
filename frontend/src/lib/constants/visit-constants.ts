@@ -22,7 +22,7 @@ export const MEETING_SUB_TYPES = {
     description: 'AMC, equipment service, IT support',
     icon: '🔧',
   },
-  CONSULTANT: {
+    CONSULTANT: {
     key: 'CONSULTANT',
     label: 'Consultant',
     description: 'External consultant, auditor, advisor',
@@ -35,6 +35,21 @@ export const MEETING_SUB_TYPES = {
     icon: '👤',
   },
 } as const;
+
+export const VISITOR_KINDS = [
+  { value: 'GENERAL', label: 'General' },
+  { value: 'SALES_REPRESENTATIVE', label: 'Sales Representative' },
+  { value: 'VENDOR', label: 'Vendor' },
+] as const;
+
+export type VisitorKind = (typeof VISITOR_KINDS)[number]['value'];
+
+export const MEETING_STATUS_LABELS: Record<string, string> = {
+  not_started: 'Not started',
+  started: 'Started',
+  not_attended: 'Not attended',
+  auto_expired: 'Auto-expired',
+};
 
 export const DELIVERY_SUB_TYPES = {
   PROFESSIONAL_GOODS: {

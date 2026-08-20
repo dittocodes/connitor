@@ -2,10 +2,10 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { toast } from 'sonner';
 import apiClient from '@/lib/api';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { formatIstDateTime } from '@/lib/datetime';
+import { DASHBOARD_REFRESH_MS } from '@/lib/dashboard-refresh';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -47,14 +47,13 @@ export default function DeliveryDashboardPage(): React.ReactElement {
   const [statusFilter, setStatusFilter] = React.useState<string>('all');
   const [search, setSearch] = React.useState('');
 
-  React.useEffect(() => {
+  const load = React.useCallback(() => {
     const params = user?.role === 'SUPER_ADMIN' ? {} : { branchId };
     apiClient
       .get('/api/delivery/deliveries', { params: { ...params, limit: 100 } })
       .then((res) => setDeliveries(res.data.items ?? []))
       .catch(() => {
         setDeliveries([]);
-        toast.error('Could not load deliveries');
       });
     if (branchId || user?.role === 'SUPER_ADMIN') {
       apiClient
@@ -67,6 +66,12 @@ export default function DeliveryDashboardPage(): React.ReactElement {
         .catch(() => setSummary({ total: 0, byStatus: {} }));
     }
   }, [branchId, user?.role]);
+
+  React.useEffect(() => {
+    load();
+    const id = window.setInterval(load, DASHBOARD_REFRESH_MS);
+    return () => window.clearInterval(id);
+  }, [load]);
 
   const filtered = deliveries.filter((d) => {
     if (statusFilter !== 'all' && d.status !== statusFilter) return false;

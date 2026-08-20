@@ -53,7 +53,7 @@ export function TodayDeliveriesTab({ branchId, className }: Props): React.ReactE
       );
       return res.data;
     },
-    { refreshInterval: 15_000 },
+    { refreshInterval: 5_000 },
   );
 
   const deliveries = data?.deliveries ?? [];

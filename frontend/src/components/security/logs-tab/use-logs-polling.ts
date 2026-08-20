@@ -47,7 +47,7 @@ export interface PollingConfig {
  * Default Polling Configuration
  */
 const DEFAULT_POLLING_CONFIG: PollingConfig = {
-  intervalMs: 30000, // 30 seconds
+  intervalMs: 5000,
   enabled: true,
   retryOnFailure: true,
   maxRetries: 3,

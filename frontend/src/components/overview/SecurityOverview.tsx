@@ -21,6 +21,7 @@ import {
 import type { ChartOptions } from 'chart.js';
 import { VisitorService } from '@/lib/services/visitorService';
 import { AnalyticsService } from '@/lib/services/analyticsService';
+import { DASHBOARD_REFRESH_MS } from '@/lib/dashboard-refresh';
 import { Shield, Clock, Users, Phone, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -131,7 +132,7 @@ export default function SecurityOverview() {
         return [];
       }
     },
-    { refreshInterval: 30000 },
+    { refreshInterval: DASHBOARD_REFRESH_MS },
   );
 
   // Fetch today's summary
@@ -146,14 +147,14 @@ export default function SecurityOverview() {
         return [];
       }
     },
-    { refreshInterval: 60000 },
+    { refreshInterval: DASHBOARD_REFRESH_MS },
   );
 
   // Fetch visitor trends based on period
   const { data: visitorTrends } = useSWR(
     branchId ? ['security-visitor-trends', branchId, trendPeriod] : null,
     () => AnalyticsService.getSecurityVisitorTrends(branchId!, trendPeriod),
-    { refreshInterval: 60000 },
+    { refreshInterval: DASHBOARD_REFRESH_MS },
   );
 
   // KPIs

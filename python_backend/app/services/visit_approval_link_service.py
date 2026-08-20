@@ -83,8 +83,8 @@ class VisitApprovalLinkService:
             and visit.appointmentDate.hour == 0
             and visit.appointmentDate.minute == 0
         )
-        if is_open and visit.appointmentDate:
-            appt_label = format_ist_datetime(visit.appointmentDate, "%d %b %Y")
+        if is_open:
+            appt_label = None
         elif visit.appointmentDate:
             appt_label = format_ist_datetime(visit.appointmentDate)
         else:
@@ -96,7 +96,7 @@ class VisitApprovalLinkService:
             "doctorName": doctor.name if doctor else visit.staffName,
             "appointmentDate": appt_label,
             "purpose": purpose,
-            "appointmentMode": visit.appointmentMode,
+            "appointmentMode": visit.appointmentMode or "IN_PERSON",
             "isCustomSlotRequest": is_custom,
             "isOpenSlotRequest": is_open,
             "canAct": visit.status == VisitStatus.REQUEST_SENT.value,

@@ -232,6 +232,15 @@ class Settings(BaseSettings):
     )
     e2e_fixed_otp: str = Field(default="123456", validation_alias="E2E_FIXED_OTP")
     demo_mode: bool = Field(default=False, validation_alias="DEMO_MODE")
+    sales_meeting_confirm_window_hours: int = Field(
+        default=4,
+        validation_alias="SALES_MEETING_CONFIRM_WINDOW_HOURS",
+    )
+    visit_extend_warn_minutes: int = Field(
+        default=1,
+        validation_alias="VISIT_EXTEND_WARN_MINUTES",
+    )
+    cron_job_token: str | None = Field(default=None, validation_alias="CRON_JOB_TOKEN")
 
     zoom_account_id: str | None = Field(default=None, validation_alias="ZOOM_ACCOUNT_ID")
     zoom_client_id: str | None = Field(default=None, validation_alias="ZOOM_CLIENT_ID")

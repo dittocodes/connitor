@@ -132,25 +132,24 @@ function ApproveVisitContent() {
         {preview.appointmentDate && (
           <p>
             <span className="text-muted-foreground">
-              {preview.isOpenSlotRequest
-                ? 'Preferred date:'
-                : preview.isCustomSlotRequest
-                  ? 'Requested time:'
-                  : 'Date & time:'}
+              {preview.isCustomSlotRequest ? 'Requested date & time:' : 'Date & time:'}
             </span>{' '}
             {preview.appointmentDate}
           </p>
         )}
+        <p>
+          <span className="text-muted-foreground">Meeting mode:</span>{' '}
+          {preview.appointmentMode === 'ONLINE' ? 'Online' : 'Offline'}
+        </p>
         {preview.isOpenSlotRequest && (
           <p className="text-amber-800 text-xs pt-1">
-            Visitor wants a visiting slot on this date (no preferred clock time). Approving
-            confirms you will arrange the visit.
+            {preview.visitorName} is requesting a visit slot. You decide the date and time.
           </p>
         )}
         {preview.isCustomSlotRequest && !preview.isOpenSlotRequest && (
           <p className="text-amber-800 text-xs pt-1">
-            Visitor requested this custom time (not from your published slots). Approving confirms
-            this slot.
+            Visitor requested this date, time, and meeting mode (not from your published slots).
+            Approving confirms this slot.
           </p>
         )}
         {preview.purpose && (

@@ -1,5 +1,6 @@
 import logging
 import os
+import threading
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -45,7 +46,34 @@ async def lifespan(_app: FastAPI):
             meta_health.get("display_phone_number") or meta_health.get("verified_name"),
         )
 
+    expire_thread = None
+    if not is_lambda_runtime():
+        expire_thread = threading.Thread(
+            target=_sales_meeting_expire_loop,
+            name="sales-meeting-expire",
+            daemon=True,
+        )
+        expire_thread.start()
+
     yield
+
+    _sales_meeting_stop.set()
+
+
+_sales_meeting_stop = threading.Event()
+
+
+def _sales_meeting_expire_loop() -> None:
+    from app.services.sales_meeting_dispatch import dispatch_auto_expire_and_notify
+
+    while not _sales_meeting_stop.wait(300):
+        try:
+            result = dispatch_auto_expire_and_notify()
+            expired = result.get("expired") or 0
+            if expired:
+                logger.info("Sales meeting auto-expire: %s visit(s)", expired)
+        except Exception:
+            logger.exception("Sales meeting auto-expire loop failed")
 
 
 app = FastAPI(
@@ -119,7 +147,20 @@ async def validation_exception_handler(
 
 
 # Lambda Handler
-handler = Mangum(app)
+_mangum = Mangum(app)
+
+
+def handler(event, context):
+    """Support EventBridge scheduled auto-expire plus HTTP via Mangum."""
+    if isinstance(event, dict) and (
+        event.get("source") == "aws.events" or event.get("detail-type") == "Scheduled Event"
+    ):
+        from app.services.sales_meeting_dispatch import dispatch_auto_expire_and_notify
+
+        result = dispatch_auto_expire_and_notify()
+        logger.info("EventBridge sales meeting auto-expire: %s", result)
+        return {"ok": True, **result}
+    return _mangum(event, context)
 
 
 # Local Development

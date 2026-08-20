@@ -69,14 +69,17 @@ class OnlineApprovalTests(unittest.TestCase):
     @patch("app.services.staff_service.StaffService._generate_qr_base64", return_value="data:image/png;base64,abc")
     @patch("app.services.staff_service.ZoomService")
     @patch("app.services.staff_service.model_to_dict", return_value={"id": "visit-1"})
+    @patch("app.services.visitor_pass_service.VisitorPassService.allocate_for_visit", return_value=None)
     def test_approve_in_person_still_generates_qr(
         self,
+        _mock_allocate: MagicMock,
         _mock_serialize: MagicMock,
         mock_zoom_cls: MagicMock,
         _mock_qr: MagicMock,
     ) -> None:
         visit = _online_visit()
         visit.appointmentMode = AppointmentMode.IN_PERSON.value
+        visit.visitorPassId = None
         self.db.query.return_value.options.return_value.filter.return_value.first.return_value = visit
 
         result = self.service.approve_visit("visit-online-1", "doc-1")

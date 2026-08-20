@@ -3,7 +3,7 @@
 import * as React from 'react';
 import useSWR from 'swr';
 import { toast } from 'sonner';
-import { Calendar, CheckCircle2, Hourglass, IdCard, LogOut, RefreshCw, ShieldCheck, Video } from 'lucide-react';
+import { Calendar, CheckCircle2, Hourglass, IdCard, LogOut, PauseCircle, RefreshCw, ShieldCheck, Video } from 'lucide-react';
 import {
   SecurityAppointmentService,
   type TodayAppointment,
@@ -12,6 +12,7 @@ import { VisitorService } from '@/lib/services/visitorService';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { MEETING_STATUS_LABELS } from '@/lib/constants/visit-constants';
 import {
   Dialog,
   DialogContent,
@@ -29,7 +30,7 @@ type Props = {
   refreshKey?: number;
 };
 
-const REFRESH_MS = 10_000;
+const REFRESH_MS = 5_000;
 
 const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'outline' | 'destructive'> = {
   REQUEST_SENT: 'outline',
@@ -66,6 +67,16 @@ function AppointmentCard({
                 {formatIstDateTime(appt.appointmentDate)}
               </p>
             )}
+            {appt.visitorPassId ? (
+              <p className="text-xs font-mono font-semibold text-teal-800 mt-1">
+                Pass ID: {appt.visitorPassId}
+              </p>
+            ) : null}
+            {appt.expectedEndTime && appt.status === 'CHECKED_IN' ? (
+              <p className="text-xs text-amber-800 mt-1">
+                Expected end: {formatIstDateTime(appt.expectedEndTime)}
+              </p>
+            ) : null}
           </div>
           <div className="flex flex-wrap gap-1.5">
             {appt.isOnline && (
@@ -83,6 +94,17 @@ function AppointmentCard({
             <Badge variant={STATUS_VARIANT[appt.status] ?? 'outline'}>
               {appt.status === 'REQUEST_SENT' ? 'Awaiting doctor' : appt.status}
             </Badge>
+            {appt.holdNextVisitor && (
+              <Badge className="bg-amber-600 hover:bg-amber-600">
+                <PauseCircle className="h-3 w-3 mr-1" />
+                Hold next visitor
+              </Badge>
+            )}
+            {appt.visitorType === 'SALES_REPRESENTATIVE' && appt.meetingStatus && (
+              <Badge variant="outline" className="border-teal-600 text-teal-800">
+                Meeting: {MEETING_STATUS_LABELS[appt.meetingStatus] ?? appt.meetingStatus}
+              </Badge>
+            )}
           </div>
         </div>
       </CardHeader>

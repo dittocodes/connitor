@@ -1,6 +1,6 @@
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Query, UploadFile
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -73,8 +73,13 @@ def request_visit(body: dict[str, Any], user: Annotated[dict, Depends(get_curren
     "/verify-code",
     dependencies=[Depends(require_roles(Role.SECURITY.value, Role.SECURITY_SUPERVISOR.value))],
 )
-def verify_code(body: VerifyCodeBody, user: Annotated[dict, Depends(get_current_user)], db: Annotated[Session, Depends(get_db)]):
-    return VisitorsService(db).verify_code(body.visitCode, user)
+def verify_code(
+    body: VerifyCodeBody,
+    user: Annotated[dict, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+    background_tasks: BackgroundTasks,
+):
+    return VisitorsService(db).verify_code(body.visitCode, user, background_tasks)
 
 
 @router.post(
@@ -91,8 +96,13 @@ def verify_checkin_otp(
     "/checkin/{visit_id}",
     dependencies=[Depends(require_roles(Role.SECURITY.value, Role.SECURITY_SUPERVISOR.value))],
 )
-def checkin(visit_id: str, user: Annotated[dict, Depends(get_current_user)], db: Annotated[Session, Depends(get_db)]):
-    return VisitorsService(db).check_in_visitor(visit_id, user)
+def checkin(
+    visit_id: str,
+    user: Annotated[dict, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+    background_tasks: BackgroundTasks,
+):
+    return VisitorsService(db).check_in_visitor(visit_id, user, background_tasks)
 
 
 @router.get(
@@ -147,11 +157,28 @@ def active(user: Annotated[dict, Depends(get_current_user)], db: Annotated[Sessi
 def summary(
     user: Annotated[dict, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
-    skip: int = 0,
-    take: int = 20,
+    skip: int | None = None,
+    take: int | None = Query(default=None),
+    page: int | None = Query(default=None),
+    limit: int | None = Query(default=None),
     status: str | None = None,
+    date: str | None = None,
+    search: str | None = None,
+    personToMeet: str | None = None,
 ):
-    return VisitorsService(db).summary({"skip": skip, "take": take, "status": status}, user)
+    return VisitorsService(db).summary(
+        {
+            "skip": skip,
+            "take": take,
+            "page": page,
+            "limit": limit,
+            "status": status,
+            "date": date,
+            "search": search,
+            "personToMeet": personToMeet,
+        },
+        user,
+    )
 
 
 @router.patch(

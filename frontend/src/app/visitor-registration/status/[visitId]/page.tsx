@@ -26,7 +26,7 @@ const activeFetchSessions = new Set<string>();
 // Constants
 // =================================================================
 
-const POLLING_INTERVAL_MS = 30000; // 30 seconds
+const POLLING_INTERVAL_MS = 5000;
 const MAX_POLL_ATTEMPTS = 60; // 30 minutes max
 const REDIRECT_DELAY_MS = 2000; // 2 seconds
 const RATE_LIMIT_PAUSE_MS = 60000; // 60 seconds

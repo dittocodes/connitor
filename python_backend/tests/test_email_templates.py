@@ -7,6 +7,9 @@ from app.email_templates import (
     build_delivery_assignment_email,
     build_gate_pass_email,
     build_notification_email,
+    build_sales_meeting_confirm_email,
+    build_sales_meeting_outcome_email,
+    build_visit_extension_email,
 )
 
 
@@ -54,6 +57,18 @@ class EmailTemplateTests(unittest.TestCase):
         self.assertIn("654321", html)
         self.assertIn('src="cid:checkin-qr"', html)
 
+    def test_gate_pass_email_includes_pass_id(self) -> None:
+        _subject, text, html = build_gate_pass_email(
+            visitor_name="Jane Doe",
+            doctor_name="Dr. Smith",
+            appointment_date="10 Jun 2026 14:00",
+            check_in_otp="654321",
+            visitor_pass_id="ELC-260816-0042",
+        )
+        self.assertIn("Pass ID: ELC-260816-0042", text)
+        self.assertIn("ELC-260816-0042", html)
+        self.assertIn("show this to security", html.lower())
+
     def test_delivery_assignment_email_includes_address_and_qr(self) -> None:
         subject, text, html = build_delivery_assignment_email(
             driver_name="Ravi",
@@ -93,6 +108,44 @@ class EmailTemplateTests(unittest.TestCase):
         self.assertIn("AP-9", subject)
         self.assertIn("government id", text.lower())
         self.assertIn('src="cid:attendant-pass-qr"', html)
+
+    def test_sales_meeting_confirm_email_has_action_buttons(self) -> None:
+        subject, text, html = build_sales_meeting_confirm_email(
+            visitor_name="Priya Shah",
+            doctor_name="Dr. Arjun",
+            slot_time="16 Aug 2026 10:00",
+            pass_id="visit-1",
+            started_url="http://localhost:3000/confirm-meeting?status=started",
+            not_attended_url="http://localhost:3000/confirm-meeting?status=not_attended",
+        )
+        self.assertIn("Confirm your meeting attendance", subject)
+        self.assertIn("Meeting started", text)
+        self.assertIn("Meeting Started", html)
+        self.assertIn("Meeting Not Attended", html)
+        self.assertIn("visit-1", html)
+
+    def test_sales_meeting_outcome_email_includes_result(self) -> None:
+        subject, text, html = build_sales_meeting_outcome_email(
+            visitor_name="Priya Shah",
+            doctor_name="Dr. Arjun",
+            slot_time="16 Aug 2026 10:00",
+            pass_id="visit-1",
+            outcome="Meeting started",
+        )
+        self.assertIn("Sales visit attendance", subject)
+        self.assertIn("Meeting started", text)
+        self.assertIn("visit-1", html)
+
+    def test_visit_extension_email_includes_link(self) -> None:
+        _subject, text, html = build_visit_extension_email(
+            doctor_name="Priya",
+            visitor_name="Rahul",
+            expected_end="16 Aug 2026 10:29",
+            extend_url="https://app.example/extend-visit?visitId=v1&token=abc",
+        )
+        self.assertIn("one-time link", text)
+        self.assertIn("Rahul", text)
+        self.assertIn("extend-visit", html)
 
 
 if __name__ == "__main__":

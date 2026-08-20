@@ -543,8 +543,8 @@ export const VisitorSummarySchema = z.object({
 export const VisitorSummaryResponseSchema = z.object({
   data: z.array(VisitorSummarySchema),
   total: z.number(),
-  page: z.number(),
-  limit: z.number(),
+  page: z.number().optional().default(1),
+  limit: z.number().optional().default(20),
 });
 
 // Updated StaffVisitorSchema to match the nested structure expected by MyVisitors.tsx

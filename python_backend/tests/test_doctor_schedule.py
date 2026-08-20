@@ -90,6 +90,29 @@ def test_create_and_list_slots(db):
     assert all(not item["isBooked"] for item in listed["items"])
 
 
+def test_create_slots_includes_sunday_by_default(db):
+    doctor = db.query(User).filter(User.role == "STAFF").first()
+    svc = DoctorScheduleService(db)
+    today = now_ist().date()
+    days_until_sunday = (6 - today.weekday()) % 7
+    if days_until_sunday == 0:
+        sunday = now_ist() + timedelta(days=7)
+    else:
+        sunday = now_ist() + timedelta(days=days_until_sunday)
+    sunday = sunday.replace(hour=0, minute=0, second=0, microsecond=0)
+    day = sunday.strftime("%Y-%m-%d")
+    result = svc.create_slots(
+        _user(doctor),
+        date=day,
+        start_time="09:00",
+        end_time="10:00",
+        slot_minutes=30,
+    )
+    assert result["created"] == 2
+    listed = svc.list_slots(_user(doctor), day, day)
+    assert len(listed["items"]) == 2
+
+
 def test_delete_blocked_when_booked(db):
     doctor = db.query(User).filter(User.role == "STAFF").first()
     start = (now_ist() + timedelta(days=1)).replace(hour=10, minute=0, second=0, microsecond=0)

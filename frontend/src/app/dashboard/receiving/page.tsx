@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import apiClient from '@/lib/api';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { formatIstDateTime } from '@/lib/datetime';
+import { DASHBOARD_REFRESH_MS } from '@/lib/dashboard-refresh';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -63,7 +64,7 @@ export default function ReceivingDashboardPage(): React.ReactElement {
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const [dockId, setDockId] = React.useState('');
 
-  const load = React.useCallback(async () => {
+  const load = React.useCallback(async (quiet = false) => {
     if (!branchId) return;
     try {
       const res = await apiClient.get('/api/delivery/receiving/queue', {
@@ -72,14 +73,18 @@ export default function ReceivingDashboardPage(): React.ReactElement {
       setDocks(res.data.docks ?? []);
       setDeliveries(res.data.deliveries ?? []);
     } catch {
-      toast.error('Could not load receiving board');
-      setDocks([]);
-      setDeliveries([]);
+      if (!quiet) toast.error('Could not load receiving board');
+      if (!quiet) {
+        setDocks([]);
+        setDeliveries([]);
+      }
     }
   }, [branchId]);
 
   React.useEffect(() => {
     void load();
+    const id = window.setInterval(() => void load(true), DASHBOARD_REFRESH_MS);
+    return () => window.clearInterval(id);
   }, [load]);
 
   const selected = deliveries.find((d) => d.id === selectedId) ?? null;

@@ -1,7 +1,7 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -234,6 +234,22 @@ class Visit(Base):
     verifiedBySecurityId: Mapped[str | None] = mapped_column(String(36), ForeignKey("User.id"), nullable=True)
     totalDurationMinutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     doctorNotifiedAt: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    visitorPassId: Mapped[str | None] = mapped_column(String(191), nullable=True, index=True)
+    allottedMinutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    expectedEndTime: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
+    extensionTokenHash: Mapped[str | None] = mapped_column(String(191), unique=True, nullable=True, index=True)
+    extensionTokenExpiresAt: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    extensionTokenUsedAt: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    extensionWarningDueAt: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
+    extensionWarningSentAt: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    visitorType: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    companyName: Mapped[str | None] = mapped_column(String(191), nullable=True)
+    companyEmail: Mapped[str | None] = mapped_column(String(191), nullable=True)
+    meetingStatus: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    meetingConfirmedAt: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    confirmationTokenHash: Mapped[str | None] = mapped_column(String(191), unique=True, nullable=True, index=True)
+    confirmationTokenExpiresAt: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    confirmationTokenUsedAt: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     createdAt: Mapped[datetime] = mapped_column(DateTime, default=now_ist)
     updatedAt: Mapped[datetime] = mapped_column(DateTime, default=now_ist, onupdate=now_ist)
 
@@ -242,6 +258,49 @@ class Visit(Base):
     staff = relationship("User", foreign_keys=[staffId])
     notifications = relationship("Notification", back_populates="visit")
     bookedSlot = relationship("DoctorAvailabilitySlot", back_populates="visit", uselist=False)
+    issuedPass = relationship(
+        "VisitorPass",
+        back_populates="visit",
+        uselist=False,
+        foreign_keys="VisitorPass.visitId",
+    )
+    meetingStatusAudits = relationship("MeetingStatusAudit", back_populates="visit")
+
+
+class BranchVisitorPassPolicy(Base):
+    __tablename__ = "BranchVisitorPassPolicy"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    branchId: Mapped[str] = mapped_column(String(36), ForeignKey("Branch.id"), unique=True, index=True)
+    dailyQuota: Mapped[int] = mapped_column(Integer, default=50)
+    createdAt: Mapped[datetime] = mapped_column(DateTime, default=now_ist)
+    updatedAt: Mapped[datetime] = mapped_column(DateTime, default=now_ist, onupdate=now_ist)
+
+    branch = relationship("Branch")
+
+
+class VisitorPass(Base):
+    __tablename__ = "VisitorPass"
+    __table_args__ = (
+        UniqueConstraint("branchId", "passDate", "sequence", name="VisitorPass_branch_date_seq_key"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    passId: Mapped[str] = mapped_column(String(191), unique=True, index=True)
+    branchId: Mapped[str] = mapped_column(String(36), ForeignKey("Branch.id"), index=True)
+    passDate: Mapped[date] = mapped_column(Date, index=True)
+    sequence: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(20), default="UNASSIGNED", index=True)
+    source: Mapped[str] = mapped_column(String(30), default="HOSPITAL_POOL")
+    visitId: Mapped[str | None] = mapped_column(String(36), ForeignKey("Visit.id"), nullable=True)
+    createdById: Mapped[str | None] = mapped_column(String(36), ForeignKey("User.id"), nullable=True)
+    assignedById: Mapped[str | None] = mapped_column(String(36), ForeignKey("User.id"), nullable=True)
+    assignedAt: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    createdAt: Mapped[datetime] = mapped_column(DateTime, default=now_ist)
+    updatedAt: Mapped[datetime] = mapped_column(DateTime, default=now_ist, onupdate=now_ist)
+
+    visit = relationship("Visit", back_populates="issuedPass", foreign_keys=[visitId])
+    branch = relationship("Branch")
 
 
 class DoctorUrgentPasscode(Base):
@@ -276,6 +335,21 @@ class DoctorUrgentPasscode(Base):
 
     staff = relationship("User", foreign_keys=[staffId])
     branch = relationship("Branch")
+
+
+class MeetingStatusAudit(Base):
+    __tablename__ = "MeetingStatusAudit"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    visitId: Mapped[str] = mapped_column(String(36), ForeignKey("Visit.id"), index=True)
+    oldStatus: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    newStatus: Mapped[str] = mapped_column(String(32))
+    actorType: Mapped[str] = mapped_column(String(32))
+    actor: Mapped[str | None] = mapped_column(String(191), nullable=True)
+    tokenHash: Mapped[str | None] = mapped_column(String(191), nullable=True)
+    createdAt: Mapped[datetime] = mapped_column(DateTime, default=now_ist, index=True)
+
+    visit = relationship("Visit", back_populates="meetingStatusAudits")
 
 
 class Notification(Base):

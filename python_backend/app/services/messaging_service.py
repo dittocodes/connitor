@@ -37,6 +37,11 @@ from app.email_templates import (
     build_notification_email,
     build_online_appointment_email,
     build_registration_otp_email,
+    build_sales_meeting_confirm_email,
+    build_sales_meeting_outcome_email,
+    build_visit_extension_email,
+    build_visit_extended_security_email,
+    build_next_visitor_delayed_email,
     build_ward_attendant_approval_request_email,
 )
 
@@ -393,6 +398,7 @@ class EmailService:
         purpose: str,
         approval_url: str,
         open_slot_request: bool = False,
+        meeting_mode: str = "Offline",
     ) -> None:
         """Send doctor a one-tap approval link by email (works when SMS/WhatsApp are down)."""
         settings = get_settings()
@@ -405,6 +411,7 @@ class EmailService:
             company_name=settings.email_from_name,
             product_name=settings.email_product_name,
             open_slot_request=open_slot_request,
+            meeting_mode=meeting_mode,
         )
         try:
             self._deliver_email(
@@ -417,6 +424,134 @@ class EmailService:
         except Exception as exc:
             logger.error("Failed to send doctor approval email to %s: %s", to_email, exc)
             raise
+
+    def send_sales_meeting_confirm_email(
+        self,
+        to_email: str,
+        *,
+        pass_id: str,
+        visitor_name: str,
+        doctor_name: str,
+        slot_time: str,
+        started_url: str,
+        not_attended_url: str,
+    ) -> None:
+        settings = get_settings()
+        subject, text_body, html_body = build_sales_meeting_confirm_email(
+            visitor_name=visitor_name,
+            doctor_name=doctor_name,
+            slot_time=slot_time,
+            pass_id=pass_id,
+            started_url=started_url,
+            not_attended_url=not_attended_url,
+            company_name=settings.email_from_name,
+            product_name=settings.email_product_name,
+        )
+        try:
+            self._deliver_email(
+                to_email,
+                subject,
+                text_body,
+                html_body,
+                context="sales meeting confirmation",
+            )
+        except Exception as exc:
+            logger.error("Failed to send sales meeting confirm email to %s: %s", to_email, exc)
+            raise
+
+    def send_sales_meeting_outcome_email(
+        self,
+        to_email: str,
+        *,
+        pass_id: str,
+        visitor_name: str,
+        doctor_name: str,
+        slot_time: str,
+        outcome: str,
+        company_name: str = "",
+    ) -> None:
+        settings = get_settings()
+        subject, text_body, html_body = build_sales_meeting_outcome_email(
+            visitor_name=visitor_name,
+            doctor_name=doctor_name,
+            slot_time=slot_time,
+            pass_id=pass_id,
+            outcome=outcome,
+            company_contact_name=company_name,
+            company_name=settings.email_from_name,
+            product_name=settings.email_product_name,
+        )
+        try:
+            self._deliver_email(
+                to_email,
+                subject,
+                text_body,
+                html_body,
+                context="sales meeting outcome",
+            )
+        except Exception as exc:
+            logger.error("Failed to send sales meeting outcome email to %s: %s", to_email, exc)
+            raise
+
+    def send_visit_extension_email(
+        self,
+        to_email: str,
+        *,
+        doctor_name: str,
+        visitor_name: str,
+        expected_end: str,
+        extend_url: str,
+    ) -> None:
+        settings = get_settings()
+        subject, text_body, html_body = build_visit_extension_email(
+            doctor_name=doctor_name,
+            visitor_name=visitor_name,
+            expected_end=expected_end,
+            extend_url=extend_url,
+            company_name=settings.email_from_name,
+            product_name=settings.email_product_name,
+        )
+        self._deliver_email(to_email, subject, text_body, html_body, context="visit extension")
+
+    def send_visit_extended_security_email(
+        self,
+        to_email: str,
+        *,
+        doctor_name: str,
+        visitor_name: str,
+        extra_minutes: int,
+        expected_end: str,
+    ) -> None:
+        settings = get_settings()
+        subject, text_body, html_body = build_visit_extended_security_email(
+            doctor_name=doctor_name,
+            visitor_name=visitor_name,
+            extra_minutes=extra_minutes,
+            expected_end=expected_end,
+            company_name=settings.email_from_name,
+            product_name=settings.email_product_name,
+        )
+        self._deliver_email(to_email, subject, text_body, html_body, context="visit extended security")
+
+    def send_next_visitor_delayed_email(
+        self,
+        to_email: str,
+        *,
+        visitor_name: str,
+        doctor_name: str,
+        extra_minutes: int,
+        new_slot: str,
+    ) -> None:
+        settings = get_settings()
+        subject, text_body, html_body = build_next_visitor_delayed_email(
+            visitor_name=visitor_name,
+            doctor_name=doctor_name,
+            extra_minutes=extra_minutes,
+            new_slot=new_slot,
+            company_name=settings.email_from_name,
+            product_name=settings.email_product_name,
+        )
+        self._deliver_email(to_email, subject, text_body, html_body, context="next visitor delayed")
 
     def send_ward_attendant_approval_request_email(
         self,
@@ -591,6 +726,7 @@ class EmailService:
         check_in_otp: str,
         qr_image_base64: str | None = None,
         doctor_feedback: str | None = None,
+        visitor_pass_id: str | None = None,
     ) -> None:
         settings = get_settings()
         qr_bytes = self._decode_qr_image(qr_image_base64)
@@ -604,6 +740,7 @@ class EmailService:
             qr_cid=qr_cid,
             company_name=settings.email_from_name,
             product_name=settings.email_product_name,
+            visitor_pass_id=visitor_pass_id,
         )
         inline_images = None
         if qr_bytes:

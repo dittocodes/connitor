@@ -7,6 +7,7 @@ from app.config import get_settings, is_demo_mode_enabled, is_meta_whatsapp_conf
 from app.models import Branch, Department, DoctorAvailabilitySlot, SubDepartment, User, Visit, Visitor
 from app.models.enums import AppointmentMode, Role, VisitCategory, VisitStatus
 from app.services.notifications_service import NotificationsService
+from app.services.sales_meeting_service import apply_visitor_kind
 from app.services.visitor_account_link_service import VisitorAccountLinkService
 from app.utils.serializers import model_to_dict
 from app.utils.timezone import now_ist, parse_to_ist_naive
@@ -161,6 +162,27 @@ class AppointmentsService:
             raise HTTPException(status_code=404, detail="Doctor not found.")
         return self._doctor_public_payload(doctor)
 
+    def _earliest_bookable_start(self, doctor_id: str, now: datetime | None = None) -> datetime:
+        from app.services.visit_slot_extension_service import VisitSlotExtensionService
+
+        now = now or now_ist()
+        live_end = VisitSlotExtensionService(self.db).live_end_for_doctor(doctor_id)
+        if live_end and live_end > now:
+            return live_end
+        return now
+
+    def _assert_not_during_live_visit(self, doctor_id: str, start: datetime) -> None:
+        earliest = self._earliest_bookable_start(doctor_id)
+        if start < earliest:
+            when = earliest.strftime("%I:%M %p").lstrip("0")
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Doctor has an ongoing visit until {when}. "
+                    "Please choose a later time."
+                ),
+            )
+
     def list_doctor_slots(self, doctor_id: str, date_str: str) -> list[dict]:
         doctor = self.db.get(User, doctor_id)
         if not doctor or not doctor.isActive or doctor.userType != "DOCTOR":
@@ -186,6 +208,9 @@ class AppointmentsService:
             .order_by(DoctorAvailabilitySlot.slotStart)
             .all()
         )
+        earliest = self._earliest_bookable_start(doctor_id, now)
+        if earliest > now:
+            slots = [s for s in slots if s.slotStart >= earliest]
         return [
             {
                 "id": s.id,
@@ -210,15 +235,18 @@ class AppointmentsService:
                 raise HTTPException(status_code=409, detail="This time slot is no longer available.")
             if slot.slotStart <= now_ist():
                 raise HTTPException(status_code=400, detail="Cannot book a past time slot.")
+            self._assert_not_during_live_visit(doctor_id, slot.slotStart)
             return slot.slotStart, slot
         if not appt_date:
             raise HTTPException(status_code=400, detail="appointmentDate or slotId is required.")
         if appt_date <= now_ist():
             raise HTTPException(status_code=400, detail="Appointment must be in the future.")
+        self._assert_not_during_live_visit(doctor_id, appt_date)
         return appt_date, None
 
     def _assert_custom_time_available(self, doctor_id: str, appt_date: datetime) -> None:
         """Reject custom requests that collide with an already-booked slot or pending visit."""
+        self._assert_not_during_live_visit(doctor_id, appt_date)
         existing_slot = (
             self.db.query(DoctorAvailabilitySlot)
             .filter(
@@ -270,10 +298,9 @@ class AppointmentsService:
                     status_code=400,
                     detail="appointmentDate is required when requesting a visit slot.",
                 )
-            # Visitor does not propose a clock time — store preferred date at 00:00 IST.
-            appt_date = appt_date.replace(hour=0, minute=0, second=0, microsecond=0)
-            if appt_date.date() < now_ist().date():
-                raise HTTPException(status_code=400, detail="Preferred date must be today or later.")
+            if appt_date <= now_ist():
+                raise HTTPException(status_code=400, detail="Requested date and time must be in the future.")
+            self._assert_custom_time_available(data["doctorId"], appt_date)
             slot = None
         else:
             appt_date, slot = self._reserve_slot(data["doctorId"], slot_id, appt_date)
@@ -328,6 +355,9 @@ class AppointmentsService:
             visitCategory=VisitCategory.MEETING.value,
             status=VisitStatus.REQUEST_SENT.value,
         )
+        apply_visitor_kind(visit, data)
+        if visit.companyName and not visitor.company:
+            visitor.company = visit.companyName
         self.db.add(visit)
         self.db.flush()
 
@@ -350,7 +380,7 @@ class AppointmentsService:
             )
 
         message = (
-            "Visit slot requested. The doctor has been emailed and will approve or decline."
+            "Visit slot requested for the selected date and time. The doctor will approve or decline."
             if request_custom
             else "Appointment booked successfully. Awaiting doctor approval."
         )
@@ -364,6 +394,9 @@ class AppointmentsService:
             "departmentName": dept.name,
             "subDepartmentName": sub.name,
             "appointmentMode": visit.appointmentMode,
+            "visitorType": visit.visitorType,
+            "meetingStatus": visit.meetingStatus,
+            "companyName": visit.companyName,
         }
 
     def get_booking_status(self, booking_id: str, phone: str) -> dict:
@@ -394,6 +427,9 @@ class AppointmentsService:
                 and visit.status == VisitStatus.APPROVED.value
                 else None
             ),
+            "visitorType": visit.visitorType,
+            "meetingStatus": visit.meetingStatus,
+            "companyName": visit.companyName,
         }
 
     def _whatsapp_simulation_allowed(self) -> bool:

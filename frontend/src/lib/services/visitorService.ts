@@ -96,7 +96,15 @@ export const VisitorService = {
     take?: number;
   }) {
     const response = await apiClient.get('/api/visitors/summary', { params });
-    return response.data;
+    const payload = response.data ?? {};
+    const rows = payload.data ?? payload.visits ?? [];
+    return {
+      ...payload,
+      data: rows,
+      total: payload.total ?? rows.length,
+      page: payload.page ?? 1,
+      limit: payload.limit ?? payload.take ?? rows.length,
+    };
   },
 
   async updateVisitor(
@@ -312,6 +320,9 @@ export const VisitorService = {
       staffName?: string;
       staffPhone?: string;
       visitingCardPhoto?: string;
+      visitorType?: 'GENERAL' | 'SALES_REPRESENTATIVE' | 'VENDOR';
+      companyName?: string;
+      companyEmail?: string;
     },
   ) {
     const response = await apiClient.post(
@@ -343,6 +354,7 @@ export const VisitorService = {
       firstName: string;
       lastName: string;
     };
+    visitorPassId?: string | null;
   }> {
     const response = await apiClient.post(`/api/visitors/checkin/${visitId}`);
     return response.data;

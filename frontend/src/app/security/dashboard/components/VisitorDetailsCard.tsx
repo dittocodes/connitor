@@ -220,6 +220,15 @@ export function VisitorDetailsCard({
           </div>
         )}
 
+        {visit.visitorPassId ? (
+          <div className="flex items-center justify-between text-sm bg-teal-50 border border-teal-200 rounded-lg p-3">
+            <span className="font-medium text-teal-900">Pass ID</span>
+            <span className="font-mono font-semibold tracking-wide text-teal-800">
+              {visit.visitorPassId}
+            </span>
+          </div>
+        ) : null}
+
         {isAppointment && (
           <IdProofVerificationForm
             visitId={visitorData.visitId}

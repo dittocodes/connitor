@@ -459,6 +459,7 @@ export function BranchAdminVisitor({ user }: BranchAdminVisitorProps) {
         return { data: [], total: 0, page: 1, limit: 20 };
       }
     },
+    { refreshInterval: 5_000 },
   );
 
   const filteredVisitors = useMemo(() => {

@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { Departments } from '@/lib/schema/schema';
 import apiClient from '@/lib/api';
+import { VISITOR_KINDS } from '@/lib/constants/visit-constants';
 
 // =================================================================
 // Type Definitions
@@ -72,6 +73,9 @@ export const meetingDetailsSchema = z
       .string()
       .min(5, 'Purpose must be at least 5 characters')
       .max(500, 'Purpose must not exceed 500 characters'),
+    visitorType: z.enum(['GENERAL', 'SALES_REPRESENTATIVE', 'VENDOR']).default('GENERAL'),
+    companyName: z.string().optional(),
+    companyEmail: z.string().optional(),
   })
   .refine(
     (data) => {
@@ -101,7 +105,24 @@ export const meetingDetailsSchema = z
       message: 'Please enter staff name and phone number',
       path: ['staffName'],
     },
-  );
+  )
+  .superRefine((data, ctx) => {
+    if (data.visitorType !== 'SALES_REPRESENTATIVE') return;
+    if (!data.companyName?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Company name is required for Sales Representative',
+        path: ['companyName'],
+      });
+    }
+    if (!data.companyEmail?.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.companyEmail)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'A valid company email is required for Sales Representative',
+        path: ['companyEmail'],
+      });
+    }
+  });
 
 export type MeetingDetailsFormData = z.infer<typeof meetingDetailsSchema>;
 
@@ -195,6 +216,9 @@ export function MeetingDetailsStep({
       staffName: '',
       staffPhone: '',
       purpose: initialPurpose || '',
+      visitorType: 'GENERAL',
+      companyName: '',
+      companyEmail: '',
     },
   });
 
@@ -716,6 +740,77 @@ export function MeetingDetailsStep({
                         />
                       </FormControl>
                       <FormMessage id="staff-phone-error" />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            )}
+
+            {/* Visitor kind — sales rep requires company fields */}
+            <FormField
+              control={form.control}
+              name="visitorType"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel htmlFor="visitor-type">Visitor type *</FormLabel>
+                  <Select
+                    value={field.value}
+                    onValueChange={(value) => {
+                      field.onChange(value);
+                      if (value !== 'SALES_REPRESENTATIVE') {
+                        form.setValue('companyName', '');
+                        form.setValue('companyEmail', '');
+                      }
+                    }}
+                    disabled={isDisabled}
+                  >
+                    <FormControl>
+                      <SelectTrigger id="visitor-type" className="h-12">
+                        <SelectValue placeholder="Select visitor type" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {VISITOR_KINDS.map((kind) => (
+                        <SelectItem key={kind.value} value={kind.value}>
+                          {kind.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            {form.watch('visitorType') === 'SALES_REPRESENTATIVE' && (
+              <div className="grid gap-4 sm:grid-cols-2 rounded-lg border p-3">
+                <FormField
+                  control={form.control}
+                  name="companyName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Company name *</FormLabel>
+                      <FormControl>
+                        <Input {...field} disabled={isDisabled} placeholder="Acme Pharma" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="companyEmail"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Company email *</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          type="email"
+                          disabled={isDisabled}
+                          placeholder="ops@company.com"
+                        />
+                      </FormControl>
+                      <FormMessage />
                     </FormItem>
                   )}
                 />

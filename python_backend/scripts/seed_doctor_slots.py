@@ -43,8 +43,6 @@ def seed_for_doctor(db, doctor: User, *, days_ahead: int = DAYS_AHEAD) -> int:
     created = 0
     for offset in range(days_ahead):
         day = today + timedelta(days=offset)
-        if day.weekday() == 6:  # skip Sundays
-            continue
         for slot_start, slot_end in _slot_times_for_day(day):
             if slot_start <= now_ist():
                 continue

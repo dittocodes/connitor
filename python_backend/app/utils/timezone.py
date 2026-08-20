@@ -57,3 +57,14 @@ def format_ist_datetime(dt: datetime | None, fmt: str = "%d %b %Y %H:%M") -> str
     else:
         dt = dt.astimezone(IST)
     return dt.strftime(fmt)
+
+
+def format_ist_clock(dt: datetime | None) -> str:
+    """Short IST wall clock like 6:55 PM."""
+    if not dt:
+        return ""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=IST)
+    else:
+        dt = dt.astimezone(IST)
+    return dt.strftime("%I:%M %p").lstrip("0")

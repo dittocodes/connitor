@@ -264,8 +264,6 @@ def _seed_doctor_slots(db, doctor_id: str) -> int:
     created = 0
     for offset in range(DAYS_AHEAD):
         day = today + timedelta(days=offset)
-        if day.weekday() == 6:
-            continue
         for slot_start, slot_end in _slot_times_for_day(day):
             if slot_start <= now_ist():
                 continue

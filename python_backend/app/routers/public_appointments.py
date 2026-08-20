@@ -2,7 +2,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from fastapi.security import HTTPAuthorizationCredentials
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -27,10 +27,13 @@ class BookAppointmentBody(BaseModel):
     email: EmailStr
     appointmentDate: str | None = None
     slotId: str | None = None
-    """When true, visitor proposes a custom date/time for the doctor to approve."""
+    """When true, visitor proposes a custom date/time and meeting mode for the doctor to approve."""
     requestCustomSlot: bool = False
     purpose: str = Field(min_length=3)
     appointmentMode: Literal["IN_PERSON", "ONLINE"] = "IN_PERSON"
+    visitorType: Literal["GENERAL", "SALES_REPRESENTATIVE", "VENDOR"] = "GENERAL"
+    companyName: str | None = None
+    companyEmail: EmailStr | None = None
 
     @field_validator("phone")
     @classmethod
@@ -38,6 +41,27 @@ class BookAppointmentBody(BaseModel):
         if not value.isdigit():
             raise ValueError("Phone must contain only digits.")
         return value
+
+    @field_validator("companyName", "companyEmail", mode="before")
+    @classmethod
+    def empty_optional(cls, value: object) -> object:
+        if value is None:
+            return None
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
+    @model_validator(mode="after")
+    def sales_rep_company_fields(self) -> "BookAppointmentBody":
+        if self.visitorType == "SALES_REPRESENTATIVE":
+            if not self.companyName:
+                raise ValueError("companyName is required for Sales Representative bookings.")
+            if not self.companyEmail:
+                raise ValueError("companyEmail is required for Sales Representative bookings.")
+        else:
+            object.__setattr__(self, "companyName", None)
+            object.__setattr__(self, "companyEmail", None)
+        return self
 
 
 @router.get("/hospitals")

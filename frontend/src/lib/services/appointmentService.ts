@@ -106,6 +106,9 @@ export const AppointmentService = {
     requestCustomSlot?: boolean;
     purpose: string;
     appointmentMode?: 'IN_PERSON' | 'ONLINE';
+    visitorType?: 'GENERAL' | 'SALES_REPRESENTATIVE' | 'VENDOR';
+    companyName?: string;
+    companyEmail?: string;
   }) {
     const token = getVisitorToken();
     const response = await apiClient.post('/api/public/appointments', data, {

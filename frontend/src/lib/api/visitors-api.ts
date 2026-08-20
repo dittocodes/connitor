@@ -77,6 +77,7 @@ export interface VisitInfo {
   idProofType?: string | null;
   staffName?: string | null;
   staffPhone?: string | null;
+  visitorPassId?: string | null;
 }
 
 /**
@@ -124,6 +125,14 @@ export interface SearchVisitorsResponse {
  * @returns User-friendly error message
  */
 export function mapErrorCodeToMessage(code: string): string {
+  if (code.startsWith('SLOT_NOT_STARTED')) {
+    const rest = code.replace(/^SLOT_NOT_STARTED:?\s*/, '').trim();
+    return rest || 'Meeting has not started yet. Do not check in this visitor yet.';
+  }
+  if (code.startsWith('HOLD_CURRENT_VISIT')) {
+    const rest = code.replace(/^HOLD_CURRENT_VISIT:?\s*/, '').trim();
+    return rest || 'Hold this visitor — the current appointment for this doctor is still in progress.';
+  }
   switch (code) {
     case 'INVALID_OTP':
       return 'Invalid OTP. Please check and try again.';

@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { toast } from 'sonner';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { AttendantPassService } from '@/lib/services/attendantPassService';
 import {
@@ -11,6 +10,7 @@ import {
   AmsStatusLegend,
   type AmsStats,
 } from '@/features/attendant-management/ui';
+import { DASHBOARD_REFRESH_MS } from '@/lib/dashboard-refresh';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -38,15 +38,21 @@ export default function AmsDashboardPage(): React.ReactElement {
     }>
   >([]);
 
-  React.useEffect(() => {
+  const load = React.useCallback(() => {
     if (!branchId) return;
     AttendantPassService.dashboardSummary(branchId)
       .then((data) => {
         setStats(data.stats);
         setActivity(data.recentActivity ?? []);
       })
-      .catch(() => toast.error('Could not load AMS dashboard'));
+      .catch(() => undefined);
   }, [branchId]);
+
+  React.useEffect(() => {
+    load();
+    const id = window.setInterval(load, DASHBOARD_REFRESH_MS);
+    return () => window.clearInterval(id);
+  }, [load]);
 
   return (
     <AmsPageShell

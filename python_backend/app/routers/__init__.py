@@ -11,6 +11,7 @@ from app.routers import (
     departments,
     doctor_urgent_passcode,
     doctor_schedule,
+    jobs,
     hospital_chains,
     notifications,
     public_appointment_approval,
@@ -18,7 +19,9 @@ from app.routers import (
     public_attendant_passes,
     public_distributor_onboarding,
     public_registration,
+    public_sales_meeting,
     public_urgent_passcodes,
+    public_visit_extensions,
     public_visitors,
     public_visits,
     root,
@@ -31,6 +34,7 @@ from app.routers import (
     visitor_accounts,
     visitor_auth,
     visitors,
+    visitor_passes,
     whatsapp_webhooks,
     zoom_webhooks,
 )
@@ -49,6 +53,17 @@ api_router.include_router(
     public_appointment_approval.router,
     prefix="/public/appointment-approval",
     tags=["appointment-approval"],
+)
+api_router.include_router(
+    public_sales_meeting.router,
+    prefix="/pass",
+    tags=["sales-meeting-confirm"],
+)
+api_router.include_router(jobs.router, prefix="/jobs", tags=["jobs"])
+api_router.include_router(
+    public_visit_extensions.router,
+    prefix="/public/visit-extensions",
+    tags=["visit-extensions"],
 )
 api_router.include_router(visitor_portal.router, prefix="/public/visitor-portal", tags=["visitor-portal"])
 api_router.include_router(visitor_accounts.router, prefix="/public/visitor-accounts", tags=["visitor-accounts"])
@@ -83,6 +98,7 @@ api_router.include_router(
 )
 api_router.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
 api_router.include_router(visitors.router, prefix="/visitors", tags=["visitors"])
+api_router.include_router(visitor_passes.router, tags=["visitor-passes"])
 api_router.include_router(public_registration.router, prefix="/public/registration", tags=["public-registration"])
 api_router.include_router(public_visitors.router, prefix="/public/visitors", tags=["public-visitors"])
 api_router.include_router(public_visits.router, prefix="/public/visits", tags=["public-visits"])

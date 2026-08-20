@@ -260,7 +260,7 @@ export function LogsTab({ branchId, className }: LogsTabProps): React.ReactEleme
 
     // Set up new polling interval
     if (isPollingActive) {
-      pollingTimerRef.current = setInterval(performPoll, 30000);
+      pollingTimerRef.current = setInterval(performPoll, 5000);
     }
 
     return () => {

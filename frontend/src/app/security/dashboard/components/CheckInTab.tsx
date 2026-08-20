@@ -158,7 +158,7 @@ export function CheckInTab({
       } catch (error) {
         setOtpState('error');
         if (error instanceof ApiError) {
-          setOtpError(mapErrorCodeToMessage(error.code));
+          setOtpError(error.message || mapErrorCodeToMessage(error.code));
         } else {
           setOtpError(mapErrorCodeToMessage('UNKNOWN_ERROR'));
         }
@@ -231,7 +231,7 @@ export function CheckInTab({
       } catch (error) {
         setQrState('error');
         if (error instanceof ApiError) {
-          setQrError(mapErrorCodeToMessage(error.code));
+          setQrError(error.message || mapErrorCodeToMessage(error.code));
         } else {
           setQrError(mapErrorCodeToMessage('UNKNOWN_ERROR'));
         }
@@ -253,8 +253,11 @@ export function CheckInTab({
       const response = await VisitorService.checkInVisit(visitorData.visitId);
 
       // Show success toast with visitor name
+      const passId = response.visitorPassId ?? visitorData.visit.visitorPassId;
       toast.success('Check-In Successful', {
-        description: `${response.visitor.firstName} ${response.visitor.lastName} is now checked in.`,
+        description: `${response.visitor.firstName} ${response.visitor.lastName} is now checked in.${
+          passId ? ` Pass ID: ${passId}` : ''
+        }`,
       });
 
       // Announce to screen readers
@@ -271,10 +274,27 @@ export function CheckInTab({
       
       if (error && typeof error === 'object' && 'response' in error) {
         const apiError = error as {
-          response?: { data?: { error?: string; message?: string } };
+          response?: {
+            data?: {
+              error?: string;
+              message?: string;
+              detail?: string | { code?: string; message?: string };
+            };
+          };
         };
+        const raw = apiError.response?.data;
+        const detailText =
+          typeof raw?.detail === 'string'
+            ? raw.detail
+            : raw?.detail?.message ?? '';
         const errorCode =
-          apiError.response?.data?.error ?? apiError.response?.data?.message;
+          raw?.error ??
+          raw?.message ??
+          (detailText.startsWith('HOLD_CURRENT_VISIT')
+            ? 'HOLD_CURRENT_VISIT'
+            : detailText.startsWith('SLOT_NOT_STARTED')
+              ? 'SLOT_NOT_STARTED'
+              : undefined);
         
         if (errorCode) {
           switch (errorCode) {
@@ -295,6 +315,14 @@ export function CheckInTab({
               break;
             case 'ID_PROOF_NOT_VERIFIED':
               errorMessage = 'ID proof must be verified before check-in for appointments.';
+              break;
+            case 'HOLD_CURRENT_VISIT':
+              errorMessage = detailText.replace(/^HOLD_CURRENT_VISIT:?\s*/, '') ||
+                'Hold this visitor — the current appointment for this doctor is still in progress.';
+              break;
+            case 'SLOT_NOT_STARTED':
+              errorMessage = detailText.replace(/^SLOT_NOT_STARTED:?\s*/, '') ||
+                'Meeting has not started yet. Do not check in this visitor yet.';
               break;
           }
         }

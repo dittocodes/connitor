@@ -870,6 +870,13 @@ function VisitorRegistrationWizardContent() {
       if (data.staffPhone) {
         formData.append('staffPhone', data.staffPhone);
       }
+      if (data.visitorType) {
+        formData.append('visitorType', data.visitorType);
+      }
+      if (data.visitorType === 'SALES_REPRESENTATIVE') {
+        if (data.companyName) formData.append('companyName', data.companyName);
+        if (data.companyEmail) formData.append('companyEmail', data.companyEmail);
+      }
       
       // File uploads - CRITICAL: These must be included
       formData.append('photo', visitorFormData.photo);

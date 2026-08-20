@@ -127,6 +127,7 @@ class StaffService:
             "purpose": visit.purpose,
             "staffName": visit.staffName,
             "visitCode": visit_code,
+            "visitorPassId": visit.visitorPassId,
             "timestamp": now_ist().isoformat(),
         }
         img = qrcode.make(json.dumps(payload))
@@ -149,6 +150,20 @@ class StaffService:
             raise HTTPException(status_code=409, detail=f"This visit is already in '{visit.status}' status.")
 
         is_online = visit.appointmentMode == AppointmentMode.ONLINE.value
+        issued_pass = None
+        if not is_online:
+            from app.services.visitor_pass_service import VisitorPassService
+
+            issued_pass = VisitorPassService(self.db).allocate_for_visit(
+                visit, assigned_by_id=staff_id
+            )
+            self.db.flush()
+            if not visit.visitorPassId:
+                raise HTTPException(
+                    status_code=500,
+                    detail="Could not assign a visitor pass ID for this in-person visit.",
+                )
+
         default_feedback = (
             "Your online appointment has been approved. Use the Zoom link in your email to join at the scheduled time."
             if is_online
@@ -218,6 +233,7 @@ class StaffService:
         result: dict = {
             "message": "Visitor request approved successfully.",
             "visit": model_to_dict(visit),
+            "visitorPassId": visit.visitorPassId,
         }
         if pamphlet:
             result["pamphletImage"] = pamphlet
@@ -234,7 +250,15 @@ class StaffService:
             raise HTTPException(status_code=404, detail="Visit request not found.")
         if visit.staffId != staff_id:
             raise HTTPException(status_code=403, detail="You are not authorized to reject this visit.")
-        if visit.status != VisitStatus.REQUEST_SENT.value:
+        if visit.checkInTime is not None or visit.status in (
+            VisitStatus.CHECKED_IN.value,
+            VisitStatus.CHECKED_OUT.value,
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail="This visit cannot be rejected after check-in.",
+            )
+        if visit.status not in (VisitStatus.REQUEST_SENT.value, VisitStatus.APPROVED.value):
             raise HTTPException(
                 status_code=409,
                 detail=f"This visit is already in '{visit.status}' status and cannot be rejected.",
@@ -244,6 +268,9 @@ class StaffService:
         visit.doctorFeedback = rejection_reason
         visit.doctorFeedbackAt = now_ist()
         self._release_slot_for_visit(visit.id)
+        from app.services.visitor_pass_service import VisitorPassService
+
+        VisitorPassService(self.db).recycle_for_visit(visit)
         self.db.commit()
         self.db.refresh(visit)
         if visit.staff and visit.visitor:

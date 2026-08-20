@@ -25,6 +25,7 @@ import {
 } from 'chart.js';
 import { StaffService } from '@/lib/services/staffService';
 import { AnalyticsService } from '@/lib/services/analyticsService';
+import { DASHBOARD_REFRESH_MS } from '@/lib/dashboard-refresh';
 
 type TrendPeriod = 'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly';
 
@@ -129,7 +130,7 @@ export default function StaffOverview() {
   } = useSWR<VisitorRequest[]>(
     '/api/staff/pending-visits',
     StaffService.getPendingVisits,
-    { refreshInterval: 30000 },
+    { refreshInterval: DASHBOARD_REFRESH_MS },
   );
 
   const {
@@ -139,14 +140,14 @@ export default function StaffOverview() {
   } = useSWR<Appointment[]>(
     '/api/staff/history',
     StaffService.getVisitorHistory,
-    { refreshInterval: 60000 },
+    { refreshInterval: DASHBOARD_REFRESH_MS },
   );
 
   // Fetch visitor trends based on period
   const { data: visitorTrends } = useSWR(
     branchId ? ['staff-visitor-trends', branchId, trendPeriod] : null,
     () => AnalyticsService.getStaffVisitorTrends(branchId!, trendPeriod),
-    { refreshInterval: 60000 },
+    { refreshInterval: DASHBOARD_REFRESH_MS },
   );
 
   const isLoading = isPendingLoading || isHistoryLoading;

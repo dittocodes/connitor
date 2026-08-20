@@ -23,6 +23,7 @@ export const sidebarConfig = {
     { label: 'Users', href: '/dashboard/users', icon: 'users' },
     { label: 'Visitors', href: '/dashboard/visitors', icon: 'user-plus' },
     { label: 'Appointments', href: '/dashboard/appointments', icon: 'calendar' },
+    { label: 'Visitor passes', href: '/dashboard/visitor-passes', icon: 'id-card' },
     { label: 'Delivery', href: '/dashboard/delivery', icon: 'truck' },
     { label: 'Delivery Slots', href: '/dashboard/delivery-slots', icon: 'calendar' },
     { label: 'Vendors', href: '/dashboard/delivery/vendors', icon: 'users' },
@@ -67,6 +68,7 @@ export const sidebarConfig = {
     { label: 'Overview', href: '/dashboard', icon: 'dashboard' },
     { label: 'Users', href: '/dashboard/users', icon: 'users' },
     { label: 'Visitors', href: '/dashboard/visitors', icon: 'user-plus' },
+    { label: 'Visitor passes', href: '/dashboard/visitor-passes', icon: 'id-card' },
     { label: 'Settings', href: '/dashboard/settings', icon: 'settings' },
   ],
   SECURITY: [
@@ -79,6 +81,11 @@ export const sidebarConfig = {
       label: "Today's Appointments",
       href: '/security/dashboard?tab=appointments',
       icon: 'calendar',
+    },
+    {
+      label: 'Visitor passes',
+      href: '/security/dashboard?tab=visitor-passes',
+      icon: 'id-card',
     },
     {
       label: 'Visitor Logs',
@@ -113,6 +120,11 @@ export const sidebarConfig = {
       label: "Today's Appointments",
       href: '/security/dashboard?tab=appointments',
       icon: 'calendar',
+    },
+    {
+      label: 'Visitor passes',
+      href: '/security/dashboard?tab=visitor-passes',
+      icon: 'id-card',
     },
     {
       label: 'Visitor Logs',

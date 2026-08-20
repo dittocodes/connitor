@@ -138,6 +138,15 @@ def test_confirm_verify_and_auto_book(db):
     session = svc.get_gate_session(handoff["gateToken"])
     assert session["host"]["id"] == doctor.id
 
+    from app.models.enums import Role
+    from app.services.visitor_pass_service import VisitorPassService
+
+    VisitorPassService(db).issue_pool(
+        {"id": doctor.id, "role": Role.HOSPITAL_ADMIN.value, "branchId": doctor.branchId},
+        doctor.branchId,
+        count=5,
+    )
+
     with patch.object(svc.notifications, "notify_visitor_booking_received"):
         booked = svc.book_with_gate_token(
             {"accountId": account.id},

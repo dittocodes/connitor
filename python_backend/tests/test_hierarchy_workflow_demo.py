@@ -58,7 +58,11 @@ def _make_visit():
         visitor=_make_visitor(),
         visitorId="visitor-1",
         purpose="Cardiology follow-up",
-        appointmentDate=now.replace(hour=14, minute=30, second=0, microsecond=0),
+        visitSubType=None,
+        appointmentDate=now - timedelta(hours=1),
+        appointmentMode="IN_PERSON",
+        visitorPassId=None,
+        visitorType=None,
         idProofVerified=False,
         idProofType=None,
         idProofNumber=None,
@@ -120,7 +124,10 @@ class HierarchyWorkflowDemoTest(unittest.TestCase):
         # Step 2 — Doctor approves appointment
         staff_service = StaffService(self.db)
         staff_service.notifications = MagicMock()
-        with patch.object(staff_service, "_generate_qr_base64", return_value="data:image/png;base64,abc"):
+        with patch.object(staff_service, "_generate_qr_base64", return_value="data:image/png;base64,abc"), patch(
+            "app.services.visitor_pass_service.VisitorPassService.allocate_for_visit",
+            return_value=None,
+        ):
             approve_result = staff_service.approve_visit(self.visit.id, "doc-1")
 
         self.assertEqual(self.visit.status, VisitStatus.APPROVED.value)

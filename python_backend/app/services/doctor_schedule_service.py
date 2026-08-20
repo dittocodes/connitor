@@ -10,8 +10,8 @@ from sqlalchemy.orm import Session
 from app.models import DoctorAvailabilitySlot, User
 from app.utils.timezone import now_ist
 
-# Python weekday: Mon=0 … Sun=6. Default publish Mon–Sat.
-DEFAULT_WEEKDAYS = {0, 1, 2, 3, 4, 5}
+# Python weekday: Mon=0 … Sun=6. Default publish every day, including Sunday.
+DEFAULT_WEEKDAYS = {0, 1, 2, 3, 4, 5, 6}
 
 
 class DoctorScheduleService:

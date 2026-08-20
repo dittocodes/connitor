@@ -45,6 +45,7 @@ export default function AppointmentsPage() {
     AppointmentService.list(
       statusFilter === 'ALL' ? undefined : { status: statusFilter },
     ),
+    { refreshInterval: 5_000 },
   );
 
   return (

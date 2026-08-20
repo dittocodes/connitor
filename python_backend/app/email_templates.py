@@ -487,6 +487,7 @@ def build_gate_pass_email(
     company_name: str = "Connitor",
     product_name: str = "Hospital Visitor Tracking System",
     validity_hours: int = 8,
+    visitor_pass_id: str | None = None,
 ) -> tuple[str, str, str]:
     """Email with embedded QR image and OTP after doctor approval."""
     feedback_html = ""
@@ -512,12 +513,25 @@ def build_gate_pass_email(
         )
         qr_text = "\nShow the QR code in this email at the security desk.\n"
 
+    pass_text = f"\nPass ID: {visitor_pass_id}\n" if visitor_pass_id else ""
+    pass_html = ""
+    if visitor_pass_id:
+        pass_html = (
+            f'<div style="text-align:center;background:#ecfeff;border:2px solid #67e8f9;border-radius:10px;'
+            f'padding:16px;margin:0 0 20px;">'
+            f'<p style="margin:0 0 6px;font-size:12px;color:#0e7490;font-weight:600;text-transform:uppercase;">'
+            f"Pass ID — show this to security</p>"
+            f'<p style="margin:0;font-size:22px;font-weight:700;letter-spacing:0.08em;font-family:monospace;'
+            f'color:#0f172a;">{escape(visitor_pass_id)}</p>'
+            f"</div>"
+        )
+
     subject = f"{company_name} — Appointment approved — your check-in QR code"
     text_body = (
         f"{company_name}\n{product_name}\n\n"
         f"Hello {visitor_name},\n\n"
         f"Your appointment with Dr. {doctor_name} on {appointment_date} is confirmed."
-        f"{feedback_text}{qr_text}\n"
+        f"{feedback_text}{pass_text}{qr_text}\n"
         f"Check-in OTP (backup): {check_in_otp}\n"
         f"Valid for {validity_hours} hours.\n\n"
         f"— {company_name}"
@@ -537,7 +551,8 @@ def build_gate_pass_email(
           Your visit with <strong>Dr. {escape(doctor_name)}</strong> on
           <strong>{escape(appointment_date)}</strong> is confirmed.
         </p>
-        {feedback_html}
+          {feedback_html}
+        {pass_html}
         {qr_html}
         <div style="text-align:center;background:#f0fdfa;border:2px dashed #99f6e4;border-radius:10px;padding:20px;">
           <p style="margin:0 0 8px;font-size:12px;color:#0d9488;font-weight:600;text-transform:uppercase;">Backup OTP</p>
@@ -992,6 +1007,7 @@ def build_doctor_approval_request_email(
     company_name: str = "Connitor",
     product_name: str = "Hospital Visitor Tracking System",
     open_slot_request: bool = False,
+    meeting_mode: str = "Offline",
 ) -> tuple[str, str, str]:
     """Email to doctor with one-tap approval link (primary channel when SMS/WhatsApp fail)."""
     subject = (
@@ -1001,18 +1017,26 @@ def build_doctor_approval_request_email(
     )
     purpose_line = purpose.strip() or "Not specified"
     intro_text = (
-        f"{visitor_name} wants a visiting slot with you."
+        f"{visitor_name} is requesting a visit slot with you."
         if open_slot_request
         else f"You have a new appointment request from {visitor_name}."
     )
-    when_label = "Preferred date" if open_slot_request else "When"
+    schedule_text = (
+        "Date and time will be decided by you."
+        if open_slot_request
+        else appointment_date
+    )
+    when_label = "Schedule" if open_slot_request else "When"
     heading = "Visit slot request" if open_slot_request else "Appointment approval needed"
+    mode_line = meeting_mode.strip() or "Offline"
 
     text_body = (
         f"{company_name}\n{product_name}\n\n"
         f"Hello Dr. {doctor_name},\n\n"
         f"{intro_text}\n"
-        f"{when_label}: {appointment_date}\n"
+        f"Visitor: {visitor_name}\n"
+        f"{when_label}: {schedule_text}\n"
+        f"Meeting mode: {mode_line}\n"
         f"Purpose: {purpose_line}\n\n"
         f"Approve or decline (one-time secure link, no login):\n{approval_url}\n\n"
         f"— {company_name}"
@@ -1045,7 +1069,9 @@ def build_doctor_approval_request_email(
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fafc;border-radius:8px;margin:0 0 24px;">
                 <tr>
                   <td style="padding:16px 18px;font-size:14px;line-height:1.7;color:#475569;">
-                    <strong style="color:#0f172a;">{escape(when_label)}:</strong> {escape(appointment_date)}<br/>
+                    <strong style="color:#0f172a;">Visitor:</strong> {escape(visitor_name)}<br/>
+                    <strong style="color:#0f172a;">{escape(when_label)}:</strong> {escape(schedule_text)}<br/>
+                    <strong style="color:#0f172a;">Meeting mode:</strong> {escape(mode_line)}<br/>
                     <strong style="color:#0f172a;">Purpose:</strong> {escape(purpose_line)}
                   </td>
                 </tr>
@@ -1304,3 +1330,280 @@ def build_attendant_visit_exit_email(
   </table>
 </body></html>"""
     return subject, text_body, html_body
+
+
+def build_sales_meeting_confirm_email(
+    *,
+    visitor_name: str,
+    doctor_name: str,
+    slot_time: str,
+    pass_id: str,
+    started_url: str,
+    not_attended_url: str,
+    company_name: str = "Connitor",
+    product_name: str = "Hospital Visitor Tracking System",
+) -> tuple[str, str, str]:
+    """Email to the sales representative after security check-in."""
+    subject = f"{company_name} — Confirm your meeting attendance"
+    text_body = (
+        f"{company_name}\n{product_name}\n\n"
+        f"Hello {visitor_name},\n\n"
+        f"Security has checked you in. Please confirm whether the meeting started.\n\n"
+        f"Pass ID: {pass_id}\n"
+        f"Doctor: {doctor_name}\n"
+        f"Slot: {slot_time}\n\n"
+        f"Meeting started:\n{started_url}\n\n"
+        f"Meeting not attended:\n{not_attended_url}\n\n"
+        "This one-time link expires after the confirmation window.\n\n"
+        f"— {company_name}"
+    )
+    html_body = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{escape(subject)}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f0f4f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#f0f4f8;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:520px;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(15,23,42,0.08);">
+          <tr>
+            <td style="background:linear-gradient(135deg,#0d9488 0%,#0f766e 100%);padding:24px 32px;text-align:center;">
+              <h1 style="margin:0;font-size:22px;font-weight:700;color:#ffffff;">Confirm meeting attendance</h1>
+              <p style="margin:8px 0 0;font-size:13px;color:rgba(255,255,255,0.9);">{escape(product_name)}</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px;">
+              <p style="margin:0 0 12px;font-size:15px;color:#334155;">Hello {escape(visitor_name)},</p>
+              <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#64748b;">
+                Security has completed your check-in. Please confirm whether the meeting with the doctor started.
+              </p>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fafc;border-radius:8px;margin:0 0 24px;">
+                <tr>
+                  <td style="padding:16px 18px;font-size:14px;line-height:1.7;color:#475569;">
+                    <strong style="color:#0f172a;">Pass ID:</strong> {escape(pass_id)}<br/>
+                    <strong style="color:#0f172a;">Doctor:</strong> {escape(doctor_name)}<br/>
+                    <strong style="color:#0f172a;">Slot:</strong> {escape(slot_time)}
+                  </td>
+                </tr>
+              </table>
+              <div style="text-align:center;margin:8px 0 12px;">
+                <a href="{escape(started_url)}" style="display:inline-block;background:#0d9488;color:#ffffff;text-decoration:none;padding:14px 24px;border-radius:8px;font-weight:600;font-size:15px;">
+                  Meeting Started
+                </a>
+              </div>
+              <div style="text-align:center;margin:0 0 20px;">
+                <a href="{escape(not_attended_url)}" style="display:inline-block;background:#ffffff;color:#b91c1c;text-decoration:none;padding:14px 24px;border-radius:8px;font-weight:600;font-size:15px;border:1px solid #fecaca;">
+                  Meeting Not Attended
+                </a>
+              </div>
+              <p style="margin:0;font-size:12px;line-height:1.6;color:#94a3b8;">
+                These links are one-time and expire after the confirmation window.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
+    return subject, text_body, html_body
+
+
+def build_sales_meeting_outcome_email(
+    *,
+    visitor_name: str,
+    doctor_name: str,
+    slot_time: str,
+    pass_id: str,
+    outcome: str,
+    company_contact_name: str = "",
+    company_name: str = "Connitor",
+    product_name: str = "Hospital Visitor Tracking System",
+) -> tuple[str, str, str]:
+    """Final attendance outcome emailed to the sales person's company."""
+    subject = f"{company_name} — Sales visit attendance: {outcome}"
+    greeting = company_contact_name.strip() or "Team"
+    text_body = (
+        f"{company_name}\n{product_name}\n\n"
+        f"Hello {greeting},\n\n"
+        f"Attendance outcome for a sales visit:\n"
+        f"Pass ID: {pass_id}\n"
+        f"Representative: {visitor_name}\n"
+        f"Doctor: {doctor_name}\n"
+        f"Date / time: {slot_time}\n"
+        f"Outcome: {outcome}\n\n"
+        f"— {company_name}"
+    )
+    html_body = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{escape(subject)}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f0f4f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#f0f4f8;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:520px;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(15,23,42,0.08);">
+          <tr>
+            <td style="background:linear-gradient(135deg,#0d9488 0%,#0f766e 100%);padding:24px 32px;text-align:center;">
+              <h1 style="margin:0;font-size:22px;font-weight:700;color:#ffffff;">Sales visit attendance</h1>
+              <p style="margin:8px 0 0;font-size:13px;color:rgba(255,255,255,0.9);">{escape(product_name)}</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px;">
+              <p style="margin:0 0 12px;font-size:15px;color:#334155;">Hello {escape(greeting)},</p>
+              <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#64748b;">
+                Attendance has been recorded for a sales representative visit.
+              </p>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fafc;border-radius:8px;margin:0 0 16px;">
+                <tr>
+                  <td style="padding:16px 18px;font-size:14px;line-height:1.7;color:#475569;">
+                    <strong style="color:#0f172a;">Pass ID:</strong> {escape(pass_id)}<br/>
+                    <strong style="color:#0f172a;">Representative:</strong> {escape(visitor_name)}<br/>
+                    <strong style="color:#0f172a;">Doctor:</strong> {escape(doctor_name)}<br/>
+                    <strong style="color:#0f172a;">Date / time:</strong> {escape(slot_time)}<br/>
+                    <strong style="color:#0f172a;">Outcome:</strong> {escape(outcome)}
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:0;font-size:12px;color:#94a3b8;">— {escape(company_name)}</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
+    return subject, text_body, html_body
+
+
+def build_visit_extension_email(
+    *,
+    doctor_name: str,
+    visitor_name: str,
+    expected_end: str,
+    extend_url: str,
+    company_name: str = "Connitor",
+    product_name: str = "Hospital Visitor Tracking System",
+) -> tuple[str, str, str]:
+    subject = f"{company_name} — Extend this visit?"
+    text_body = (
+        f"{company_name}\n{product_name}\n\n"
+        f"Hello Dr. {doctor_name},\n\n"
+        f"Your visit with {visitor_name} is scheduled to end at {expected_end}.\n"
+        f"If you need more time, open this one-time link and choose how many minutes to add:\n"
+        f"{extend_url}\n\n"
+        "Until then, security should hold the next visitor for this slot.\n\n"
+        f"— {company_name}"
+    )
+    html_body = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{escape(subject)}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f0f4f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#f0f4f8;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:520px;background-color:#ffffff;border-radius:12px;overflow:hidden;">
+          <tr>
+            <td style="background:linear-gradient(135deg,#0d9488 0%,#0f766e 100%);padding:24px 32px;text-align:center;">
+              <h1 style="margin:0;font-size:22px;font-weight:700;color:#ffffff;">Extend this visit?</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px;">
+              <p style="margin:0 0 12px;font-size:15px;color:#334155;">Hello Dr. {escape(doctor_name)},</p>
+              <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#64748b;">
+                Your visit with <strong>{escape(visitor_name)}</strong> is scheduled to end at
+                <strong>{escape(expected_end)}</strong>. If you need more time, confirm an extension.
+              </p>
+              <div style="text-align:center;margin:8px 0 20px;">
+                <a href="{escape(extend_url)}" style="display:inline-block;background:#0d9488;color:#ffffff;text-decoration:none;padding:14px 24px;border-radius:8px;font-weight:600;font-size:15px;">
+                  Extend visit
+                </a>
+              </div>
+              <p style="margin:0;font-size:12px;line-height:1.6;color:#94a3b8;">
+                This link is one-time. Until you act, security should hold the next visitor.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
+    return subject, text_body, html_body
+
+
+def build_visit_extended_security_email(
+    *,
+    doctor_name: str,
+    visitor_name: str,
+    extra_minutes: int,
+    expected_end: str,
+    company_name: str = "Connitor",
+    product_name: str = "Hospital Visitor Tracking System",
+) -> tuple[str, str, str]:
+    subject = f"{company_name} — Visit extended {extra_minutes} minutes"
+    text_body = (
+        f"{company_name}\n{product_name}\n\n"
+        f"Dr. {doctor_name} extended the visit with {visitor_name} by {extra_minutes} minutes.\n"
+        f"New expected end: {expected_end}.\n"
+        "Hold the next visitor for this doctor until that time, or until checkout.\n\n"
+        f"— {company_name}"
+    )
+    html_body = f"""<!DOCTYPE html>
+<html lang="en"><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#334155;">
+  <p>Dr. {escape(doctor_name)} extended the visit with <strong>{escape(visitor_name)}</strong>
+  by <strong>{extra_minutes} minutes</strong>.</p>
+  <p>New expected end: <strong>{escape(expected_end)}</strong>.</p>
+  <p>Hold the next visitor for this doctor until that time, or until checkout.</p>
+  <p style="color:#94a3b8;font-size:12px;">— {escape(company_name)}</p>
+</body></html>"""
+    return subject, text_body, html_body
+
+
+def build_next_visitor_delayed_email(
+    *,
+    visitor_name: str,
+    doctor_name: str,
+    extra_minutes: int,
+    new_slot: str,
+    company_name: str = "Connitor",
+    product_name: str = "Hospital Visitor Tracking System",
+) -> tuple[str, str, str]:
+    subject = f"{company_name} — Your appointment has been rescheduled"
+    text_body = (
+        f"{company_name}\n{product_name}\n\n"
+        f"Hello {visitor_name},\n\n"
+        f"Your visit with Dr. {doctor_name} has been rescheduled because the ongoing meeting "
+        f"was extended by {extra_minutes} minutes.\n"
+        f"New time: {new_slot}.\n"
+        f"Please arrive for this new time. Security cannot check you in before it starts.\n\n"
+        f"— {company_name}"
+    )
+    html_body = f"""<!DOCTYPE html>
+<html lang="en"><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#334155;">
+  <p>Hello {escape(visitor_name)},</p>
+  <p>Your visit with Dr. {escape(doctor_name)} has been <strong>rescheduled</strong> because
+  the ongoing meeting was extended by <strong>{extra_minutes} minutes</strong>.</p>
+  <p>New time: <strong>{escape(new_slot)}</strong>.</p>
+  <p>Please arrive for this new time. Security cannot check you in before it starts.</p>
+  <p style="color:#94a3b8;font-size:12px;">— {escape(company_name)}</p>
+</body></html>"""
+    return subject, text_body, html_body
+
+

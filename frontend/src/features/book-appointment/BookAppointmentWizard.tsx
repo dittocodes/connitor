@@ -20,6 +20,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { VISITOR_KINDS, type VisitorKind } from '@/lib/constants/visit-constants';
 
 type Step = 1 | 2 | 3 | 4 | 5 | 6;
 
@@ -109,6 +110,7 @@ export function BookAppointmentWizard({
   const [doctorId, setDoctorId] = React.useState('');
   const [slotId, setSlotId] = React.useState('');
   const [requestCustomSlot, setRequestCustomSlot] = React.useState(false);
+  const [preferredTime, setPreferredTime] = React.useState('10:00');
   const [firstName, setFirstName] = React.useState('');
   const [lastName, setLastName] = React.useState('');
   const [phone, setPhone] = React.useState('');
@@ -116,6 +118,9 @@ export function BookAppointmentWizard({
   const [appointmentDate, setAppointmentDate] = React.useState(todayIstDateIso());
   const [purpose, setPurpose] = React.useState('');
   const [appointmentMode, setAppointmentMode] = React.useState<'IN_PERSON' | 'ONLINE'>('IN_PERSON');
+  const [visitorType, setVisitorType] = React.useState<VisitorKind>('GENERAL');
+  const [companyName, setCompanyName] = React.useState('');
+  const [companyEmail, setCompanyEmail] = React.useState('');
   const [result, setResult] = React.useState<{ bookingId: string; message: string } | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState('');
@@ -301,7 +306,11 @@ export function BookAppointmentWizard({
       return;
     }
     if (requestCustomSlot && !appointmentDate) {
-      setError('Please choose a preferred date for your visit request.');
+      setError('Please choose a date for your visit request.');
+      return;
+    }
+    if (requestCustomSlot && !preferredTime) {
+      setError('Please choose a time for your visit request.');
       return;
     }
     if (isRegisteredVisitor) {
@@ -318,6 +327,12 @@ export function BookAppointmentWizard({
       setError('Please fill in all required fields and use a valid 10-digit phone and email.');
       return;
     }
+    if (visitorType === 'SALES_REPRESENTATIVE') {
+      if (!companyName.trim() || !companyEmail.includes('@')) {
+        setError('Company name and a valid company email are required for Sales Representative.');
+        return;
+      }
+    }
     setLoading(true);
     setError('');
     try {
@@ -331,13 +346,15 @@ export function BookAppointmentWizard({
         phone,
         email: normalizedEmail,
         slotId: requestCustomSlot ? undefined : slotId,
-        // Date only — visitor does not propose a clock time
         appointmentDate: requestCustomSlot
-          ? `${appointmentDate}T00:00:00`
+          ? `${appointmentDate}T${preferredTime}:00`
           : selectedSlot?.slotStart,
         requestCustomSlot,
         purpose,
         appointmentMode,
+        visitorType,
+        companyName: visitorType === 'SALES_REPRESENTATIVE' ? companyName.trim() : undefined,
+        companyEmail: visitorType === 'SALES_REPRESENTATIVE' ? companyEmail.trim() : undefined,
       });
       const bookingResult = { bookingId: res.bookingId, message: res.message };
       setResult(bookingResult);
@@ -622,11 +639,24 @@ export function BookAppointmentWizard({
                     </Button>
                   </div>
                   {requestCustomSlot && (
-                    <p className="text-xs text-muted-foreground">
-                      You do not pick a clock time. The doctor will get an email that you want a
-                      visiting slot on {appointmentDate || 'the selected date'}, and can approve or
-                      decline.
-                    </p>
+                    <div className="space-y-2">
+                      <Label htmlFor="preferred-time">Requested time</Label>
+                      <Input
+                        id="preferred-time"
+                        type="time"
+                        value={preferredTime}
+                        onChange={(e) => setPreferredTime(e.target.value)}
+                        required
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Choose a date, time, purpose, and meeting mode. The doctor will be emailed
+                        your name with {appointmentDate || 'the selected date'} at{' '}
+                        {preferredTime || 'the selected time'} ({appointmentMode === 'ONLINE'
+                          ? 'online'
+                          : 'offline'}
+                        ) and can approve or decline.
+                      </p>
+                    </div>
                   )}
                 </div>
               </div>
@@ -635,6 +665,52 @@ export function BookAppointmentWizard({
                 <Label>Purpose</Label>
                 <Input value={purpose} onChange={(e) => setPurpose(e.target.value)} required />
               </div>
+              <div>
+                <Label htmlFor="visitor-type">Visitor type</Label>
+                <select
+                  id="visitor-type"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={visitorType}
+                  onChange={(e) => {
+                    const next = e.target.value as VisitorKind;
+                    setVisitorType(next);
+                    if (next !== 'SALES_REPRESENTATIVE') {
+                      setCompanyName('');
+                      setCompanyEmail('');
+                    }
+                  }}
+                >
+                  {VISITOR_KINDS.map((kind) => (
+                    <option key={kind.value} value={kind.value}>
+                      {kind.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {visitorType === 'SALES_REPRESENTATIVE' && (
+                <div className="space-y-3 rounded-lg border bg-muted/30 p-3">
+                  <div>
+                    <Label htmlFor="company-name">Company name</Label>
+                    <Input
+                      id="company-name"
+                      value={companyName}
+                      onChange={(e) => setCompanyName(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="company-email">Company email</Label>
+                    <Input
+                      id="company-email"
+                      type="email"
+                      value={companyEmail}
+                      onChange={(e) => setCompanyEmail(e.target.value)}
+                      required
+                      placeholder="attendance updates go here"
+                    />
+                  </div>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label>Visit type</Label>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -645,7 +721,7 @@ export function BookAppointmentWizard({
                     onClick={() => setAppointmentMode('IN_PERSON')}
                   >
                     <span className="text-left">
-                      <span className="block font-medium">In-person</span>
+                      <span className="block font-medium">Offline (in-person)</span>
                       <span className="block text-xs opacity-80">Visit the hospital with QR check-in</span>
                     </span>
                   </Button>
@@ -656,7 +732,7 @@ export function BookAppointmentWizard({
                     onClick={() => setAppointmentMode('ONLINE')}
                   >
                     <span className="text-left">
-                      <span className="block font-medium">Online consultation</span>
+                      <span className="block font-medium">Online</span>
                       <span className="block text-xs opacity-80">Zoom link after doctor approval</span>
                     </span>
                   </Button>
@@ -665,7 +741,9 @@ export function BookAppointmentWizard({
               <Button
                 className="w-full"
                 onClick={submit}
-                disabled={loading || (!requestCustomSlot && !slotId)}
+                disabled={
+                  loading || (!requestCustomSlot && !slotId) || (requestCustomSlot && !preferredTime)
+                }
               >
                 {loading
                   ? 'Submitting…'

@@ -53,9 +53,32 @@ class VisitCategory(str, enum.Enum):
     DELIVERY = "DELIVERY"
 
 
+class VisitorType(str, enum.Enum):
+    GENERAL = "GENERAL"
+    SALES_REPRESENTATIVE = "SALES_REPRESENTATIVE"
+    VENDOR = "VENDOR"
+
+
+class MeetingStatus(str, enum.Enum):
+    NOT_STARTED = "not_started"
+    STARTED = "started"
+    NOT_ATTENDED = "not_attended"
+    AUTO_EXPIRED = "auto_expired"
+
+
 class AppointmentMode(str, enum.Enum):
     IN_PERSON = "IN_PERSON"
     ONLINE = "ONLINE"
+
+
+class VisitorPassStatus(str, enum.Enum):
+    UNASSIGNED = "UNASSIGNED"
+    ASSIGNED = "ASSIGNED"
+    VOID = "VOID"
+
+
+class VisitorPassSource(str, enum.Enum):
+    HOSPITAL_POOL = "HOSPITAL_POOL"
 
 
 class ProfileStatus(str, enum.Enum):

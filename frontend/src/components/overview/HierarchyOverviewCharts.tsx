@@ -24,6 +24,7 @@ import {
   type TrendPeriod,
   type VisitorTrends,
 } from '@/lib/services/analyticsService';
+import { DASHBOARD_REFRESH_MS } from '@/lib/dashboard-refresh';
 import { ArrowRight, Clock, Timer } from 'lucide-react';
 
 ChartJS.register(
@@ -77,6 +78,7 @@ export function HierarchyOverviewCharts({
   const { data: trends, isLoading: trendsLoading } = useSWR(
     `${trendsKey}-${trendPeriod}`,
     () => trendsFetcher(trendPeriod),
+    { refreshInterval: DASHBOARD_REFRESH_MS },
   );
 
   const statusChart = useMemo(() => {

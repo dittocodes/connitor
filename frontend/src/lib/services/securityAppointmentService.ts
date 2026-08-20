@@ -15,6 +15,13 @@ export interface TodayAppointment {
   appointmentMode?: string;
   isOnline?: boolean;
   zoomJoinUrl?: string | null;
+  visitorPassId?: string | null;
+  visitorType?: string | null;
+  meetingStatus?: string | null;
+  companyName?: string | null;
+  expectedEndTime?: string | null;
+  allottedMinutes?: number | null;
+  holdNextVisitor?: boolean;
 }
 
 export const ID_PROOF_TYPES = [

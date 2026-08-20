@@ -142,12 +142,22 @@ def verify_phone(body: VerifyPhoneBody, db: Annotated[Session, Depends(get_db)])
 
 
 @router.post("")
-async def register_public(
-    db: Session = Depends(get_db),
-    body: dict[str, Any] | None = None,
-    photo: UploadFile | None = File(None),
-    governmentIdDocument: UploadFile | None = File(None),
-    officeIdDocument: UploadFile | None = File(None),
-):
-    files = {"photo": photo, "governmentIdDocument": governmentIdDocument, "officeIdDocument": officeIdDocument}
-    return await VisitorsService(db).register_public_visitor(body or {}, files)
+async def register_public(request: Request, db: Session = Depends(get_db)):
+    content_type = (request.headers.get("content-type") or "").lower()
+    files: dict[str, UploadFile | None] = {
+        "photo": None,
+        "governmentIdDocument": None,
+        "officeIdDocument": None,
+    }
+    if "application/json" in content_type:
+        data = await request.json() or {}
+    else:
+        form = await request.form()
+        data: dict[str, Any] = {}
+        for key, value in form.multi_items():
+            if hasattr(value, "filename"):
+                if key in files:
+                    files[key] = value  # type: ignore[assignment]
+            else:
+                data[key] = str(value)
+    return await VisitorsService(db).register_public_visitor(data, files)

@@ -135,8 +135,7 @@ class NotificationsService:
             visit.appointmentDate.hour == 0 and visit.appointmentDate.minute == 0
         )
         if is_open:
-            day = format_ist_datetime(visit.appointmentDate, "%d %b %Y")
-            return f"{day} (visitor requested a visiting slot — no preferred time)"
+            return "to be decided by the doctor"
         return format_ist_datetime(visit.appointmentDate)
 
     def _is_open_slot_request(self, visit: Visit) -> bool:
@@ -146,6 +145,9 @@ class NotificationsService:
             and visit.appointmentDate.hour == 0
             and visit.appointmentDate.minute == 0
         )
+
+    def _meeting_mode_label(self, visit: Visit) -> str:
+        return "Online" if self._is_online(visit) else "Offline"
 
     def _sms_user(self, user: User, message: str) -> None:
         if user.phone:
@@ -183,6 +185,7 @@ class NotificationsService:
     ) -> None:
         appt = self._format_appt(visit)
         name = self._visitor_name(visitor)
+        is_open = self._is_open_slot_request(visit)
         if branch is None:
             branch = self.db.get(Branch, visit.branchId)
         hospital_name = branch.name if branch else "the hospital"
@@ -191,16 +194,21 @@ class NotificationsService:
             dept = self.db.get(Department, visit.departmentId)
             dept_name = dept.name if dept else None
 
-        self._send_calendar_invite(
-            visit,
-            doctor,
-            visitor,
-            branch=branch,
-            department=department,
-            sub_department=sub_department,
-            status="tentative",
-            sequence=0,
-        )
+        if not is_open:
+            self._send_calendar_invite(
+                visit,
+                doctor,
+                visitor,
+                branch=branch,
+                department=department,
+                sub_department=sub_department,
+                status="tentative",
+                sequence=0,
+            )
+
+        visitor_purpose = visit.purpose or ""
+        if visitor_purpose.upper().startswith("[CUSTOM SLOT]"):
+            visitor_purpose = visitor_purpose[len("[CUSTOM SLOT]") :].strip()
 
         if visitor.email:
             try:
@@ -212,11 +220,14 @@ class NotificationsService:
                     hospital_name=hospital_name,
                     booking_id=visit.id,
                     department_name=dept_name,
-                    purpose=visit.purpose,
+                    purpose=visitor_purpose or None,
                     appointment_mode=visit.appointmentMode or AppointmentMode.IN_PERSON.value,
                 )
             except Exception as exc:
                 logger.error("Failed to send booking confirmation email to %s: %s", visitor.email, exc)
+
+        if is_open:
+            return
 
         if self._is_online(visit):
             sms_text = (
@@ -251,12 +262,13 @@ class NotificationsService:
         _, approval_url = VisitApprovalLinkService(self.db).create_link(visit)
         if is_open:
             dashboard_message = (
-                f"Visit slot request from {name} for {appt}. Purpose: {purpose}. "
-                "Approval link sent to doctor via email (and SMS if available)."
+                f"Visit slot request from {name}. Date and time to be decided by the doctor. "
+                f"Purpose: {purpose}. Approval link sent by email."
             )
         else:
             dashboard_message = (
-                f"{'Custom slot request' if is_custom else 'New appointment'} from {name} on {appt}. "
+                f"{'Custom slot request' if is_custom else 'New appointment'} from {name} on {appt} "
+                f"({self._meeting_mode_label(visit)}). "
                 f"Purpose: {purpose}. "
                 "Approval link sent to doctor via email (and SMS if available)."
             )
@@ -272,6 +284,7 @@ class NotificationsService:
                     purpose=purpose,
                     approval_url=approval_url,
                     open_slot_request=is_open,
+                    meeting_mode=self._meeting_mode_label(visit),
                 )
             except Exception as exc:
                 logger.error(
@@ -285,15 +298,16 @@ class NotificationsService:
             )
 
         if staff.phone:
+            mode_label = self._meeting_mode_label(visit)
             if is_open:
                 sms_message = (
-                    f"Connitor: {name} wants a visiting slot on {appt}. "
-                    f"Purpose: {purpose}. Approve or decline: {approval_url}"
+                    f"Connitor: {name} wants a visiting slot. Purpose: {purpose}. "
+                    f"Approve or decline: {approval_url}"
                 )
             else:
                 sms_message = (
-                    f"Connitor: New appointment from {name} on {appt}. "
-                    f"Purpose: {purpose}. Approve or decline: {approval_url}"
+                    f"Connitor: {'Visit slot request' if is_custom else 'New appointment'} from {name} "
+                    f"on {appt} ({mode_label}). Purpose: {purpose}. Approve or decline: {approval_url}"
                 )
             try:
                 self.sms.send_sms_only(staff.phone, sms_message)
@@ -452,6 +466,7 @@ class NotificationsService:
                     check_in_otp=check_in_otp,
                     qr_image_base64=visit.visitQRCode,
                     doctor_feedback=feedback or None,
+                    visitor_pass_id=visit.visitorPassId,
                 )
             except Exception as exc:
                 logger.error("Failed to send gate pass email to %s: %s", visitor.email, exc)
@@ -462,11 +477,13 @@ class NotificationsService:
             self.email.send_notification(visitor.email, "Appointment Approved", msg)
 
         if check_in_otp:
-            self.sms.send_message(
-                visitor.phone,
-                f"Connitor: Appointment approved with Dr. {doctor.name}. Check-in OTP: {check_in_otp}. "
-                "Show QR from your email at security.",
+            sms_text = (
+                f"Connitor: Appointment approved with Dr. {doctor.name}. "
             )
+            if visit.visitorPassId:
+                sms_text += f"Pass ID: {visit.visitorPassId}. "
+            sms_text += f"Check-in OTP: {check_in_otp}. Show QR from your email at security."
+            self.sms.send_message(visitor.phone, sms_text)
         else:
             self.sms.send_message(
                 visitor.phone,
@@ -706,6 +723,96 @@ class NotificationsService:
             self.sms.send_message(doctor.phone, f"Patient {name} has checked in for their appointment.")
         visit.doctorNotifiedAt = now_ist()
         self.db.commit()
+
+    def notify_doctor_visit_extension(self, visit: Visit, token: str) -> None:
+        from app.services.visit_slot_extension_service import VisitSlotExtensionService
+
+        doctor = visit.staff
+        if not doctor or not doctor.email:
+            return
+        visitor_name = self._visitor_name(visit.visitor) if visit.visitor else "your visitor"
+        expected_end = format_ist_datetime(visit.expectedEndTime)
+        url = VisitSlotExtensionService(self.db).build_extend_url(visit.id, token)
+        msg = (
+            f"Your visit with {visitor_name} is due to end at {expected_end}. "
+            "Open the email link if you need to extend. Security should hold the next visitor."
+        )
+        self._add_notification(doctor.id, visit.id, msg)
+        try:
+            self.email.send_visit_extension_email(
+                doctor.email,
+                doctor_name=doctor.name or "Doctor",
+                visitor_name=visitor_name,
+                expected_end=expected_end,
+                extend_url=url,
+            )
+        except Exception as exc:
+            logger.error("Failed to send visit extension email to %s: %s", doctor.email, exc)
+
+    def notify_security_visit_extended(self, visit: Visit, extra_minutes: int) -> None:
+        visitor_name = self._visitor_name(visit.visitor) if visit.visitor else "Visitor"
+        doctor_name = visit.staff.name if visit.staff else visit.staffName or "Doctor"
+        expected_end = format_ist_datetime(visit.expectedEndTime)
+        msg = (
+            f"Dr. {doctor_name} extended the visit with {visitor_name} by {extra_minutes} minutes. "
+            f"New expected end: {expected_end}. Hold the next visitor until then."
+        )
+        security = self._security_users(visit.branchId)
+        for user in security:
+            self._add_notification(user.id, visit.id, msg)
+        for user in security:
+            if not user.email:
+                continue
+            try:
+                self.email.send_visit_extended_security_email(
+                    user.email,
+                    doctor_name=doctor_name,
+                    visitor_name=visitor_name,
+                    extra_minutes=extra_minutes,
+                    expected_end=expected_end,
+                )
+            except Exception as exc:
+                logger.error("Failed to email security %s: %s", user.email, exc)
+
+    def notify_next_visitor_delayed(
+        self,
+        next_visit: Visit,
+        current: Visit,
+        extra_minutes: int,
+        *,
+        calendar_shifted: bool,
+        new_window: str | None = None,
+    ) -> None:
+        visitor = next_visit.visitor
+        if not visitor:
+            return
+        visitor_name = self._visitor_name(visitor)
+        doctor_name = current.staff.name if current.staff else current.staffName or "Doctor"
+        new_slot = new_window or format_ist_datetime(next_visit.appointmentDate) or "the updated time"
+        shift_note = (
+            f"Your visit is rescheduled to {new_slot} because the ongoing meeting was extended."
+            if calendar_shifted
+            else f"Please arrive about {extra_minutes} minutes later than planned (doctor running late)."
+        )
+        msg = (
+            f"Your appointment with Dr. {doctor_name} was rescheduled due to an extension of the "
+            f"ongoing meeting. New time: {new_slot}."
+            if calendar_shifted
+            else f"Your appointment with Dr. {doctor_name} is delayed by {extra_minutes} minutes. {shift_note}"
+        )
+        if visitor.email:
+            try:
+                self.email.send_next_visitor_delayed_email(
+                    visitor.email,
+                    visitor_name=visitor_name,
+                    doctor_name=doctor_name,
+                    extra_minutes=extra_minutes,
+                    new_slot=new_slot if calendar_shifted else f"delayed by {extra_minutes} minutes",
+                )
+            except Exception as exc:
+                logger.error("Failed to email delayed visitor %s: %s", visitor.email, exc)
+        if visitor.phone:
+            self.sms.send_message(visitor.phone, msg)
 
     def notify_admins_on_check_in(self, visit: Visit, visitor: Visitor, doctor: User | None) -> None:
         name = self._visitor_name(visitor)

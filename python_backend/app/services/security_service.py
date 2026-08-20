@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi import HTTPException
 from sqlalchemy.orm import Session, joinedload
 
@@ -47,6 +49,12 @@ class SecurityService:
         if visit.status != VisitStatus.REQUEST_SENT.value:
             raise HTTPException(status_code=409, detail=f"This visit is already in '{visit.status}' status.")
 
+        if visit.appointmentMode != AppointmentMode.ONLINE.value:
+            from app.services.visitor_pass_service import VisitorPassService
+
+            VisitorPassService(self.db).allocate_for_visit(visit, assigned_by_id=user.get("id"))
+            self.db.flush()
+
         self.gate_pass.generate_check_in_otp(visit_id)
         visit = (
             self.db.query(Visit)
@@ -85,13 +93,24 @@ class SecurityService:
         )
         if not visit:
             raise HTTPException(status_code=404, detail="Visit request not found at this branch.")
-        if visit.status != VisitStatus.REQUEST_SENT.value:
+        if visit.checkInTime is not None or visit.status in (
+            VisitStatus.CHECKED_IN.value,
+            VisitStatus.CHECKED_OUT.value,
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail="This visit cannot be rejected after check-in.",
+            )
+        if visit.status not in (VisitStatus.REQUEST_SENT.value, VisitStatus.APPROVED.value):
             raise HTTPException(
                 status_code=409,
                 detail=f"This visit is already in '{visit.status}' status and cannot be rejected.",
             )
         visit.status = VisitStatus.REJECTED.value
         visit.rejectionReason = rejection_reason
+        from app.services.visitor_pass_service import VisitorPassService
+
+        VisitorPassService(self.db).recycle_for_visit(visit)
         self.db.commit()
         if visit.staff:
             self.notifications.notify_staff_on_security_rejection(
@@ -206,7 +225,10 @@ class SecurityService:
             .order_by(Visit.appointmentDate.asc())
             .all()
         )
-        appointments = [self._serialize_appointment(v) for v in visits]
+        from app.services.visit_slot_extension_service import VisitSlotExtensionService
+
+        live_ends = VisitSlotExtensionService(self.db).live_end_by_staff(user.get("branchId") or "")
+        appointments = [self._serialize_appointment(v, live_ends=live_ends) for v in visits]
         return {"appointments": appointments, "total": len(appointments)}
 
     def get_pending_appointments(self, user: dict) -> dict:
@@ -223,7 +245,10 @@ class SecurityService:
             .order_by(Visit.appointmentDate.asc())
             .all()
         )
-        appointments = [self._serialize_appointment(v) for v in visits]
+        from app.services.visit_slot_extension_service import VisitSlotExtensionService
+
+        live_ends = VisitSlotExtensionService(self.db).live_end_by_staff(user.get("branchId") or "")
+        appointments = [self._serialize_appointment(v, live_ends=live_ends) for v in visits]
         return {"appointments": appointments, "total": len(appointments)}
 
     def get_upcoming_confirmed_appointments(self, user: dict) -> dict:
@@ -242,11 +267,28 @@ class SecurityService:
             .order_by(Visit.appointmentDate.asc())
             .all()
         )
-        appointments = [self._serialize_appointment(v) for v in visits]
+        from app.services.visit_slot_extension_service import VisitSlotExtensionService
+
+        live_ends = VisitSlotExtensionService(self.db).live_end_by_staff(user.get("branchId") or "")
+        appointments = [self._serialize_appointment(v, live_ends=live_ends) for v in visits]
         return {"appointments": appointments, "total": len(appointments)}
 
-    def _serialize_appointment(self, visit: Visit) -> dict:
+    def _serialize_appointment(self, visit: Visit, live_ends: dict | None = None) -> dict:
         middle = f" {visit.visitor.middleName}" if visit.visitor.middleName else ""
+        from datetime import datetime
+
+        now = now_ist()
+        expected = visit.expectedEndTime
+        is_live = (
+            visit.status == VisitStatus.CHECKED_IN.value
+            and visit.checkOutTime is None
+            and isinstance(expected, datetime)
+            and expected > now
+        )
+        other_end = (live_ends or {}).get(visit.staffId) if visit.staffId else None
+        hold_next = is_live or (
+            visit.status in (VisitStatus.APPROVED.value, VisitStatus.REQUEST_SENT.value) and other_end is not None
+        )
         return {
             "visitId": visit.id,
             "visitorName": f"{visit.visitor.firstName}{middle} {visit.visitor.lastName}".strip(),
@@ -262,6 +304,13 @@ class SecurityService:
             "appointmentMode": visit.appointmentMode or "IN_PERSON",
             "isOnline": visit.appointmentMode == AppointmentMode.ONLINE.value,
             "zoomJoinUrl": visit.zoomJoinUrl if visit.appointmentMode == AppointmentMode.ONLINE.value else None,
+            "visitorPassId": visit.visitorPassId,
+            "visitorType": visit.visitorType,
+            "meetingStatus": visit.meetingStatus if visit.visitorType == "SALES_REPRESENTATIVE" else None,
+            "companyName": visit.companyName if visit.visitorType == "SALES_REPRESENTATIVE" else None,
+            "expectedEndTime": expected.isoformat() if expected else None,
+            "allottedMinutes": visit.allottedMinutes,
+            "holdNextVisitor": hold_next,
         }
 
     def get_visitor_details(self, visit_id: str, user: dict) -> dict:
@@ -337,6 +386,7 @@ class SecurityService:
                 "checkedInAt": visit.checkInTime.isoformat() if visit.checkInTime else None,
                 "checkedOutAt": visit.checkOutTime.isoformat() if visit.checkOutTime else None,
                 "checkInOtp": visit.checkInOtp,
+                "visitorPassId": visit.visitorPassId,
                 "checkInOtpExpiry": visit.checkInOtpExpiry.isoformat() if visit.checkInOtpExpiry else None,
                 "gatePassGeneratedAt": visit.gatePassGeneratedAt.isoformat()
                 if visit.gatePassGeneratedAt

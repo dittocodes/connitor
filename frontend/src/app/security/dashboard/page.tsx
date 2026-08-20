@@ -6,6 +6,7 @@ import { CheckInTab } from './components/CheckInTab';
 import { TodayAppointmentsTab } from './components/TodayAppointmentsTab';
 import { TodayDeliveriesTab } from './components/TodayDeliveriesTab';
 import { OnSpotQrPanel } from './components/OnSpotQrPanel';
+import { VisitorPassesTab } from './components/VisitorPassesTab';
 import { LogsTab } from '@/components/security/logs-tab/logs-tab';
 import { DeliveryScanTab } from '@/features/delivery-management/DeliveryScanTab';
 import { AttendantPassScanTab } from '@/features/attendant-passes/AttendantPassScanTab';
@@ -33,6 +34,7 @@ interface User {
 type SecurityTab =
   | 'check-in'
   | 'appointments'
+  | 'visitor-passes'
   | 'logs'
   | 'delivery-scan'
   | 'deliveries'
@@ -41,6 +43,7 @@ type SecurityTab =
 function parseTab(value: string | null): SecurityTab {
   if (
     value === 'appointments' ||
+    value === 'visitor-passes' ||
     value === 'logs' ||
     value === 'check-in' ||
     value === 'delivery-scan' ||
@@ -92,7 +95,7 @@ function SecurityDashboard(): React.ReactElement {
   const branchName = user?.branchName ?? user?.branch?.name;
 
   React.useEffect(() => {
-    const interval = setInterval(() => setIsLive(true), 30000);
+    const interval = setInterval(() => setIsLive(true), 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -139,6 +142,20 @@ function SecurityDashboard(): React.ReactElement {
           </div>
           <div className="p-4">
             <TodayAppointmentsTab branchId={branchId} refreshKey={appointmentsRefresh} />
+          </div>
+        </section>
+
+        <section
+          className="bg-card rounded-lg border border-border shadow-sm"
+          aria-labelledby="visitor-passes-heading"
+        >
+          <div className="px-4 py-3 border-b border-border">
+            <h2 id="visitor-passes-heading" className="text-lg font-semibold text-card-foreground">
+              Visitor passes
+            </h2>
+          </div>
+          <div className="p-4">
+            <VisitorPassesTab branchId={branchId} refreshKey={appointmentsRefresh} />
           </div>
         </section>
 
@@ -226,6 +243,8 @@ function SecurityDashboard(): React.ReactElement {
         <CheckInTab branchId={branchId} onCheckInSuccess={handleCheckInSuccess} />
       ) : activeTab === 'appointments' ? (
         <TodayAppointmentsTab branchId={branchId} refreshKey={appointmentsRefresh} />
+      ) : activeTab === 'visitor-passes' ? (
+        <VisitorPassesTab branchId={branchId} refreshKey={appointmentsRefresh} />
       ) : activeTab === 'delivery-scan' ? (
         <DeliveryScanTab branchId={branchId} />
       ) : activeTab === 'attendant-scan' ? (

@@ -98,7 +98,9 @@ class GatePassService:
         draw.text((20, 90), f"Phone: {visit.visitor.phone}", fill=(52, 73, 94))
         draw.text((20, 120), f"Branch: {visit.branch.name if visit.branch else 'N/A'}", fill=(52, 73, 94))
         draw.text((20, 150), f"Check-In OTP: {visit.checkInOtp or 'N/A'}", fill=(231, 76, 60))
-        draw.text((20, 180), f"Category: {visit.visitCategory or 'N/A'}", fill=(52, 73, 94))
+        if visit.visitorPassId:
+            draw.text((20, 175), f"Pass ID: {visit.visitorPassId}", fill=(13, 148, 136))
+        draw.text((20, 205), f"Category: {visit.visitCategory or 'N/A'}", fill=(52, 73, 94))
 
         buffer = io.BytesIO()
         img.save(buffer, format="PNG")
@@ -146,7 +148,7 @@ class GatePassService:
 
         base_query = (
             self.db.query(Visit)
-            .options(joinedload(Visit.visitor), joinedload(Visit.staff))
+            .options(joinedload(Visit.visitor), joinedload(Visit.staff), joinedload(Visit.bookedSlot))
             .filter(Visit.branchId == branch_id)
         )
         if visit_id:
@@ -166,6 +168,10 @@ class GatePassService:
             raise HTTPException(status_code=400, detail="CHECKIN_OTP_EXPIRED")
 
         can_check_in = visit.status == VisitStatus.APPROVED.value
+        if can_check_in:
+            from app.services.visit_slot_extension_service import VisitSlotExtensionService
+
+            VisitSlotExtensionService(self.db).assert_ready_for_check_in(visit)
         if visit.visitor:
             self.notifications.notify_visitor_otp_verified(visit, visit.visitor, visit.staff)
         return {
@@ -227,7 +233,7 @@ class GatePassService:
 
         base_query = (
             self.db.query(Visit)
-            .options(joinedload(Visit.visitor), joinedload(Visit.staff))
+            .options(joinedload(Visit.visitor), joinedload(Visit.staff), joinedload(Visit.bookedSlot))
             .filter(Visit.branchId == user.get("branchId"))
         )
         if visit_id:
@@ -310,6 +316,10 @@ class GatePassService:
         if not visit.isCodeUsed:
             raise HTTPException(status_code=400, detail="QR_CODE_ALREADY_USED")
 
+        from app.services.visit_slot_extension_service import VisitSlotExtensionService
+
+        VisitSlotExtensionService(self.db).assert_ready_for_check_in(visit)
+
         if visit.visitor:
             self.notifications.notify_visitor_otp_verified(visit, visit.visitor, visit.staff)
 
@@ -351,4 +361,5 @@ def model_to_dict_visit(visit: Visit) -> dict:
         "appointmentDate": visit.appointmentDate.isoformat() if visit.appointmentDate else None,
         "idProofVerified": visit.idProofVerified,
         "idProofType": visit.idProofType,
+        "visitorPassId": visit.visitorPassId,
     }

@@ -9,7 +9,7 @@ import {
 } from '@/lib/services/attendantPassService';
 import { AmsPageShell } from '@/features/attendant-management/ui';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { DASHBOARD_REFRESH_MS } from '@/lib/dashboard-refresh';
 
 const WARDS = ['All', 'ICU', 'NICU', 'Emergency', 'General', 'Private', 'VIP'];
 
@@ -19,7 +19,7 @@ export default function AmsActivePage(): React.ReactElement {
   const [ward, setWard] = React.useState('All');
   const [rows, setRows] = React.useState<AttendantPassRow[]>([]);
 
-  const load = React.useCallback(async () => {
+  const load = React.useCallback(async (quiet = false) => {
     if (!branchId) return;
     try {
       const items = await AttendantPassService.listActive(
@@ -28,12 +28,14 @@ export default function AmsActivePage(): React.ReactElement {
       );
       setRows(items);
     } catch {
-      toast.error('Could not load active attendants');
+      if (!quiet) toast.error('Could not load active attendants');
     }
   }, [branchId, ward]);
 
   React.useEffect(() => {
     void load();
+    const id = window.setInterval(() => void load(true), DASHBOARD_REFRESH_MS);
+    return () => window.clearInterval(id);
   }, [load]);
 
   return (

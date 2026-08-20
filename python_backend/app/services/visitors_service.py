@@ -1,10 +1,11 @@
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from app.utils.timezone import ist_day_bounds, now_ist, parse_to_ist_naive, today_end_ist, today_start_ist
 from types import SimpleNamespace
 from typing import Any
 
 from fastapi import HTTPException, UploadFile
+from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.config import get_settings
@@ -12,6 +13,8 @@ from app.models import Branch, User, Visit, Visitor
 from app.models.enums import AppointmentMode, Role, VisitCategory, VisitStatus
 from app.services.gcp_storage_service import GcpStorageService
 from app.services.notifications_service import NotificationsService
+from app.services.sales_meeting_dispatch import dispatch_sales_meeting_confirm_email
+from app.services.sales_meeting_service import SalesMeetingService, apply_visitor_kind
 from app.utils.serializers import model_to_dict
 
 IMAGE_TYPES = re.compile(r"image/(jpeg|jpg|png|gif|webp)", re.I)
@@ -23,6 +26,21 @@ class VisitorsService:
         self.db = db
         self.gcp = GcpStorageService()
         self.notifications = NotificationsService(db)
+
+    def _queue_sales_meeting_confirm(self, visit: Visit, background_tasks: Any = None) -> None:
+        token = SalesMeetingService(self.db).prepare_confirmation_after_check_in(visit)
+        if not token:
+            return
+        if background_tasks is not None:
+            background_tasks.add_task(dispatch_sales_meeting_confirm_email, visit.id, token)
+            return
+        import threading
+
+        threading.Thread(
+            target=dispatch_sales_meeting_confirm_email,
+            args=(visit.id, token),
+            daemon=True,
+        ).start()
 
     def _validate_file(self, file: UploadFile, pattern: re.Pattern, field: str) -> None:
         if not file.content_type or not pattern.search(file.content_type):
@@ -133,6 +151,7 @@ class VisitorsService:
             staffPhone=data.get("staffPhone") or (staff.phone if staff else None),
             visitingCardPhoto=data.get("visitingCardPhoto"),
         )
+        apply_visitor_kind(visit, data)
         self.db.add(visit)
         self.db.commit()
         self.db.refresh(visit)
@@ -146,12 +165,12 @@ class VisitorsService:
         data = {**data, "branchId": user.get("branchId")}
         return self.public_create_visit_request(user.get("branchId") or "", data)
 
-    def verify_code(self, visit_code: str, user: dict) -> dict:
+    def verify_code(self, visit_code: str, user: dict, background_tasks: Any = None) -> dict:
         if user["role"] not in (Role.SECURITY.value, Role.SECURITY_SUPERVISOR.value):
             raise HTTPException(status_code=403, detail="Access denied")
         visit = (
             self.db.query(Visit)
-            .options(joinedload(Visit.staff), joinedload(Visit.visitor))
+            .options(joinedload(Visit.staff), joinedload(Visit.visitor), joinedload(Visit.bookedSlot))
             .filter(
                 (Visit.visitCode == visit_code) | (Visit.visitQRCode == visit_code),
                 Visit.branchId == user.get("branchId"),
@@ -163,18 +182,29 @@ class VisitorsService:
             raise HTTPException(status_code=404, detail="Invalid or expired visit code.")
         if not visit.isCodeUsed:
             raise HTTPException(status_code=400, detail="Visit code has already been used or is not valid for check-in.")
+        from app.services.visit_slot_extension_service import VisitSlotExtensionService
+
+        clock = VisitSlotExtensionService(self.db)
+        clock.assert_ready_for_check_in(visit)
         visit.status = VisitStatus.CHECKED_IN.value
         visit.checkInTime = now_ist()
         visit.checkedInById = user["id"]
         visit.checkedInLocation = user.get("location")
         visit.isCodeUsed = False
+        clock.start_clock(visit)
         self.db.commit()
         if visit.staff and visit.visitor:
             self.notifications.notify_staff_on_check_in(visit, visit.staff, visit.visitor)
+        self._queue_sales_meeting_confirm(visit, background_tasks)
         return {"message": "Visitor checked in successfully.", "visit": model_to_dict(visit)}
 
-    def check_in_visitor(self, visit_id: str, user: dict) -> dict:
-        visit = self.db.query(Visit).options(joinedload(Visit.visitor), joinedload(Visit.staff)).filter(Visit.id == visit_id).first()
+    def check_in_visitor(self, visit_id: str, user: dict, background_tasks: Any = None) -> dict:
+        visit = (
+            self.db.query(Visit)
+            .options(joinedload(Visit.visitor), joinedload(Visit.staff), joinedload(Visit.bookedSlot))
+            .filter(Visit.id == visit_id)
+            .first()
+        )
         if not visit:
             raise HTTPException(status_code=404, detail="VISIT_NOT_FOUND")
         if visit.branchId != user.get("branchId"):
@@ -194,11 +224,16 @@ class VisitorsService:
             and visit.visitSubType != "URGENT_PASSCODE"
         ):
             raise HTTPException(status_code=400, detail="ID_PROOF_NOT_VERIFIED")
+        from app.services.visit_slot_extension_service import VisitSlotExtensionService
+
+        clock = VisitSlotExtensionService(self.db)
+        clock.assert_ready_for_check_in(visit)
         visit.status = VisitStatus.CHECKED_IN.value
         visit.checkInTime = now_ist()
         visit.checkedInById = user["id"]
         visit.checkedInLocation = user.get("location")
         visit.isCodeUsed = False
+        clock.start_clock(visit)
         self.db.commit()
         if visit.staff and visit.visitor:
             if visit.appointmentDate:
@@ -208,12 +243,16 @@ class VisitorsService:
             else:
                 self.notifications.notify_staff_on_check_in(visit, visit.staff, visit.visitor)
                 self.notifications.notify_visitor_checked_in(visit, visit.visitor, visit.staff)
+        self._queue_sales_meeting_confirm(visit, background_tasks)
         return {
             "success": True,
             "message": "Visitor checked in successfully.",
             "visitId": visit.id,
             "checkInTime": visit.checkInTime,
             "visitor": {"id": visit.visitor.id, "firstName": visit.visitor.firstName, "lastName": visit.visitor.lastName},
+            "visitorPassId": visit.visitorPassId,
+            "expectedEndTime": visit.expectedEndTime.isoformat() if visit.expectedEndTime else None,
+            "allottedMinutes": visit.allottedMinutes,
         }
 
     def checkout(self, visit_id: str, user: dict) -> dict:
@@ -236,6 +275,9 @@ class VisitorsService:
         visit.checkedOutById = user["id"]
         visit.durationMinutes = duration
         visit.totalDurationMinutes = duration
+        from app.services.visit_slot_extension_service import VisitSlotExtensionService
+
+        VisitSlotExtensionService(self.db).cancel_tokens(visit)
         self.db.commit()
         visit_loaded = (
             self.db.query(Visit)
@@ -263,6 +305,36 @@ class VisitorsService:
         )
         return [model_to_dict(v) for v in visits]
 
+    def _summary_row(self, visit: Visit) -> dict:
+        visitor = visit.visitor
+        middle = f" {visitor.middleName}" if visitor and visitor.middleName else ""
+        visitor_name = (
+            f"{visitor.firstName}{middle} {visitor.lastName}".strip() if visitor else "Unknown Visitor"
+        )
+        person = (visit.staff.name if visit.staff else visit.staffName) or "N/A"
+        purpose = visit.purpose or visit.deliveryPlatform or "Visit"
+        return {
+            "id": visit.id,
+            "visitorName": visitor_name,
+            "visitorPhone": visitor.phone if visitor else "",
+            "personToMeet": person,
+            "purpose": purpose,
+            "visitorPhoto": visitor.photo if visitor else None,
+            "status": visit.status,
+            "checkInTime": visit.checkInTime.isoformat() if visit.checkInTime else None,
+            "checkOutTime": visit.checkOutTime.isoformat() if visit.checkOutTime else None,
+            "createdAt": visit.createdAt.isoformat() if visit.createdAt else now_ist().isoformat(),
+            "checkedInBy": visit.checkedInById,
+            "checkedInLocation": visit.checkedInLocation,
+            "checkedOutLocation": visit.checkedOutLocation,
+            "checkedOutBy": visit.checkedOutById,
+            "visitorEmail": visitor.email if visitor else None,
+            "visitorAddress": visitor.address if visitor else None,
+            "rejectionReason": visit.rejectionReason,
+            "visitCode": visit.visitCode,
+            "visitQRCode": visit.visitQRCode,
+        }
+
     def summary(self, query: dict, user: dict) -> dict:
         if user["role"] not in (
             Role.SECURITY_SUPERVISOR.value,
@@ -276,11 +348,50 @@ class VisitorsService:
             q = q.filter(Visit.branchId == user.get("branchId"))
         if query.get("status"):
             q = q.filter(Visit.status == query["status"])
-        skip = int(query.get("skip", 0))
-        take = int(query.get("take", 20))
+        date_value = query.get("date")
+        if isinstance(date_value, str) and date_value.strip():
+            day = datetime.strptime(date_value.strip()[:10], "%Y-%m-%d")
+            start = day.replace(hour=0, minute=0, second=0, microsecond=0)
+            end = start + timedelta(days=1)
+            q = q.filter(
+                or_(
+                    (Visit.appointmentDate >= start) & (Visit.appointmentDate < end),
+                    (Visit.appointmentDate.is_(None))
+                    & (Visit.createdAt >= start)
+                    & (Visit.createdAt < end),
+                )
+            )
+        search = (query.get("search") or "").strip()
+        if search:
+            like = f"%{search}%"
+            q = q.join(Visit.visitor).outerjoin(User, Visit.staffId == User.id).filter(
+                or_(
+                    Visitor.firstName.ilike(like),
+                    Visitor.lastName.ilike(like),
+                    Visitor.phone.like(like),
+                    User.name.ilike(like),
+                )
+            )
+        person_to_meet = query.get("personToMeet")
+        if person_to_meet not in (None, "", 0):
+            q = q.filter(Visit.staffId == str(person_to_meet))
+        limit = int(query.get("limit") or query.get("take") or 500)
+        if limit < 1:
+            limit = 500
+        page = int(query.get("page") or 1)
+        if page < 1:
+            page = 1
+        skip = int(query.get("skip") if query.get("skip") is not None else (page - 1) * limit)
+        if query.get("skip") is not None and query.get("page") is None:
+            page = skip // limit + 1 if limit else 1
         total = q.count()
-        visits = q.order_by(Visit.createdAt.desc()).offset(skip).limit(take).all()
-        return {"total": total, "visits": [model_to_dict(v) for v in visits]}
+        visits = q.order_by(Visit.createdAt.desc()).offset(skip).limit(limit).all()
+        return {
+            "data": [self._summary_row(v) for v in visits],
+            "total": total,
+            "page": page,
+            "limit": limit,
+        }
 
     async def update_visitor(self, visitor_id: str, data: dict, user: dict, files: dict[str, UploadFile | None]) -> dict:
         if user["role"] not in (Role.SECURITY.value, Role.SECURITY_SUPERVISOR.value):
@@ -398,6 +509,7 @@ class VisitorsService:
             staffPhone=data.get("staffPhone") or (staff.phone if staff else None),
             visitingCardPhoto=data.get("visitingCardPhoto"),
         )
+        apply_visitor_kind(visit, data)
         self.db.add(visit)
         self.db.commit()
         if staff:
@@ -435,6 +547,8 @@ class VisitorsService:
             staffName=data.get("staffName"),
             staffPhone=data.get("staffPhone"),
         )
+        if data.get("visitCategory", VisitCategory.MEETING.value) != VisitCategory.DELIVERY.value:
+            apply_visitor_kind(visit, data)
         self.db.add(visit)
         self.db.commit()
         self.db.refresh(visit)

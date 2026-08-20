@@ -138,6 +138,7 @@ export default function VisitorDashboardPage() {
   const { data, error, isLoading, mutate } = useSWR(
     ready ? 'visitor-appointments' : null,
     () => VisitorPortalService.getAppointments(),
+    { refreshInterval: 5_000 },
   );
 
   const logout = () => {

@@ -136,6 +136,8 @@ class AppointmentNotificationsTests(unittest.TestCase):
             appointment_date=ANY,
             purpose="Follow-up",
             approval_url="http://localhost:3000/approve-visit?token=tok",
+            open_slot_request=False,
+            meeting_mode="Offline",
         )
         self.service.sms.send_sms_only.assert_called_once()
         sms_phone, sms_text = self.service.sms.send_sms_only.call_args[0]
@@ -174,6 +176,65 @@ class AppointmentNotificationsTests(unittest.TestCase):
         self.assertIn("Rahul Mehta", sms_text)
         self.service.whatsapp.send_doctor_approval_details.assert_not_called()
         self.service.whatsapp.send_appointment_approval_buttons.assert_not_called()
+
+    @patch("app.services.visit_approval_link_service.VisitApprovalLinkService")
+    @patch("app.services.notifications_service.random.randint", return_value=482901)
+    def test_custom_slot_request_emails_doctor_datetime_and_mode(
+        self, _mock_rand: MagicMock, mock_link_cls: MagicMock
+    ) -> None:
+        visit = _visit(appointment_date=datetime(2026, 8, 16, 10, 0, 0))
+        visit.purpose = "[CUSTOM SLOT] Need a visit"
+        visit.appointmentMode = AppointmentMode.ONLINE.value
+        visit.status = VisitStatus.REQUEST_SENT.value
+        visit.smsApprovalCode = None
+        doctor = _doctor()
+        visitor = _visitor()
+        mock_link_cls.return_value.create_link.return_value = (
+            "tok",
+            "http://localhost:3000/approve-visit?token=tok",
+        )
+
+        self.service.notify_staff_on_visit_request(visit, doctor, visitor)
+
+        self.service.email.send_doctor_approval_request_email.assert_called_once_with(
+            doctor.email,
+            doctor_name=doctor.name,
+            visitor_name="Rahul Mehta",
+            appointment_date=ANY,
+            purpose="Need a visit",
+            approval_url="http://localhost:3000/approve-visit?token=tok",
+            open_slot_request=False,
+            meeting_mode="Online",
+        )
+        appt_arg = self.service.email.send_doctor_approval_request_email.call_args.kwargs[
+            "appointment_date"
+        ]
+        self.assertNotIn("to be decided", appt_arg)
+        self.service.sms.send_sms_only.assert_called_once()
+        sms_text = self.service.sms.send_sms_only.call_args[0][1]
+        self.assertIn("Online", sms_text)
+        self.assertIn("Need a visit", sms_text)
+
+    @patch.object(NotificationsService, "_send_calendar_invite")
+    def test_open_slot_request_skips_visitor_sms(
+        self, mock_calendar: MagicMock
+    ) -> None:
+        visit = _visit(appointment_date=datetime(2026, 8, 16, 0, 0, 0))
+        visit.purpose = "[CUSTOM SLOT] Need a visit"
+        doctor = _doctor()
+        visitor = _visitor()
+        branch = _branch()
+        self.db.get.return_value = branch
+
+        self.service.notify_visitor_booking_received(
+            visit, doctor, visitor, branch=branch, department=None
+        )
+
+        mock_calendar.assert_not_called()
+        self.service.sms.send_message.assert_not_called()
+        kwargs = self.service.email.send_booking_confirmation_email.call_args.kwargs
+        self.assertEqual(kwargs["appointment_date"], "to be decided by the doctor")
+        self.assertEqual(kwargs["purpose"], "Need a visit")
 
     def test_booking_notifies_security_email_and_sms(self) -> None:
         visit = _visit()

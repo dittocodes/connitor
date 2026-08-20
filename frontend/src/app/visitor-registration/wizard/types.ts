@@ -94,6 +94,9 @@ export interface MeetingVisitDetails {
   purpose: string;
   staffName?: string;      // For manual entry when "Other" is selected
   staffPhone?: string;     // For manual entry when "Other" is selected
+  visitorType?: 'GENERAL' | 'SALES_REPRESENTATIVE' | 'VENDOR';
+  companyName?: string;
+  companyEmail?: string;
 }
 
 export interface DeliveryVisitDetails {

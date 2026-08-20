@@ -294,6 +294,12 @@ class DoctorUrgentPasscodeService:
         self.db.add(visit)
         self.db.flush()
 
+        from app.services.visitor_pass_service import VisitorPassService
+
+        issued = VisitorPassService(self.db).allocate_for_visit(
+            visit, assigned_by_id=None
+        )
+
         if slot:
             self.db.refresh(slot)
             if slot.isBooked:
@@ -328,6 +334,7 @@ class DoctorUrgentPasscodeService:
             "entryQrPayload": qr["entryQrPayload"],
             "exitQrPayload": qr["exitQrPayload"],
             "checkInOtp": qr.get("checkInOtp"),
+            "visitorPassId": issued.passId if issued else visit.visitorPassId,
             "message": "Visit approved. Show the Entry QR to security for check-in.",
         }
 

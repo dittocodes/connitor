@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { DASHBOARD_REFRESH_MS } from '@/lib/dashboard-refresh';
 import {
   Select,
   SelectContent,
@@ -31,7 +32,7 @@ export default function AmsSearchPage(): React.ReactElement {
   const [selected, setSelected] = React.useState<AttendantPassRow | null>(null);
   const [extendTo, setExtendTo] = React.useState('');
 
-  const load = React.useCallback(async () => {
+  const load = React.useCallback(async (quiet = false) => {
     if (!branchId) return;
     try {
       const items = await AttendantPassService.search(
@@ -41,12 +42,14 @@ export default function AmsSearchPage(): React.ReactElement {
       );
       setRows(items);
     } catch {
-      toast.error('Search failed');
+      if (!quiet) toast.error('Search failed');
     }
   }, [branchId, q, status]);
 
   React.useEffect(() => {
     void load();
+    const id = window.setInterval(() => void load(true), DASHBOARD_REFRESH_MS);
+    return () => window.clearInterval(id);
   }, [load]);
 
   return (

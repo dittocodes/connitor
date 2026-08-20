@@ -95,6 +95,24 @@ def confirmed_appointments(
     return SecurityService(db).get_upcoming_confirmed_appointments(user)
 
 
+@router.get("/visitor-passes")
+def list_visitor_passes(
+    user: Annotated[dict, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+    date: str | None = Query(default=None),
+    q: str | None = Query(default=None),
+    branchId: str | None = Query(default=None),
+):
+    from app.services.visitor_pass_service import VisitorPassService
+
+    branch_id = branchId or user.get("branchId")
+    if not branch_id:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=400, detail="branchId is required.")
+    return VisitorPassService(db).list_passes(user, branch_id, pass_date=date, query=q)
+
+
 @router.get("/deliveries/today")
 def today_deliveries(
     user: Annotated[dict, Depends(get_current_user)],
