@@ -22,6 +22,7 @@
 | **Distributor Onboarding** | 🟢 Live        | Agent     | Self-serve apply `/vendor/register`; hospital review on delivery vendors; `docs/features/distributor-onboarding/` |
 | **Urgent visit passcode**  | 🟢 Live        | Agent     | Gate verify → visitor register/book (auto-approved) → Entry/Exit QR — `docs/features/urgent-visit-passcode/` |
 | **Doctor schedule slots**  | 🟢 Live        | Agent     | Exclusive booked slots; doctors no longer add/publish them from My Visitors — `docs/features/doctor-schedule-slots/` |
+| **Visit slot allotment** | 🟢 Live | Agent | Hospital daily quota + admin allot/routine → even-split `DoctorAvailabilitySlot` — `docs/features/visit-slot-allotment/` |
 | **Delivery shared-minute slots** | 🟢 Live | Agent | Hospital 2h windows; distributors consume unload minutes — `docs/features/delivery-shared-minute-slots/` |
 | **Dummy delivery payment** | 🟢 Live | Agent | Book wizard Details → fake UPI/Card pay → `paymentMethod=DUMMY` credit+debit; demo only |
 | **Delivery hold (internal bypass)** | 🟢 Live | Agent | Security hold/release on Today's Deliveries; notify vendor/driver/admins — `docs/features/delivery-hold-bypass/` |
@@ -40,7 +41,8 @@
 
 ## 3. Knowledge / Constraints
 
-- **Auth:** OTP-based (No passwords). JWT Strategy.
+- **Local Dev (Windows):** MySQL Docker `hvts-mysql` on host port **3307** (`root` / `635241`, DB `hvts`). Python API: `python_backend/.venv` + `uvicorn main:app --port 8002`. Frontend proxies `/api` → `BACKEND_PROXY_URL=http://127.0.0.1:8002` via `frontend/.env.local`. Demo login: `superadmin@hvts.com` / `Connitor@123` (or OTP `123456` when `HVTS_TEST_MODE=true`).
+- **Auth:** OTP-based + password login. JWT Strategy.
 - **RBAC:** Hospital hierarchy: **Super Admin → Hospital Admin → Department Admin → Sub-Department Admin → Staff** (Doctor, Nurse, Security, and other clinical/support types). Legacy chain/branch admin roles remain for multi-site setup.
 - **Department Hierarchy:** Spec: `docs/features/department-hierarchy/`
 - **Visitor Types:** "Meeting" (High security/friction) vs "Delivery" (Low friction).
@@ -67,6 +69,7 @@
 - **Gate exit + duration:** Same-QR exit for deliveries (after GRN) and attendants; duration emails; one-inside booking block.
 - **Urgent visit passcode:** Doctor issues code → multi-app share (Web Share API for native Phone/Laptop app chooser, WhatsApp, Email, SMS, Copy) → security **confirm-verify** → visitor `/visitor/urgent` registers + books (auto-APPROVED) → Entry/Exit QR for check-in/out. Migrate: `python scripts/migrate_doctor_urgent_passcode.py --yes`, `migrate_urgent_passcode_share.py --yes`, `migrate_urgent_passcode_gate_flow.py --yes`.
 - **Doctor schedule:** Doctors do not publish slots from My Visitors. Public booking still uses exclusive `DoctorAvailabilitySlot`s when they exist; urgent passcode bypasses calendar.
+- **Visit slot allotment:** Hospital/branch admin sets per-branch `dailyQuota` and allots windows + slot counts to visit-capable STAFF (even split). Default routines + day/person overrides. Excel bulk import + staff email on allot. UI `/dashboard/visit-slots`. Migrate: `python scripts/migrate_visit_slot_allotment.py --yes` in `python_backend/`.
 - **Delivery volume pricing:** Distributor book form uses package types (Small→Custom) + vehicle type (Bike→LCV) fees with over-capacity handling; wizard **Payment** step uses dummy UPI/Card (`paymentMethod=DUMMY` credits then debits wallet). Legacy volume formula still accepted by API without packages.
 - **Delivery windows:** Hospital admin publishes multi-hour windows on `/dashboard/delivery-slots`; each booking consumes unload minutes (`slotMinutes`); remaining minutes stay available. Migrate: `python scripts/migrate_delivery_slot_minutes.py --yes`.
 - **Delivery hold:** Security puts distributor bookings `ON_HOLD` from Today's Deliveries (reason + optional until); notifies distributor/driver/hospital admin/super admin; release restores original `SCHEDULED` time. Migrate: `python scripts/migrate_delivery_hold.py --yes`.

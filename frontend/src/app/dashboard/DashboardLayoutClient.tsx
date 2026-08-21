@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { useNotifications } from '@/hooks/useNotifications';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { DemoRoleSwitcher } from '@/components/demo/DemoRoleSwitcher';
+import { RoleRoutePrefetcher } from '@/components/navigation/RoleRoutePrefetcher';
 
 interface User {
   id: string;
@@ -71,6 +72,7 @@ export default function DashboardLayoutClient({
 
   return (
     <SidebarProvider>
+      <RoleRoutePrefetcher role={user.role} />
       <Suspense fallback={null}>
         <RoleSidebar user={user} />
       </Suspense>

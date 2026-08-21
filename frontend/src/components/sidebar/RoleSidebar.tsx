@@ -163,6 +163,7 @@ export function RoleSidebar(props: RoleSidebarProps) {
                   >
                     <Link
                       href={item.href}
+                      prefetch
                       className="flex items-center gap-3 w-full"
                     >
                       <span className="flex items-center justify-center w-6 h-6">
