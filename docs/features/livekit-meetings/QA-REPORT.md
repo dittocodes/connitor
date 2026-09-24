@@ -7,7 +7,7 @@
 | pytest LiveKit and migrated Zoom tests (service, webhooks, approval, email, calendar, notifications, security, pass quota) | 70 passed |
 | Full pytest | 4 failures, none caused by this change: async tests without `pytest-asyncio`, and the in-person pass fixture in the hierarchy demo |
 | Playwright `livekit-call.spec.ts`, local (API :8002, Next :3000, LiveKit Cloud) | 2/2 passed |
-| Playwright `livekit-call.spec.ts`, staging (Amplify + EC2 + LiveKit Cloud) | 2/2 passed |
+| Playwright `livekit-call.spec.ts`, staging (Vercel + EC2 + LiveKit Cloud) | 2/2 passed |
 
 The two-browser spec checks:
 
@@ -32,7 +32,7 @@ On staging, the webhook steps post a LiveKit-signed payload from EC2 (`MEETING_W
 npx playwright test tests/e2e/specs/meetings --project=chromium
 
 # staging (frontend/)
-$env:PLAYWRIGHT_BASE_URL='https://staging.d1asvelid8ysbt.amplifyapp.com'
+$env:PLAYWRIGHT_BASE_URL='https://coninter-main.vercel.app'
 $env:MEETING_FIXTURE_CMD='ssh -i <key.pem> ubuntu@connitor.bengalurutechcommunity.com "cd /home/ubuntu/connitor/connitor/python_backend && conni/bin/python scripts/e2e_meeting_fixture.py"'
 $env:MEETING_API_BASE='https://connitor.bengalurutechcommunity.com'
 $env:MEETING_WEBHOOK_MODE='simulate'   # or 'real' once the dashboard webhook is set

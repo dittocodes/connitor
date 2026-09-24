@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Deploy backend (EC2) then frontend (Amplify).
+  Deploy backend (EC2) then frontend (Vercel).
 
 .EXAMPLE
   .\scripts\deploy\deploy-all.ps1

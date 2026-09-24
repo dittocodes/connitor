@@ -1,7 +1,7 @@
 # Connitor deploy automation
 
 Backend → **EC2** at [https://connitor.bengalurutechcommunity.com](https://connitor.bengalurutechcommunity.com)  
-Frontend → **AWS Amplify** static hosting (e.g. `staging.<appId>.amplifyapp.com`)
+Frontend → **Vercel** at [https://coninter-main.vercel.app](https://coninter-main.vercel.app) (Git: `dittocodes/coninter-main`, branch `main`, app root `frontend`)
 
 ## One-time setup
 
@@ -13,61 +13,61 @@ Copy-Item .\scripts\deploy\config.example.env .\scripts\deploy\config.env
 notepad .\scripts\deploy\config.env
 ```
 
-Fill in:
-
 | Key | Purpose |
 | --- | --- |
-| `AMPLIFY_APP_ID` | From Amplify console. **Note:** `d3cmxbitwiyeim` is not in AWS account `mohangola` — use an app in the active profile (e.g. `d1asvelid8ysbt`) or switch credentials. |
-| `EC2_PPK_KEY` | Optional PuTTY `.ppk`; scripts convert to OpenSSH PEM automatically |
-| `EC2_REMOTE_DIR` | `/home/ubuntu/connitor/connitor` on the current EC2 |
-| `EC2_SYSTEMD_SERVICE` | `conni` |
-| `EC2_VENV_DIR` | `conni` (venv folder under `python_backend/`) |
+| `FRONTEND_HEALTH_URL` | Production Vercel URL (trailing slash OK) |
+| `NEXT_PUBLIC_BACKEND_API_URL` | API host baked into the frontend build |
+| `VERCEL_GIT_REMOTE` / `VERCEL_GIT_BRANCH` | For `-UseGitPush` (default remote `coninter` → `main`) |
+| `EC2_*` | Backend SSH/rsync settings |
 
-### 2. AWS CLI
+### 2. Vercel
+
+1. Import [dittocodes/coninter-main](https://github.com/dittocodes/coninter-main) in the Vercel dashboard.
+2. **Root Directory:** `frontend`
+3. **Environment variables** (Production + Preview): `NEXT_PUBLIC_BACKEND_API_URL=https://connitor.bengalurutechcommunity.com`
+4. Build uses [`frontend/vercel.json`](../../../frontend/vercel.json) (`dist/` + SPA rewrites).
+
+CLI login (once per machine):
 
 ```powershell
-aws sts get-caller-identity
+npx vercel@latest login
+npx vercel@latest link --project coninter-main
 ```
 
-Use the account that owns the **Connitor Amplify app**. Manual zip deploy needs `amplify:CreateDeployment`, `StartDeployment`, `GetJob`.
+### 3. EC2: browser origins and public links
 
-### 3. EC2: systemd unit (recommended)
+On the server `python_backend/.env`:
 
-On the instance:
+```bash
+PUBLIC_FRONTEND_URL=https://coninter-main.vercel.app
+CORS_ALLOWED_ORIGINS=https://coninter-main.vercel.app,http://localhost:3000,http://127.0.0.1:3000
+```
+
+Then `sudo systemctl restart conni`.
+
+### 4. EC2: systemd (recommended)
 
 ```bash
 sudo cp /home/ubuntu/connitor/scripts/deploy/connitor-api.service.example /etc/systemd/system/connitor-api.service
-# Edit paths/user if needed
 sudo systemctl daemon-reload
 sudo systemctl enable --now connitor-api
-curl -s http://127.0.0.1:8000/ | head
 ```
 
-Put nginx/Caddy in front for HTTPS on `connitor.bengalurutechcommunity.com` → `127.0.0.1:8000`.
-
-### 4. EC2: first clone
-
-```bash
-cd /home/ubuntu
-git clone https://github.com/dittocodes/connitor.git connitor
-cd connitor/python_backend
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-# copy production .env onto the server (never commit it)
-```
-
-For `EC2_DEPLOY_METHOD=git`, merge/push to `main` (or set `EC2_GIT_BRANCH`) before deploying.
+Put nginx/Caddy in front for HTTPS on `connitor.bengalurutechcommunity.com` → app port.
 
 ---
 
 ## Deploy commands (from Windows)
 
 ```powershell
-# Backend only (SSH → git pull / rsync → restart)
+# Backend only
 .\scripts\deploy\deploy-backend.ps1
 
-# Frontend only (build + Amplify zip upload)
+# Frontend → Vercel production (local build verify + vercel deploy --prod)
 .\scripts\deploy\deploy-frontend.ps1
+
+# Frontend via Git push (Vercel auto-build on main)
+.\scripts\deploy\deploy-frontend.ps1 -UseGitPush
 
 # Both
 .\scripts\deploy\deploy-all.ps1
@@ -76,24 +76,13 @@ For `EC2_DEPLOY_METHOD=git`, merge/push to `main` (or set `EC2_GIT_BRANCH`) befo
 Options:
 
 ```powershell
-.\scripts\deploy\deploy-backend.ps1 -Method rsync   # push local tree (keeps server .env)
-.\scripts\deploy\deploy-frontend.ps1 -SkipBuild     # re-upload existing frontend/dist
+.\scripts\deploy\deploy-backend.ps1 -Method rsync
+.\scripts\deploy\deploy-frontend.ps1 -SkipBuild
 .\scripts\deploy\deploy-all.ps1 -BackendOnly
 .\scripts\deploy\deploy-all.ps1 -FrontendOnly
 ```
 
----
-
-## Amplify Git-connected builds (optional)
-
-`frontend/amplify.yml` is included. In Amplify Console:
-
-1. Connect GitHub repo `dittocodes/connitor`
-2. Set **app root** to `frontend` (or use the monorepo amplify.yml at repo root if you prefer)
-3. Env var: `NEXT_PUBLIC_BACKEND_API_URL=https://connitor.bengalurutechcommunity.com`
-4. Artifact dir: `dist`
-
-Then pushes to the connected branch auto-build. Manual `deploy-frontend.ps1` still works for hotfixes.
+Every push to `main` on `coninter-main` also triggers a Vercel production deploy when Git is connected.
 
 ---
 
@@ -105,12 +94,20 @@ deploy-all.ps1
  │   ├─ scp remote-backend-update.sh
  │   ├─ git pull  OR  rsync python_backend/
  │   ├─ pip install + optional migrations
- │   └─ systemctl restart connitor-api
+ │   └─ systemctl restart conni
  └─ deploy-frontend.ps1
-     ├─ NEXT_PUBLIC_BACKEND_API_URL=… npm run build → dist/
-     ├─ zip dist
-     └─ Amplify create-deployment → PUT zip → start-deployment → poll SUCCEED
+     ├─ (optional) npm run build → dist/  (sanity check)
+     └─ vercel deploy --prod   OR   git push coninter → main
 ```
+
+---
+
+## Retiring AWS Amplify
+
+Amplify is **no longer used** for this project. After Vercel is verified:
+
+1. In [AWS Amplify Console](https://ap-south-1.console.aws.amazon.com/amplify/), open the old Connitor app and **delete the app** (or disable auto-build) so traffic is not split.
+2. Remove old `*.amplifyapp.com` URLs from EC2 `CORS_ALLOWED_ORIGINS` and `PUBLIC_FRONTEND_URL` once nothing points at them.
 
 ---
 
@@ -118,8 +115,8 @@ deploy-all.ps1
 
 | Symptom | Fix |
 | --- | --- |
-| `create-deployment` AccessDenied | Wrong AWS account/profile for the Amplify app |
-| SSH Permission denied | Fix `EC2_SSH_KEY` / security group port 22 / user |
-| Health check fails after restart | Check `journalctl -u connitor-api -n 100`; nginx upstream port |
-| Frontend still hits old API | Rebuild with correct `NEXT_PUBLIC_BACKEND_API_URL` (baked at build time) |
-| CORS errors | On EC2 `.env` set `CORS_ALLOWED_ORIGINS` to your Amplify URL |
+| Vercel 404 on routes | Ensure `frontend/vercel.json` rewrites and **Root Directory** = `frontend` |
+| `vercel deploy` not logged in | Run `npx vercel login` and `vercel link` |
+| SSH Permission denied | Fix `EC2_SSH_KEY` / security group |
+| CORS errors from Vercel | Add `https://coninter-main.vercel.app` to EC2 `CORS_ALLOWED_ORIGINS` |
+| Frontend hits wrong API | Set `NEXT_PUBLIC_BACKEND_API_URL` in Vercel env and redeploy |

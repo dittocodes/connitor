@@ -28,9 +28,9 @@ fs.rmSync(outDir, { recursive: true, force: true });
 
 const distIndex = path.join(distDir, 'index.html');
 if (!fs.existsSync(distIndex)) {
-  console.error('dist/index.html missing after copy — Amplify export is incomplete.');
+  console.error('dist/index.html missing after copy — static export is incomplete.');
   process.exit(1);
 }
 
-console.log('Amplify-ready static export created at ./dist');
+console.log('Static export created at ./dist');
 console.log(`Home page: ${distIndex} (${fs.statSync(distIndex).size} bytes)`);

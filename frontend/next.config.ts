@@ -14,7 +14,7 @@ const isProdBuild = process.env.NODE_ENV === 'production';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  // Amplify static hosting — HTML pages land in `out/` then `scripts/prepare-dist.mjs` → `dist/`
+  // Static export (Vercel / local) — HTML in `out/` then `scripts/prepare-dist.mjs` → `dist/`
   ...(isProdBuild ? { output: 'export' as const } : {}),
   // Windows builds often OOM/crash with many parallel static-generation workers
   ...(isProdBuild ? { experimental: { cpus: 1 } } : {}),

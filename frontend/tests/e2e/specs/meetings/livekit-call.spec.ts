@@ -7,7 +7,7 @@
  *   npx playwright test tests/e2e/specs/meetings --project=chromium
  *
  * Staging:
- *   PLAYWRIGHT_BASE_URL=https://staging.d1asvelid8ysbt.amplifyapp.com \
+ *   PLAYWRIGHT_BASE_URL=https://coninter-main.vercel.app \
  *   MEETING_FIXTURE_CMD="ssh -i key.pem ubuntu@host 'cd ~/connitor/connitor/python_backend && ~/conni/bin/python scripts/e2e_meeting_fixture.py'" \
  *   MEETING_WEBHOOK_MODE=real npx playwright test tests/e2e/specs/meetings --project=chromium
  */
