@@ -89,12 +89,12 @@ export function OnSpotVisitFlow({ branchId, branchNameFromQuery }: OnSpotVisitFl
     return (
       <Card>
         <CardHeader className="text-center">
-          <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-teal-100 text-teal-800">
+          <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-[#4A90E2]/15 text-primary">
             <Building2 className="h-6 w-6" />
           </div>
           <CardTitle>Welcome to {branchName || 'the hospital'}</CardTitle>
           <CardDescription>
-            Create your Connitor profile or sign in, then book a doctor appointment — same as online
+            Create your Conninter profile or sign in, then book a doctor appointment — same as online
             booking.
           </CardDescription>
         </CardHeader>

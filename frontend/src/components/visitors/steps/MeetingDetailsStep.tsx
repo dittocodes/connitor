@@ -73,7 +73,7 @@ export const meetingDetailsSchema = z
       .string()
       .min(5, 'Purpose must be at least 5 characters')
       .max(500, 'Purpose must not exceed 500 characters'),
-    visitorType: z.enum(['GENERAL', 'SALES_REPRESENTATIVE', 'VENDOR']).default('GENERAL'),
+    visitorType: z.enum(['GENERAL', 'SALES_REPRESENTATIVE', 'VENDOR']),
     companyName: z.string().optional(),
     companyEmail: z.string().optional(),
   })

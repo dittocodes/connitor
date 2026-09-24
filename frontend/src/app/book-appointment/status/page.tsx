@@ -31,7 +31,7 @@ export default function BookingStatusPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-muted/30 p-8">
+        <div className="flex min-h-screen items-center justify-center bg-[#F7F9FC] p-8">
           <ConnitorLoader message="Loading appointment status…" />
         </div>
       }
@@ -78,7 +78,7 @@ function BookingStatusContent() {
   };
 
   return (
-    <div className="min-h-screen bg-muted/30 p-4 md:p-8">
+    <div className="min-h-screen bg-[#F7F9FC] p-4 md:p-8">
       <div className="mx-auto max-w-lg space-y-4">
         <Card className="relative overflow-hidden">
           {loading && (
@@ -117,7 +117,7 @@ function BookingStatusContent() {
                 <span>Booking Details</span>
                 <Badge variant="outline">
                   {status.appointmentMode === 'ONLINE' && status.status === 'APPROVED'
-                    ? 'Approved — Join via Zoom'
+                    ? 'Approved — Join video consultation'
                     : status.appointmentMode === 'ONLINE' && status.status === 'CHECKED_IN'
                       ? 'Online consultation in progress'
                       : status.appointmentMode === 'ONLINE' && status.status === 'CHECKED_OUT'
@@ -166,21 +166,21 @@ function BookingStatusContent() {
                 </p>
               )}
               {status.doctorFeedback && (
-                <div className="rounded-md bg-teal-50 border border-teal-100 p-3 mt-2">
-                  <p className="font-medium text-teal-900">Message from doctor</p>
-                  <p className="text-teal-950/90">{status.doctorFeedback}</p>
+                <div className="rounded-md bg-[#4A90E2]/10 border border-[#001B71]/08 p-3 mt-2">
+                  <p className="font-medium text-primary">Message from doctor</p>
+                  <p className="text-slate-800">{status.doctorFeedback}</p>
                 </div>
               )}
-              {status.status === 'APPROVED' && status.zoomJoinUrl && (
+              {(status.status === 'APPROVED' || status.status === 'CHECKED_IN') && status.meetingJoinUrl && (
                 <Button className="w-full mt-2" asChild>
-                  <a href={status.zoomJoinUrl} target="_blank" rel="noopener noreferrer">
-                    Join Zoom Meeting
+                  <a href={status.meetingJoinUrl} target="_blank" rel="noopener noreferrer">
+                    Join video consultation
                   </a>
                 </Button>
               )}
               {status.appointmentMode === 'ONLINE' && status.status === 'REQUEST_SENT' && (
                 <p className="text-xs text-muted-foreground">
-                  Your Zoom join link will appear here once the doctor approves your appointment.
+                  Your video consultation link will appear here once the doctor approves your appointment.
                 </p>
               )}
             </CardContent>

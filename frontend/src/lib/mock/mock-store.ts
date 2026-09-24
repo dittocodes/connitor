@@ -582,7 +582,7 @@ class MockStore {
       approvalCode: code,
       centralWhatsAppNumber: '8625877312',
       supportsInteractiveButtons: false,
-      outboundMessage: `Connitor: New request from ${visitorName} on ${appt}. Reply YES ${code} to approve or NO ${code} to reject on WhatsApp. Or review in My Visitors.`,
+      outboundMessage: `Conninter: New request from ${visitorName} on ${appt}. Reply YES ${code} to approve or NO ${code} to reject on WhatsApp. Or review in My Visitors.`,
     };
   }
 

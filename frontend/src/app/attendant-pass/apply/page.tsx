@@ -46,16 +46,16 @@ function PatientSummary({
   className?: string;
 }): React.ReactElement {
   return (
-    <div className={cn('rounded-lg border border-teal-200 bg-teal-50 p-4 text-sm text-teal-900', className)}>
+    <div className={cn('rounded-lg border border-[#001B71]/08 bg-[#4A90E2]/10 p-4 text-sm text-primary', className)}>
       <p className="font-medium">
         Selected patient: {patientDisplayName(lookup)}
         {lookup.mrn ? ` · MRN ${lookup.mrn}` : ''}
       </p>
-      <p className="mt-1 text-teal-800">
+      <p className="mt-1 text-slate-700">
         {lookup.wardName ? lookup.wardName : 'Ward not listed'}
         {lookup.roomNumber ? ` · Room ${lookup.roomNumber}` : ''}
       </p>
-      <p className="mt-1 text-teal-800">
+      <p className="mt-1 text-slate-700">
         Visiting hours:{' '}
         {lookup.visitingHours?.summary ??
           `${lookup.visitingHours?.defaultWindow.startTime ?? '11:00'}–${lookup.visitingHours?.defaultWindow.endTime ?? '16:00'} IST (default)`}
@@ -225,7 +225,7 @@ function ApplyForm(): React.ReactElement {
           submit your visit request.
         </p>
         {selectedBranch && (
-          <div className="rounded-lg border border-teal-200 bg-teal-50/80 px-4 py-3 text-sm text-teal-900">
+          <div className="rounded-lg border border-[#001B71]/08 bg-[#4A90E2]/10 px-4 py-3 text-sm text-primary">
             <span className="font-medium">Hospital:</span> {branchFullLabel(selectedBranch)}
           </div>
         )}
@@ -317,11 +317,11 @@ function ApplyForm(): React.ReactElement {
                           className={cn(
                             'flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors',
                             selected
-                              ? 'border-teal-500 bg-teal-50'
-                              : 'border-border bg-background hover:border-teal-300 hover:bg-teal-50/40',
+                              ? 'border-primary bg-[#4A90E2]/10'
+                              : 'border-border bg-background hover:border-[#4A90E2] hover:bg-[#4A90E2]/08',
                           )}
                         >
-                          <UserRound className="mt-0.5 h-4 w-4 shrink-0 text-teal-700" />
+                          <UserRound className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                           <span className="min-w-0 flex-1">
                             <span className="block font-medium text-sm">
                               {patientDisplayName(patient)}
@@ -427,7 +427,7 @@ function ApplyForm(): React.ReactElement {
 
 export default function AttendantPassApplyPage(): React.ReactElement {
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-8 md:px-8">
+    <main className="min-h-screen bg-[#F7F9FC] px-4 py-8 md:px-8">
       <React.Suspense fallback={<p className="text-sm text-muted-foreground">Loading…</p>}>
         <ApplyForm />
       </React.Suspense>

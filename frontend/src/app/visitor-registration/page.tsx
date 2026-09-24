@@ -52,11 +52,11 @@ function VisitorRegistrationLandingContent() {
     : 'Welcome to Hospital';
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-emerald-50 via-white to-teal-50 px-4 py-8">
+    <main className="flex min-h-screen items-center justify-center bg-[#F7F9FC] px-4 py-8">
       <div className="w-full max-w-[480px] text-center">
         <div className="mb-12">
           <Building2
-            className="mx-auto size-10 text-emerald-600"
+            className="mx-auto size-10 text-primary"
             aria-hidden="true"
           />
 
@@ -67,7 +67,7 @@ function VisitorRegistrationLandingContent() {
           </div>
 
           <div
-            className="mx-auto mt-4 h-0.5 w-12 bg-emerald-500"
+            className="mx-auto mt-4 h-0.5 w-12 bg-[#4A90E2]"
             aria-hidden="true"
           />
 
@@ -84,7 +84,7 @@ function VisitorRegistrationLandingContent() {
 
         <div className="flex justify-center py-12">
           <UserCircle
-            className="size-40 text-emerald-500/20"
+            className="size-40 text-primary/20"
             aria-hidden="true"
           />
         </div>
@@ -101,7 +101,7 @@ function VisitorRegistrationLandingContent() {
             <Button
               size="lg"
               type="button"
-              className="w-full cursor-pointer bg-emerald-700 hover:bg-emerald-800 text-white font-semibold"
+              className="w-full cursor-pointer font-semibold"
             >
               Start Registration
               <ArrowRight className="ml-2" aria-hidden="true" />
@@ -121,7 +121,7 @@ export default function VisitorRegistrationLandingPage() {
   return (
     <Suspense
       fallback={
-        <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-emerald-50 via-white to-teal-50 px-4 py-8">
+        <main className="flex min-h-screen items-center justify-center bg-[#F7F9FC] px-4 py-8">
           <p className="text-muted-foreground">Loading...</p>
         </main>
       }

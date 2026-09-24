@@ -107,7 +107,6 @@ export default function VendorFleetPage(): React.ReactElement {
         <Button
           size="sm"
           variant={tab === 'drivers' ? 'default' : 'outline'}
-          className={tab === 'drivers' ? 'bg-amber-600 hover:bg-amber-700' : ''}
           onClick={() => setTab('drivers')}
         >
           Drivers
@@ -115,7 +114,6 @@ export default function VendorFleetPage(): React.ReactElement {
         <Button
           size="sm"
           variant={tab === 'vehicles' ? 'default' : 'outline'}
-          className={tab === 'vehicles' ? 'bg-amber-600 hover:bg-amber-700' : ''}
           onClick={() => setTab('vehicles')}
         >
           Vehicles
@@ -124,7 +122,7 @@ export default function VendorFleetPage(): React.ReactElement {
 
       {tab === 'drivers' ? (
         <div className="grid gap-4 lg:grid-cols-2">
-          <Card className="border-amber-100 bg-white/90">
+          <Card className="border-[#001B71]/08 bg-white/90">
             <CardHeader>
               <CardTitle>Add driver</CardTitle>
             </CardHeader>
@@ -141,12 +139,12 @@ export default function VendorFleetPage(): React.ReactElement {
                 <Label>Phone</Label>
                 <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
               </div>
-              <Button className="bg-amber-600 hover:bg-amber-700" onClick={() => void addDriver()}>
+              <Button onClick={() => void addDriver()}>
                 Save driver
               </Button>
             </CardContent>
           </Card>
-          <Card className="border-teal-100 bg-white/90">
+          <Card className="border-[#001B71]/08 bg-white/90">
             <CardHeader>
               <CardTitle>Drivers ({agents.length})</CardTitle>
             </CardHeader>
@@ -171,7 +169,7 @@ export default function VendorFleetPage(): React.ReactElement {
         </div>
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
-          <Card className="border-amber-100 bg-white/90">
+          <Card className="border-[#001B71]/08 bg-white/90">
             <CardHeader>
               <CardTitle>Add vehicle</CardTitle>
             </CardHeader>
@@ -210,12 +208,12 @@ export default function VendorFleetPage(): React.ReactElement {
                   />
                 </div>
               </div>
-              <Button className="bg-amber-600 hover:bg-amber-700" onClick={() => void addVehicle()}>
+              <Button onClick={() => void addVehicle()}>
                 Save vehicle
               </Button>
             </CardContent>
           </Card>
-          <Card className="border-teal-100 bg-white/90">
+          <Card className="border-[#001B71]/08 bg-white/90">
             <CardHeader>
               <CardTitle>Vehicles ({vehicles.length})</CardTitle>
             </CardHeader>

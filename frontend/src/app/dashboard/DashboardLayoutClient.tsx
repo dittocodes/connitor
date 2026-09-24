@@ -77,7 +77,7 @@ export default function DashboardLayoutClient({
         <RoleSidebar user={user} />
       </Suspense>
       <SidebarInset data-testid="dashboard-container" className="min-w-0">
-        <header className="flex items-center gap-1 sm:gap-2 h-14 min-h-14 px-2 sm:px-4 border-b shrink-0 overflow-hidden">
+        <header className="flex items-center gap-1 sm:gap-2 h-14 min-h-14 px-2 sm:px-4 border-b border-[#001B71]/08 bg-white shrink-0 overflow-hidden">
           {!isCompactHeader ? <SidebarTrigger className="mr-2 shrink-0" /> : null}
           <div className="min-w-0 flex-1">
             {isCompactHeader ? <TeamSwitcher teams={teamsData} /> : null}

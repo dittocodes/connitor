@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.models import DoctorAvailabilitySlot, Visit
 from app.models.enums import AppointmentMode, VisitStatus
 from app.services.notifications_service import NotificationsService
-from app.services.zoom_service import ZoomService
+from app.services.livekit_service import LiveKitService
 from app.utils.serializers import model_to_dict
 
 CUSTOM_SLOT_MINUTES = 30
@@ -165,7 +165,7 @@ class StaffService:
                 )
 
         default_feedback = (
-            "Your online appointment has been approved. Use the Zoom link in your email to join at the scheduled time."
+            "Your online appointment has been approved. Use the video consultation link in your email to join at the scheduled time."
             if is_online
             else "Your appointment has been approved. Please arrive on time with a valid photo ID."
         )
@@ -183,27 +183,7 @@ class StaffService:
         if is_online:
             if not visit.appointmentDate:
                 raise HTTPException(status_code=400, detail="Online appointment requires a scheduled date and time.")
-            visitor = visit.visitor
-            doctor = visit.staff
-            visitor_name = (
-                f"{visitor.firstName} {visitor.lastName}".strip() if visitor else "Visitor"
-            )
-            doctor_name = doctor.name if doctor else visit.staffName or "Doctor"
-            topic = f"Online consultation — {visitor_name} with Dr. {doctor_name}"
-            try:
-                meeting = ZoomService().create_scheduled_meeting(
-                    topic=topic,
-                    start_time=visit.appointmentDate,
-                )
-            except Exception as exc:
-                raise HTTPException(
-                    status_code=503,
-                    detail=f"Failed to create Zoom meeting: {exc}",
-                ) from exc
-            visit.zoomMeetingId = meeting.meeting_id
-            visit.zoomJoinUrl = meeting.join_url
-            visit.zoomStartUrl = meeting.start_url
-            visit.zoomPassword = meeting.password
+            LiveKitService(self.db).assign_meeting(visit)
             visit.visitCode = None
             visit.visitQRCode = None
             visit.checkInOtp = None

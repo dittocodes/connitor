@@ -157,7 +157,7 @@ export function RoleSidebar(props: RoleSidebarProps) {
                     asChild
                     className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
                       isActive
-                        ? 'bg-primary text-primary-foreground shadow-xs hover:bg-primary/90 hover:text-primary-foreground'
+                        ? 'bg-sidebar-primary text-sidebar-primary-foreground shadow-xs hover:bg-sidebar-primary/90 hover:text-sidebar-primary-foreground'
                         : ''
                     }`}
                   >

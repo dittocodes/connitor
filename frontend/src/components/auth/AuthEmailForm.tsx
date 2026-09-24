@@ -40,7 +40,7 @@ const EmailFormSchema = z.object({
 
 function LoginFormSkeleton() {
   return (
-    <Card className="w-full max-w-lg h-auto min-h-[500px] shadow-xl flex flex-col justify-between border-teal-100/80">
+    <Card className="w-full max-w-lg h-auto min-h-[500px] shadow-xl flex flex-col justify-between border-[#001B71]/08">
       <CardHeader className="text-center space-y-6">
         <div className="flex justify-center">
           <div className="h-20 w-[220px] rounded-md bg-muted animate-pulse" />
@@ -111,12 +111,12 @@ export function AuthEmailForm() {
   };
 
   return (
-    <Card className="w-full max-w-lg h-auto min-h-[500px] shadow-xl flex flex-col justify-between border-teal-100/80">
+    <Card className="w-full max-w-lg h-auto min-h-[500px] shadow-xl flex flex-col justify-between border-[#001B71]/08">
       <CardHeader className="text-center space-y-6">
         <div className="flex justify-center">
           <Image
             src="/ConnInter.png"
-            alt="Connitor Logo"
+            alt="Conninter Logo"
             width={220}
             height={80}
             className="h-auto w-[220px]"
@@ -181,13 +181,13 @@ export function AuthEmailForm() {
             </Button>
             <p className="text-center text-sm text-muted-foreground pt-2">
               Use password instead?{' '}
-              <Link href="/auth/login" className="text-teal-600 hover:underline font-medium">
+              <Link href="/auth/login" className="text-primary hover:underline font-medium">
                 Sign in with email &amp; password
               </Link>
             </p>
             <p className="text-center text-sm text-muted-foreground">
-              New to Connitor?{' '}
-              <Link href="/auth/register" className="text-teal-600 hover:underline font-medium">
+              New to Conninter?{' '}
+              <Link href="/auth/register" className="text-primary hover:underline font-medium">
                 Create an account
               </Link>
             </p>

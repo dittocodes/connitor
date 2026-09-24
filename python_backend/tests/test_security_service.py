@@ -57,6 +57,7 @@ class SecurityServicePhase4Tests(unittest.TestCase):
         visit.checkInTime.isoformat.return_value = "2026-06-10T10:30:00+05:30"
         visit.checkOutTime = None
         visit.appointmentMode = "IN_PERSON"
+        visit.meetingJoinUrl = None
         visit.zoomJoinUrl = None
         visit.visitorType = None
         visit.meetingStatus = None
@@ -68,7 +69,7 @@ class SecurityServicePhase4Tests(unittest.TestCase):
         self.assertIsNone(result["checkOutTime"])
         self.assertEqual(result["appointmentMode"], "IN_PERSON")
         self.assertFalse(result["isOnline"])
-        self.assertIsNone(result["zoomJoinUrl"])
+        self.assertIsNone(result["meetingJoinUrl"])
         self.assertEqual(result["visitorPassId"], "ELC-260816-0001")
 
     def test_serialize_appointment_online_fields(self) -> None:
@@ -89,14 +90,14 @@ class SecurityServicePhase4Tests(unittest.TestCase):
         visit.checkInTime = None
         visit.checkOutTime = None
         visit.appointmentMode = AppointmentMode.ONLINE.value
-        visit.zoomJoinUrl = "https://zoom.us/j/999"
+        visit.meetingJoinUrl = "https://app.example.com/meet/?t=abc"
         visit.visitorPassId = None
 
         result = self.service._serialize_appointment(visit)
 
         self.assertEqual(result["appointmentMode"], "ONLINE")
         self.assertTrue(result["isOnline"])
-        self.assertEqual(result["zoomJoinUrl"], "https://zoom.us/j/999")
+        self.assertEqual(result["meetingJoinUrl"], "https://app.example.com/meet/?t=abc")
 
     def test_get_pending_appointments_returns_request_sent(self) -> None:
         visit = MagicMock()

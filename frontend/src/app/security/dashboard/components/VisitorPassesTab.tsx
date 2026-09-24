@@ -121,7 +121,7 @@ export function VisitorPassesTab({ className, refreshKey = 0 }: Props): React.Re
       </div>
 
       {assignRow ? (
-        <Card className="mb-4 border-teal-200">
+        <Card className="mb-4 border-[#001B71]/20">
           <CardContent className="py-4 space-y-2">
             <p className="text-sm font-medium">
               Assign unused pass <span className="font-mono">{assignRow.passId}</span>

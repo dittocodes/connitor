@@ -15,11 +15,11 @@ export function DeliveryPageShell({
   className?: string;
 }): React.ReactElement {
   return (
-    <div className={cn('min-h-full bg-gradient-to-br from-amber-50/40 via-white to-teal-50/30', className)}>
+    <div className={cn('min-h-full bg-[#F7F9FC]', className)}>
       <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6">
-        <div className="flex flex-wrap items-start justify-between gap-4 border-b border-amber-100/80 pb-4">
+        <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[#001B71]/08 pb-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-amber-800/80">
+            <p className="text-xs font-semibold uppercase tracking-wide text-primary/70">
               Delivery
             </p>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">{title}</h1>

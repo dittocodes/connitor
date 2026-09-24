@@ -49,7 +49,7 @@ export default function VendorDeliveriesPage(): React.ReactElement {
       title="My deliveries"
       subtitle="Track bookings, drivers, and gate status. Drivers receive QR instructions by email."
       actions={
-        <Button asChild className="bg-amber-600 hover:bg-amber-700">
+        <Button asChild>
           <Link href="/vendor/deliveries/book">
             <Plus className="mr-2 h-4 w-4" />
             Book delivery
@@ -59,7 +59,7 @@ export default function VendorDeliveriesPage(): React.ReactElement {
     >
       <DeliveryKpiStrip total={summary.total} byStatus={summary.byStatus} />
 
-      <Card className="border-amber-100/80 bg-white/90 shadow-sm">
+      <Card className="border-[#001B71]/08 bg-white/90 shadow-sm">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-lg">Recent deliveries</CardTitle>
           <Button asChild variant="outline" size="sm">
@@ -82,7 +82,7 @@ export default function VendorDeliveriesPage(): React.ReactElement {
                 <li key={d.id}>
                   <Link
                     href={`/vendor/deliveries/${d.id}`}
-                    className="flex flex-wrap items-center justify-between gap-3 py-3 transition-colors hover:bg-amber-50/50"
+                    className="flex flex-wrap items-center justify-between gap-3 py-3 transition-colors hover:bg-[#4A90E2]/08"
                   >
                     <div>
                       <p className="font-semibold text-slate-900">{d.deliveryNumber}</p>

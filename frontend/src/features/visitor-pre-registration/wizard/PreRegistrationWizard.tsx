@@ -304,7 +304,7 @@ export function PreRegistrationWizard() {
     <div className="grid gap-8 lg:grid-cols-[1fr_340px]">
       <Card>
         <CardHeader>
-          <CardTitle>Create your Connitor profile</CardTitle>
+          <CardTitle>Create your Conninter profile</CardTitle>
           <CardDescription>
             Step {step + 1} of {STEPS.length}: {STEPS[step]}
           </CardDescription>

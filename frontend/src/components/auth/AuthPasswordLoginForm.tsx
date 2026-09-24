@@ -45,7 +45,7 @@ const LoginFormSchema = z.object({
 
 function LoginFormSkeleton() {
   return (
-    <Card className="w-full max-w-lg h-auto min-h-[500px] shadow-xl flex flex-col justify-between border-teal-100/80">
+    <Card className="w-full max-w-lg h-auto min-h-[500px] shadow-xl flex flex-col justify-between border-[#001B71]/08">
       <CardHeader className="text-center space-y-6">
         <div className="flex justify-center">
           <div className="h-20 w-[220px] rounded-md bg-muted animate-pulse" />
@@ -121,12 +121,12 @@ export function AuthPasswordLoginForm() {
   };
 
   return (
-    <Card className="w-full max-w-lg h-auto min-h-[500px] shadow-xl flex flex-col justify-between border-teal-100/80">
+    <Card className="w-full max-w-lg h-auto min-h-[500px] shadow-xl flex flex-col justify-between border-[#001B71]/08">
       <CardHeader className="text-center space-y-6">
         <div className="flex justify-center">
           <Image
             src="/ConnInter.png"
-            alt="Connitor Logo"
+            alt="Conninter Logo"
             width={220}
             height={80}
             className="h-auto w-[220px]"
@@ -242,11 +242,11 @@ export function AuthPasswordLoginForm() {
               )}
             </Button>
             <p className="text-center text-sm text-muted-foreground pt-2">
-              <Link href="/" className="text-teal-600 hover:underline font-medium">
+              <Link href="/" className="text-primary hover:underline font-medium">
                 ← Back to home
               </Link>
               {' · '}
-              <Link href="/#staff-portals" className="text-teal-600 hover:underline font-medium">
+              <Link href="/#staff-portals" className="text-primary hover:underline font-medium">
                 All roles
               </Link>
             </p>
@@ -260,7 +260,7 @@ export function AuthPasswordLoginForm() {
             ) : null}
             <p className="text-center text-sm text-muted-foreground">
               Prefer OTP?{' '}
-              <Link href="/auth/login-otp" className="text-teal-600 hover:underline font-medium">
+              <Link href="/auth/login-otp" className="text-primary hover:underline font-medium">
                 Sign in with email OTP
               </Link>
             </p>

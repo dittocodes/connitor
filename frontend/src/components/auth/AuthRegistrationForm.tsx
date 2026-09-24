@@ -78,7 +78,7 @@ const STEP_META: Record<FormStep, { label: string; title: string; description: s
   role: {
     label: 'Role',
     title: 'Your role & workplace',
-    description: 'Tell us how you will use Connitor and which hospital you belong to.',
+    description: 'Tell us how you will use Conninter and which hospital you belong to.',
   },
   verify: {
     label: 'Verify',
@@ -121,7 +121,7 @@ function extractErrorMessage(err: unknown, fallback: string): string {
 
 function RegistrationSkeleton() {
   return (
-    <Card className="w-full max-w-lg min-h-[520px] shadow-xl border-teal-100/80">
+    <Card className="w-full max-w-lg min-h-[520px] shadow-xl border-[#001B71]/08">
       <CardContent className="flex items-center justify-center py-24">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </CardContent>
@@ -144,8 +144,8 @@ function StepIndicator({ step }: { step: FormStep }) {
               <div
                 className={cn(
                   'flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold border-2 transition-colors',
-                  isComplete && 'bg-teal-600 border-teal-600 text-white',
-                  isActive && 'border-teal-600 text-teal-700 bg-teal-50',
+                  isComplete && 'bg-primary border-primary text-white',
+                  isActive && 'border-primary text-primary bg-[#4A90E2]/10',
                   !isActive && !isComplete && 'border-muted-foreground/30 text-muted-foreground',
                 )}
               >
@@ -154,7 +154,7 @@ function StepIndicator({ step }: { step: FormStep }) {
               <span
                 className={cn(
                   'text-xs font-medium',
-                  isActive ? 'text-teal-700' : 'text-muted-foreground',
+                  isActive ? 'text-primary' : 'text-muted-foreground',
                 )}
               >
                 {STEP_META[item].label}
@@ -164,7 +164,7 @@ function StepIndicator({ step }: { step: FormStep }) {
               <div
                 className={cn(
                   'h-0.5 w-8 sm:w-12 mb-5 rounded',
-                  index < currentIndex ? 'bg-teal-600' : 'bg-muted-foreground/20',
+                  index < currentIndex ? 'bg-primary' : 'bg-muted-foreground/20',
                 )}
               />
             )}
@@ -183,7 +183,7 @@ function RegistrationHeader({ step, email }: { step: FormStep; email?: string })
       <div className="flex justify-center">
         <Image
           src="/ConnInter.png"
-          alt="Connitor Logo"
+          alt="Conninter Logo"
           width={220}
           height={80}
           className="h-auto w-[220px]"
@@ -411,7 +411,7 @@ export function AuthRegistrationForm() {
     const isSubmittingOtp = otpForm.formState.isSubmitting;
 
     return (
-      <Card className="w-full max-w-lg min-h-[520px] shadow-xl flex flex-col border-teal-100/80">
+      <Card className="w-full max-w-lg min-h-[520px] shadow-xl flex flex-col border-[#001B71]/08">
         <RegistrationHeader step="verify" email={registeredEmail} />
         <CardContent className="flex-1 flex flex-col">
           {error && (
@@ -484,7 +484,7 @@ export function AuthRegistrationForm() {
                     variant="link"
                     onClick={handleResend}
                     disabled={resendTimer > 0 || isResending}
-                    className="px-0 text-teal-600 cursor-pointer"
+                    className="px-0 text-primary cursor-pointer"
                   >
                     {isResending ? (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -517,7 +517,7 @@ export function AuthRegistrationForm() {
   const isSubmitting = form.formState.isSubmitting;
 
   return (
-    <Card className="w-full max-w-lg min-h-[520px] shadow-xl flex flex-col border-teal-100/80">
+    <Card className="w-full max-w-lg min-h-[520px] shadow-xl flex flex-col border-[#001B71]/08">
       <RegistrationHeader step={step} />
       <CardContent className="flex-1 flex flex-col">
         {error && (
@@ -662,7 +662,7 @@ export function AuthRegistrationForm() {
                           <Button
                             type="button"
                             variant="link"
-                            className="h-auto px-0 text-teal-600 shrink-0"
+                            className="h-auto px-0 text-primary shrink-0"
                             onClick={() => void loadHospitalChains()}
                             disabled={loadingChains}
                           >
@@ -796,7 +796,7 @@ export function AuthRegistrationForm() {
                   </Button>
                   <p className="text-center text-sm text-muted-foreground">
                     Already have an account?{' '}
-                    <Link href="/auth/login" className="text-teal-600 hover:underline">
+                    <Link href="/auth/login" className="text-primary hover:underline">
                       Sign in
                     </Link>
                   </p>

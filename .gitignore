@@ -43,3 +43,6 @@ frontend/.env.local
 dist/
 frontend/dist/
 
+# Local deploy secrets / machine paths
+scripts/deploy/config.env
+

@@ -2,10 +2,10 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { ArrowLeft, ArrowRight, CheckCircle2, Truck } from 'lucide-react';
+import { ConninterWordmark } from '@/components/brand/ConninterWordmark';
 import {
   DistributorOnboardingService,
   type OnboardingBranch,
@@ -362,8 +362,8 @@ export default function VendorRegisterPage(): React.ReactElement {
 
   if (done) {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-orange-50 px-4 py-10">
-        <Card className="mx-auto max-w-lg border-amber-100">
+      <main className="min-h-screen bg-[#F7F9FC] px-4 py-10">
+        <Card className="mx-auto max-w-lg border-[#001B71]/08">
           <CardContent className="space-y-4 pt-8 text-center">
             <CheckCircle2 className="mx-auto h-12 w-12 text-emerald-600" />
             <h1 className="text-xl font-semibold">Application received</h1>
@@ -372,7 +372,7 @@ export default function VendorRegisterPage(): React.ReactElement {
             </p>
             <p className="text-sm text-muted-foreground">{done.message}</p>
             <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
-              <Button asChild className="bg-amber-600 hover:bg-amber-700">
+              <Button asChild>
                 <Link href="/auth/login?role=DISTRIBUTOR">Sign in</Link>
               </Button>
               <Button variant="outline" asChild>
@@ -386,13 +386,11 @@ export default function VendorRegisterPage(): React.ReactElement {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-orange-50">
-      <header className="border-b border-amber-100/80 bg-white/70 backdrop-blur-md">
+    <main className="min-h-screen bg-[#F7F9FC]">
+      <header className="border-b border-[#001B71]/08 bg-white/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
-          <Link href="/">
-            <Image src="/ConnInter.png" alt="Connitor" width={140} height={40} className="h-8 w-auto" />
-          </Link>
-          <Button asChild variant="ghost" size="sm">
+          <ConninterWordmark size="md" />
+          <Button asChild variant="ghost" size="sm" className="text-primary">
             <Link href="/auth/login?role=DISTRIBUTOR">Already registered? Sign in</Link>
           </Button>
         </div>
@@ -401,7 +399,7 @@ export default function VendorRegisterPage(): React.ReactElement {
       <div className="mx-auto max-w-3xl space-y-6 px-4 py-8">
         <div className="space-y-1">
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-slate-900">
-            <Truck className="h-6 w-6 text-amber-700" />
+            <Truck className="h-6 w-6 text-primary" />
             Distributor onboarding
           </h1>
           <p className="text-sm text-muted-foreground">
@@ -409,7 +407,7 @@ export default function VendorRegisterPage(): React.ReactElement {
           </p>
         </div>
 
-        <Card className="border-amber-100 bg-white/90">
+        <Card className="border-[#001B71]/08 bg-white/90">
           <CardHeader>
             <CardTitle className="text-lg">
               {step === 1 && 'Account & contact'}
@@ -770,11 +768,6 @@ export default function VendorRegisterPage(): React.ReactElement {
                         type="button"
                         size="sm"
                         variant={form.supplyCategories.includes(s) ? 'default' : 'outline'}
-                        className={
-                          form.supplyCategories.includes(s)
-                            ? 'bg-amber-600 hover:bg-amber-700'
-                            : undefined
-                        }
                         onClick={() => toggleSupply(s)}
                       >
                         {s}
@@ -824,13 +817,13 @@ export default function VendorRegisterPage(): React.ReactElement {
                     />
                   </div>
                 </div>
-                <div className="space-y-3 rounded-lg border bg-amber-50/50 p-3">
+                <div className="space-y-3 rounded-lg border border-[#001B71]/08 bg-[#4A90E2]/08 p-3">
                   <label className="flex items-start gap-2 text-sm">
                     <Checkbox
                       checked={form.acceptTerms}
                       onCheckedChange={(v) => setField('acceptTerms', Boolean(v))}
                     />
-                    <span>I accept Connitor platform terms and hospital vendor policies.</span>
+                    <span>I accept Conninter platform terms and hospital vendor policies.</span>
                   </label>
                   <label className="flex items-start gap-2 text-sm">
                     <Checkbox
@@ -856,7 +849,6 @@ export default function VendorRegisterPage(): React.ReactElement {
               {step < 5 ? (
                 <Button
                   type="button"
-                  className="bg-amber-600 hover:bg-amber-700"
                   onClick={next}
                 >
                   Continue
@@ -865,7 +857,6 @@ export default function VendorRegisterPage(): React.ReactElement {
               ) : (
                 <Button
                   type="button"
-                  className="bg-amber-600 hover:bg-amber-700"
                   disabled={loading}
                   onClick={() => void submit()}
                 >
@@ -880,7 +871,7 @@ export default function VendorRegisterPage(): React.ReactElement {
           Prefer to sign in?{' '}
           <button
             type="button"
-            className="text-amber-800 underline"
+            className="text-primary underline"
             onClick={() => router.push('/auth/login?role=DISTRIBUTOR')}
           >
             Distributor login

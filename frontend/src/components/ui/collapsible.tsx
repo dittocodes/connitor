@@ -14,6 +14,8 @@ function CollapsibleTrigger({
   return (
     <CollapsiblePrimitive.CollapsibleTrigger
       data-slot="collapsible-trigger"
+      // Password managers / form fillers inject attrs like `fdprocessedid` before hydrate.
+      suppressHydrationWarning
       {...props}
     />
   );

@@ -4,6 +4,7 @@ import { Suspense, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { VisitorPortalShell } from '@/components/auth/VisitorPortalShell';
 import { VisitorAuthService } from '@/lib/services/visitorAuthService';
 
 function OAuthCallbackContent() {
@@ -23,16 +24,24 @@ function OAuthCallbackContent() {
   }, [params, router]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+    <div className="flex items-center justify-center py-20">
+      <Loader2 className="h-8 w-8 animate-spin text-primary" />
     </div>
   );
 }
 
 export default function VisitorOAuthCallbackPage() {
   return (
-    <Suspense fallback={<Loader2 className="h-8 w-8 animate-spin" />}>
-      <OAuthCallbackContent />
-    </Suspense>
+    <VisitorPortalShell>
+      <Suspense
+        fallback={
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        }
+      >
+        <OAuthCallbackContent />
+      </Suspense>
+    </VisitorPortalShell>
   );
 }

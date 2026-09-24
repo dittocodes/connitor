@@ -36,7 +36,7 @@ export default function VendorDeliveryDetailPage(): React.ReactElement {
         <p className="text-sm text-muted-foreground">Loading…</p>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
-          <Card className="border-amber-100 bg-white/90">
+          <Card className="border-[#001B71]/08 bg-white/90">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Status</CardTitle>
               <DeliveryStatusBadge status={String(delivery.status)} />
@@ -89,7 +89,7 @@ export default function VendorDeliveryDetailPage(): React.ReactElement {
               ) : null}
             </CardContent>
           </Card>
-          <Card className="border-teal-100 bg-white/90">
+          <Card className="border-[#001B71]/08 bg-white/90">
             <CardHeader>
               <CardTitle>Gate QR</CardTitle>
             </CardHeader>

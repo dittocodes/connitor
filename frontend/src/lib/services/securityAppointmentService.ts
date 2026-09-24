@@ -14,7 +14,7 @@ export interface TodayAppointment {
   checkOutTime?: string | null;
   appointmentMode?: string;
   isOnline?: boolean;
-  zoomJoinUrl?: string | null;
+  meetingJoinUrl?: string | null;
   visitorPassId?: string | null;
   visitorType?: string | null;
   meetingStatus?: string | null;

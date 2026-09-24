@@ -68,7 +68,7 @@ function AppointmentCard({
               </p>
             )}
             {appt.visitorPassId ? (
-              <p className="text-xs font-mono font-semibold text-teal-800 mt-1">
+              <p className="text-xs font-mono font-semibold text-primary mt-1">
                 Pass ID: {appt.visitorPassId}
               </p>
             ) : null}
@@ -101,7 +101,7 @@ function AppointmentCard({
               </Badge>
             )}
             {appt.visitorType === 'SALES_REPRESENTATIVE' && appt.meetingStatus && (
-              <Badge variant="outline" className="border-teal-600 text-teal-800">
+              <Badge variant="outline" className="border-primary text-primary">
                 Meeting: {MEETING_STATUS_LABELS[appt.meetingStatus] ?? appt.meetingStatus}
               </Badge>
             )}
@@ -135,14 +135,14 @@ function AppointmentCard({
               <p className="text-xs text-violet-700">
                 Virtual visit — no physical check-in required
               </p>
-              {appt.zoomJoinUrl && (
+              {appt.meetingJoinUrl && (
                 <a
-                  href={appt.zoomJoinUrl}
+                  href={appt.meetingJoinUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-xs text-violet-600 underline"
                 >
-                  Zoom link (reference)
+                  Video consultation link (reference)
                 </a>
               )}
             </div>

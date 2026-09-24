@@ -409,7 +409,7 @@ def build_booking_confirmation_email(
     is_online = appointment_mode == "ONLINE"
     mode_line = "Online video consultation\n" if is_online else "In-person hospital visit\n"
     after_approval = (
-        "You will receive a Zoom meeting link by email and SMS once the doctor approves."
+        "You will receive a video consultation link by email and SMS once the doctor approves."
         if is_online
         else "You will receive a check-in QR code by email and SMS once the doctor approves."
     )
@@ -443,7 +443,7 @@ def build_booking_confirmation_email(
         f"<p style='margin:0 0 8px;color:#64748b;'><strong>Visit type:</strong> {escape(mode_label)}</p>"
     )
     pending_html = (
-        "<strong>Pending doctor approval.</strong> You will receive a Zoom meeting link once approved."
+        "<strong>Pending doctor approval.</strong> You will receive a video consultation link once approved."
         if is_online
         else "<strong>Pending doctor approval.</strong> You will receive a check-in QR code once approved."
     )
@@ -931,14 +931,13 @@ def build_online_appointment_email(
     recipient_name: str,
     doctor_name: str,
     appointment_date: str,
-    zoom_url: str,
+    meeting_url: str,
     doctor_feedback: str | None = None,
     is_host: bool = False,
-    meeting_password: str | None = None,
     company_name: str = "Connitor",
     product_name: str = "Hospital Visitor Tracking System",
 ) -> tuple[str, str, str]:
-    """Email with Zoom link after online appointment approval."""
+    """Email with the video consultation link after online appointment approval."""
     feedback_html = ""
     feedback_text = ""
     if doctor_feedback and doctor_feedback.strip():
@@ -950,12 +949,10 @@ def build_online_appointment_email(
         )
 
     role_line = "host the online consultation" if is_host else "join your online consultation"
-    subject = f"{company_name} — Online appointment approved — Zoom link"
-    pwd_line = f"\nMeeting password: {meeting_password}\n" if meeting_password else ""
-    pwd_html = (
-        f"<p style='margin:12px 0 0;color:#64748b;'><strong>Password:</strong> {escape(meeting_password)}</p>"
-        if meeting_password
-        else ""
+    subject = f"{company_name} — Online appointment approved — video consultation link"
+    join_note = (
+        "The room opens 15 minutes before the scheduled time. "
+        "Open the link in Chrome, Edge, Safari or Firefox and allow camera and microphone access."
     )
 
     text_body = (
@@ -963,7 +960,8 @@ def build_online_appointment_email(
         f"Hello {recipient_name},\n\n"
         f"Your online appointment with Dr. {doctor_name} on {appointment_date} is confirmed."
         f"{feedback_text}\n"
-        f"Use this link to {role_line}:\n{zoom_url}{pwd_line}\n\n"
+        f"Use this link to {role_line}:\n{meeting_url}\n\n"
+        f"{join_note}\n\n"
         f"— {company_name}"
     )
 
@@ -983,12 +981,12 @@ def build_online_appointment_email(
         </p>
         {feedback_html}
         <div style="text-align:center;margin:24px 0;">
-          <a href="{escape(zoom_url)}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:14px 28px;border-radius:8px;font-weight:600;">
-            {'Start Zoom Meeting' if is_host else 'Join Zoom Meeting'}
+          <a href="{escape(meeting_url)}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:14px 28px;border-radius:8px;font-weight:600;">
+            {'Start Consultation' if is_host else 'Join Video Consultation'}
           </a>
         </div>
-        {pwd_html}
-        <p style="margin:20px 0 0;font-size:13px;color:#94a3b8;word-break:break-all;">{escape(zoom_url)}</p>
+        <p style="margin:12px 0 0;color:#64748b;font-size:13px;line-height:1.5;">{escape(join_note)}</p>
+        <p style="margin:20px 0 0;font-size:13px;color:#94a3b8;word-break:break-all;">{escape(meeting_url)}</p>
       </td></tr>
     </table>
   </td></tr></table>

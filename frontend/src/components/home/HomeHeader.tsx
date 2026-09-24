@@ -48,7 +48,7 @@ export function HomeHeader() {
         <Link href="/" className="flex shrink-0 items-center gap-3">
           <Image
             src="/ConnInter.png"
-            alt="Connitor"
+            alt="Conninter"
             width={160}
             height={48}
             className="h-9 w-auto sm:h-10"

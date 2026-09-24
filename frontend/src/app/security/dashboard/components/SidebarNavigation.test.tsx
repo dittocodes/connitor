@@ -51,14 +51,14 @@ describe('SidebarNavigation', () => {
       expect(screen.getByTestId('sidebar-navigation')).toBeInTheDocument();
     });
 
-    it('should render ConnInter app name in header', () => {
+    it('should render Conninter app name in header', () => {
       render(
         <SidebarNavigation
           items={items}
           onItemClick={mockOnItemClick}
         />
       );
-      expect(screen.getByText('ConnInter')).toBeInTheDocument();
+      expect(screen.getByText('Conninter')).toBeInTheDocument();
     });
 
     it('should render Security fallback in header subtitle when no user', () => {

@@ -3,6 +3,7 @@
 import { Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { ConninterWordmark } from '@/components/brand/ConninterWordmark';
 import { OnSpotVisitFlow } from '@/features/on-spot-visit/OnSpotVisitFlow';
 
 function OnSpotContent() {
@@ -17,7 +18,7 @@ function OnSpotContent() {
         <p className="mt-2 text-muted-foreground">
           Scan the QR code at the hospital security desk to start your visit.
         </p>
-        <Link href="/" className="mt-4 inline-block text-teal-700 underline">
+        <Link href="/" className="mt-4 inline-block text-primary underline">
           Go home
         </Link>
       </div>
@@ -29,12 +30,10 @@ function OnSpotContent() {
 
 export default function OnSpotVisitPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-teal-50/80 to-white">
-      <header className="border-b bg-white/80 backdrop-blur">
+    <div className="min-h-screen bg-[#F7F9FC]">
+      <header className="border-b border-[#001B71]/08 bg-white/80 backdrop-blur">
         <div className="mx-auto flex max-w-lg items-center justify-between px-4 py-4">
-          <Link href="/" className="text-sm font-semibold text-teal-800">
-            Connitor
-          </Link>
+          <ConninterWordmark size="sm" />
           <span className="text-xs text-muted-foreground">On-spot visit</span>
         </div>
       </header>

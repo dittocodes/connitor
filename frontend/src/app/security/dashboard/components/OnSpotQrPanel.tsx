@@ -41,7 +41,7 @@ export function OnSpotQrPanel({ branchId, branchName, className }: OnSpotQrPanel
     <Card className={className}>
       <CardHeader className="pb-3">
         <div className="flex items-center gap-2">
-          <QrCode className="h-5 w-5 text-teal-700" aria-hidden="true" />
+          <QrCode className="h-5 w-5 text-primary" aria-hidden="true" />
           <CardTitle className="text-lg">Visitor check-in QR</CardTitle>
         </div>
         <CardDescription>

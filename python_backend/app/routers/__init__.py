@@ -13,6 +13,8 @@ from app.routers import (
     doctor_schedule,
     jobs,
     hospital_chains,
+    livekit_webhooks,
+    meetings,
     notifications,
     public_appointment_approval,
     public_appointments,
@@ -37,7 +39,6 @@ from app.routers import (
     visitor_passes,
     visit_slot_allotment,
     whatsapp_webhooks,
-    zoom_webhooks,
 )
 
 api_router = APIRouter()
@@ -115,7 +116,8 @@ api_router.include_router(
     tags=["public-distributor-onboarding"],
 )
 api_router.include_router(analytics.router, prefix="/analytics", tags=["analytics"])
-api_router.include_router(zoom_webhooks.router, prefix="/webhooks", tags=["webhooks"])
+api_router.include_router(meetings.router, prefix="/public/meetings", tags=["meetings"])
+api_router.include_router(livekit_webhooks.router, prefix="/webhooks", tags=["webhooks"])
 api_router.include_router(twilio_webhooks.router, prefix="/webhooks", tags=["webhooks"])
 api_router.include_router(whatsapp_webhooks.router, prefix="/webhooks", tags=["webhooks"])
 api_router.include_router(delivery.router, prefix="/delivery", tags=["delivery"])

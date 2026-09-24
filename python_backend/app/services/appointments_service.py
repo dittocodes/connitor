@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.config import get_settings, is_demo_mode_enabled, is_meta_whatsapp_configured, is_test_mode_enabled
 from app.models import Branch, Department, DoctorAvailabilitySlot, SubDepartment, User, Visit, Visitor
 from app.models.enums import AppointmentMode, Role, VisitCategory, VisitStatus
+from app.services.livekit_service import meeting_join_url
 from app.services.notifications_service import NotificationsService
 from app.services.sales_meeting_service import apply_visitor_kind
 from app.services.visitor_account_link_service import VisitorAccountLinkService
@@ -419,10 +420,10 @@ class AppointmentsService:
             "doctorFeedback": visit.doctorFeedback,
             "doctorFeedbackAt": visit.doctorFeedbackAt.isoformat() if visit.doctorFeedbackAt else None,
             "rejectionReason": visit.rejectionReason,
-            "zoomJoinUrl": (
-                visit.zoomJoinUrl
+            "meetingJoinUrl": (
+                meeting_join_url(visit)
                 if visit.appointmentMode == AppointmentMode.ONLINE.value
-                and visit.status == VisitStatus.APPROVED.value
+                and visit.status in (VisitStatus.APPROVED.value, VisitStatus.CHECKED_IN.value)
                 else None
             ),
             "visitorType": visit.visitorType,

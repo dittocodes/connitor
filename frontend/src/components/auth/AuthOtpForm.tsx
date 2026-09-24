@@ -184,7 +184,7 @@ export function AuthOtpForm() {
 
   if (!mounted || !email) {
     return (
-      <Card className="w-full max-w-lg min-h-[500px] shadow-xl border-teal-100/80">
+      <Card className="w-full max-w-lg min-h-[500px] shadow-xl border-[#001B71]/08">
         <CardContent className="flex items-center justify-center py-24">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </CardContent>
@@ -193,12 +193,12 @@ export function AuthOtpForm() {
   }
 
   return (
-    <Card className="w-full max-w-lg h-auto min-h-[500px] shadow-xl flex flex-col justify-between border-teal-100/80">
+    <Card className="w-full max-w-lg h-auto min-h-[500px] shadow-xl flex flex-col justify-between border-[#001B71]/08">
       <CardHeader className="text-center space-y-6">
         <div className="flex justify-center">
           <Image
             src="/ConnInter.png"
-            alt="Connitor Logo"
+            alt="Conninter Logo"
             width={220}
             height={80}
             className="h-auto w-[220px]"
@@ -208,7 +208,7 @@ export function AuthOtpForm() {
 
         <CardTitle className="text-3xl font-bold">Verify OTP</CardTitle>
         <CardDescription className="text-lg">
-          Enter the 6-digit code Connitor sent to{' '}
+          Enter the 6-digit code Conninter sent to{' '}
           <span className="font-medium text-foreground">{maskEmail(email)}</span>
         </CardDescription>
         <p className="text-sm text-muted-foreground">
