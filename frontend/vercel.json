@@ -7,9 +7,12 @@
   "trailingSlash": true,
   "rewrites": [
     {
-      "source": "/api/:path*",
-      "destination": "https://connitor.bengalurutechcommunity.com/api/:path*"
+      "source": "/api/(.*)",
+      "destination": "https://connitor.bengalurutechcommunity.com/api/$1"
     },
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
+    }
   ]
 }

@@ -26,6 +26,11 @@ if (fs.existsSync(distDir)) {
 fs.cpSync(outDir, distDir, { recursive: true });
 fs.rmSync(outDir, { recursive: true, force: true });
 
+const vercelConfig = path.join(root, 'vercel.json');
+if (fs.existsSync(vercelConfig)) {
+  fs.copyFileSync(vercelConfig, path.join(distDir, 'vercel.json'));
+}
+
 const distIndex = path.join(distDir, 'index.html');
 if (!fs.existsSync(distIndex)) {
   console.error('dist/index.html missing after copy — static export is incomplete.');

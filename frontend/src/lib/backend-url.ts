@@ -1,6 +1,17 @@
 /** Local Python API (uvicorn default). Used for OAuth redirects and SSR. */
 export const LOCAL_BACKEND_URL = 'http://127.0.0.1:8002';
 
+/** Production API when static hosting was built without NEXT_PUBLIC_BACKEND_API_URL. */
+export const PRODUCTION_BACKEND_URL = 'https://connitor.bengalurutechcommunity.com';
+
+function isKnownProductionHost(hostname: string): boolean {
+  return (
+    hostname === 'conninter.com' ||
+    hostname.endsWith('.vercel.app') ||
+    hostname.endsWith('.amplifyapp.com')
+  );
+}
+
 function trimUrl(url: string | undefined): string {
   return (url ?? '').trim().replace(/\/$/, '');
 }
@@ -19,7 +30,10 @@ export function getBackendBaseUrl(): string {
   }
 
   if (typeof window !== 'undefined') {
-    // Same-origin relative /api (Next rewrite in local dev, or misconfigured prod)
+    if (isKnownProductionHost(window.location.hostname)) {
+      return PRODUCTION_BACKEND_URL;
+    }
+    // Local dev: same-origin /api via Next rewrite
     return '';
   }
 
