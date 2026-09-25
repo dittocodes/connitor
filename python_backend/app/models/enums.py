@@ -81,6 +81,12 @@ class VisitorPassSource(str, enum.Enum):
     HOSPITAL_POOL = "HOSPITAL_POOL"
 
 
+class VisitSlotAllotmentSource(str, enum.Enum):
+    ROUTINE = "ROUTINE"
+    MANUAL = "MANUAL"
+    OVERRIDE = "OVERRIDE"
+
+
 class ProfileStatus(str, enum.Enum):
     DRAFT = "DRAFT"
     PENDING_VERIFICATION = "PENDING_VERIFICATION"

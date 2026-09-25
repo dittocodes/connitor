@@ -61,7 +61,7 @@ export function SidebarNavigation({
             <Hospital className="size-4" aria-hidden="true" />
           </div>
           <div className="grid flex-1 text-left text-sm leading-tight">
-            <span className="truncate font-medium">ConnInter</span>
+            <span className="truncate font-medium">Conninter</span>
             <span className="truncate text-xs">
               {user?.branchName || user?.hospitalChainName || 'Security'}
             </span>

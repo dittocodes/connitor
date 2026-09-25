@@ -85,10 +85,11 @@ export function MobileBottomNav({
           <Link
             key={item.href}
             href={item.href}
+            prefetch
             className={`flex-1 flex flex-col items-center justify-center gap-1 text-xs ${
               isActive
-                ? 'text-primary'
-                : 'text-sidebar-foreground/70 hover:text-primary'
+                ? 'text-sidebar-primary'
+                : 'text-sidebar-foreground/70 hover:text-sidebar-primary'
             }`}
           >
             {Icon && <Icon className="size-6" />}
@@ -112,7 +113,7 @@ export function MobileBottomNav({
                     const Icon = iconMap[item.icon];
                     return (
                       <DropdownMenuItem asChild key={item.href}>
-                        <Link href={item.href} className="flex items-center gap-2">
+                        <Link href={item.href} prefetch className="flex items-center gap-2">
                           {Icon && <Icon className="size-4" />}
                           <span>{item.label}</span>
                         </Link>

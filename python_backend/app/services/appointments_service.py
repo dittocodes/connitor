@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.config import get_settings, is_demo_mode_enabled, is_meta_whatsapp_configured, is_test_mode_enabled
 from app.models import Branch, Department, DoctorAvailabilitySlot, SubDepartment, User, Visit, Visitor
 from app.models.enums import AppointmentMode, Role, VisitCategory, VisitStatus
+from app.services.livekit_service import meeting_join_url
 from app.services.notifications_service import NotificationsService
 from app.services.sales_meeting_service import apply_visitor_kind
 from app.services.visitor_account_link_service import VisitorAccountLinkService
@@ -41,10 +42,9 @@ class AppointmentsService:
             not doctor
             or not doctor.isActive
             or doctor.role != Role.STAFF.value
-            or doctor.userType != "DOCTOR"
             or doctor.subDepartmentId != sub_department_id
         ):
-            raise HTTPException(status_code=404, detail="Doctor not found in this sub-department.")
+            raise HTTPException(status_code=404, detail="Staff not found in this sub-department.")
         return branch, dept, sub, doctor
 
     def _legacy_visit_department(self, dept: Department, doctor: User) -> str | None:
@@ -83,7 +83,6 @@ class AppointmentsService:
                 User.subDepartmentId.in_(sub_ids),
                 User.branchId == branch_id,
                 User.role == Role.STAFF.value,
-                User.userType == "DOCTOR",
                 User.isActive == True,  # noqa: E712
             )
             .first()
@@ -130,6 +129,7 @@ class AppointmentsService:
         return {
             "id": doctor.id,
             "name": doctor.name,
+            "userType": doctor.userType,
             "department": specialty,
             "location": doctor.location,
             "departmentName": dept.name if dept else None,
@@ -148,7 +148,6 @@ class AppointmentsService:
             .filter(
                 User.subDepartmentId == sub_department_id,
                 User.role == Role.STAFF.value,
-                User.userType == "DOCTOR",
                 User.isActive == True,  # noqa: E712
             )
             .order_by(User.name)
@@ -158,8 +157,8 @@ class AppointmentsService:
 
     def get_public_doctor(self, doctor_id: str) -> dict:
         doctor = self.db.get(User, doctor_id)
-        if not doctor or not doctor.isActive or doctor.userType != "DOCTOR":
-            raise HTTPException(status_code=404, detail="Doctor not found.")
+        if not doctor or not doctor.isActive or doctor.role != Role.STAFF.value:
+            raise HTTPException(status_code=404, detail="Staff not found.")
         return self._doctor_public_payload(doctor)
 
     def _earliest_bookable_start(self, doctor_id: str, now: datetime | None = None) -> datetime:
@@ -185,8 +184,8 @@ class AppointmentsService:
 
     def list_doctor_slots(self, doctor_id: str, date_str: str) -> list[dict]:
         doctor = self.db.get(User, doctor_id)
-        if not doctor or not doctor.isActive or doctor.userType != "DOCTOR":
-            raise HTTPException(status_code=404, detail="Doctor not found.")
+        if not doctor or not doctor.isActive or doctor.role != Role.STAFF.value:
+            raise HTTPException(status_code=404, detail="Staff not found.")
         try:
             day = datetime.strptime(date_str, "%Y-%m-%d")
         except ValueError as exc:
@@ -421,10 +420,10 @@ class AppointmentsService:
             "doctorFeedback": visit.doctorFeedback,
             "doctorFeedbackAt": visit.doctorFeedbackAt.isoformat() if visit.doctorFeedbackAt else None,
             "rejectionReason": visit.rejectionReason,
-            "zoomJoinUrl": (
-                visit.zoomJoinUrl
+            "meetingJoinUrl": (
+                meeting_join_url(visit)
                 if visit.appointmentMode == AppointmentMode.ONLINE.value
-                and visit.status == VisitStatus.APPROVED.value
+                and visit.status in (VisitStatus.APPROVED.value, VisitStatus.CHECKED_IN.value)
                 else None
             ),
             "visitorType": visit.visitorType,

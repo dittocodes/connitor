@@ -26,9 +26,10 @@ def _visit(
     visit.visitQRCode = "data:image/png;base64,iVBORw0KGgo="
     visit.checkInTime = datetime(2026, 6, 10, 10, 30, 0)
     visit.appointmentMode = AppointmentMode.IN_PERSON.value
+    visit.meetingJoinUrl = None
+    visit.meetingHostUrl = None
     visit.zoomJoinUrl = None
     visit.zoomStartUrl = None
-    visit.zoomPassword = None
     return visit
 
 
@@ -96,7 +97,7 @@ class AppointmentNotificationsTests(unittest.TestCase):
         self.assertIn("Awaiting doctor approval", sms_args[1])
 
     @patch.object(NotificationsService, "_send_calendar_invite")
-    def test_booking_online_mentions_zoom_in_sms(self, _mock_calendar: MagicMock) -> None:
+    def test_booking_online_mentions_video_link_in_sms(self, _mock_calendar: MagicMock) -> None:
         visit = _visit()
         visit.appointmentMode = AppointmentMode.ONLINE.value
         doctor = _doctor()
@@ -110,7 +111,7 @@ class AppointmentNotificationsTests(unittest.TestCase):
 
         sms_text = self.service.sms.send_message.call_args[0][1]
         self.assertIn("Online", sms_text)
-        self.assertIn("Zoom", sms_text)
+        self.assertIn("video consultation link", sms_text)
 
     @patch("app.services.visit_approval_link_service.VisitApprovalLinkService")
     @patch("app.services.notifications_service.random.randint", return_value=482901)

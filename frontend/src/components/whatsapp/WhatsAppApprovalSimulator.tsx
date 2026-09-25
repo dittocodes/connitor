@@ -24,7 +24,7 @@ export function WhatsAppApprovalSimulator({
 }: WhatsAppApprovalSimulatorProps) {
   const centralLabel = context.centralWhatsAppNumber
     ? `+91 ${context.centralWhatsAppNumber}`
-    : 'Connitor';
+    : 'Conninter';
 
   return (
     <div className="flex h-full min-h-[28rem] flex-col overflow-hidden rounded-xl border bg-[#e5ddd5] shadow-lg">
@@ -33,7 +33,7 @@ export function WhatsAppApprovalSimulator({
           C
         </div>
         <div className="min-w-0">
-          <p className="truncate font-semibold">Connitor</p>
+          <p className="truncate font-semibold">Conninter</p>
           <p className="truncate text-xs text-white/80">{centralLabel}</p>
         </div>
       </div>

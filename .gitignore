@@ -34,3 +34,17 @@ test-results/
 playwright-report/
 blob-report/
 playwright/.cache/
+
+# Backend env (explicit)
+python_backend/.env
+frontend/.env.local
+
+
+dist/
+frontend/dist/
+
+# Local deploy secrets / machine paths
+scripts/deploy/config.env
+
+.vercel
+.env*

@@ -70,7 +70,7 @@ export function AuthPhoneForm() {
         <div className="flex justify-center">
           <Image
             src="/ConnInter.png"
-            alt="ConnInter Logo"
+            alt="Conninter Logo"
             width={220}
             height={80}
             priority

@@ -37,7 +37,7 @@ function DoctorDetailCard({ doctor }: { doctor: PublicDoctor }) {
   return (
     <div className="rounded-lg border bg-muted/40 p-4 space-y-2 text-sm">
       <div className="flex items-start gap-3">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-teal-100 text-teal-800">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#4A90E2]/15 text-primary">
           <Stethoscope className="h-6 w-6" />
         </div>
         <div className="min-w-0 flex-1">
@@ -164,7 +164,11 @@ export function BookAppointmentWizard({
           );
         }
       })
-      .catch(() => setError('Failed to load hospitals. Is the backend running on port 8002?'))
+      .catch(() =>
+        setError(
+          'Failed to load hospitals. Check your connection and try again. If this persists, the booking API may be unreachable.',
+        ),
+      )
       .finally(() => setLoadingHospitals(false));
   }, [initialBranchId]);
 
@@ -410,7 +414,7 @@ export function BookAppointmentWizard({
             </p>
           )}
           {initialBranchId && branchName && step < 6 && (
-            <p className="text-sm text-teal-800 font-medium">{branchName}</p>
+            <p className="text-sm text-primary font-medium">{branchName}</p>
           )}
         </CardHeader>
         <CardContent className="space-y-4">
@@ -497,7 +501,7 @@ export function BookAppointmentWizard({
                   key={d.id}
                   type="button"
                   disabled={Boolean(fetchingNext)}
-                  className="w-full rounded-lg border bg-card p-4 text-left transition hover:border-teal-500 hover:bg-teal-50/50 disabled:opacity-60"
+                  className="w-full rounded-lg border bg-card p-4 text-left transition hover:border-primary hover:bg-[#4A90E2]/08 disabled:opacity-60"
                   onClick={() => void selectDoctor(d)}
                 >
                   <p className="font-medium">{d.name}</p>
@@ -611,7 +615,7 @@ export function BookAppointmentWizard({
                       variant={!requestCustomSlot && slotId === slot.id ? 'default' : 'outline'}
                       className={cn(
                         'text-xs',
-                        !requestCustomSlot && slotId === slot.id && 'bg-teal-700',
+                        !requestCustomSlot && slotId === slot.id && 'bg-primary',
                       )}
                       onClick={() => {
                         setRequestCustomSlot(false);
@@ -733,7 +737,7 @@ export function BookAppointmentWizard({
                   >
                     <span className="text-left">
                       <span className="block font-medium">Online</span>
-                      <span className="block text-xs opacity-80">Zoom link after doctor approval</span>
+                      <span className="block text-xs opacity-80">Video link after doctor approval</span>
                     </span>
                   </Button>
                 </div>

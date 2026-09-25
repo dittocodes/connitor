@@ -2,6 +2,7 @@
 
 import DashboardLayoutClient from './DashboardLayoutClient';
 import { useAuthSession } from '@/hooks/useAuthSession';
+import { ConnitorLoader } from '@/components/ConnitorLoader';
 
 interface User {
   id: string;
@@ -31,7 +32,12 @@ export default function DashboardLayout({
   const user = useAuthSession<User>();
 
   if (!user) {
-    return null;
+    return (
+      <ConnitorLoader
+        variant="fullscreen"
+        message="Loading dashboard…"
+      />
+    );
   }
 
   return <DashboardLayoutClient user={user}>{children}</DashboardLayoutClient>;

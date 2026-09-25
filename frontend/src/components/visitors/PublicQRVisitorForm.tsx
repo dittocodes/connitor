@@ -407,8 +407,8 @@ export default function PublicQRVisitorForm() {
           <CardHeader>
             <CardTitle>Visitor Check-In</CardTitle>
             <p className="text-sm text-muted-foreground">
-              Already have a Connitor profile?{' '}
-              <a href="/visitor/login" className="text-teal-700 underline font-medium">
+              Already have a Conninter profile?{' '}
+              <a href="/visitor/login" className="text-primary underline font-medium">
                 Sign in
               </a>{' '}
               to skip registration.

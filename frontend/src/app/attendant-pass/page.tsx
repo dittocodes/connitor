@@ -24,7 +24,7 @@ export default function AttendantPassLandingPage(): React.ReactElement {
   }, []);
 
   return (
-    <main className="min-h-screen bg-slate-50 p-4 md:p-8">
+    <main className="min-h-screen bg-[#F7F9FC] p-4 md:p-8">
       <div className="max-w-2xl mx-auto space-y-6">
         <div className="space-y-2">
           <h1 className="text-2xl font-bold">Family visit pass</h1>

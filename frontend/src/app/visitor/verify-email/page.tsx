@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { VisitorPortalShell } from '@/components/auth/VisitorPortalShell';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { VisitorAccountApi } from '@/features/visitor-pre-registration/api/visitorAccountService';
@@ -58,7 +59,7 @@ function VerifyEmailContent() {
   }, [token, verified, error, activated]);
 
   return (
-    <Card className="mx-auto max-w-md">
+    <Card className="mx-auto max-w-md border-[#001B71]/08 shadow-sm">
       <CardHeader>
         <CardTitle>Email verification</CardTitle>
       </CardHeader>
@@ -86,10 +87,12 @@ function VerifyEmailContent() {
 
 export default function VerifyEmailPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
-      <Suspense fallback={<Loader2 className="h-8 w-8 animate-spin" />}>
-        <VerifyEmailContent />
-      </Suspense>
-    </div>
+    <VisitorPortalShell>
+      <div className="flex items-center justify-center p-4 py-10">
+        <Suspense fallback={<Loader2 className="h-8 w-8 animate-spin text-primary" />}>
+          <VerifyEmailContent />
+        </Suspense>
+      </div>
+    </VisitorPortalShell>
   );
 }

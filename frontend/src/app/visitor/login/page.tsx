@@ -2,14 +2,14 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import axios from 'axios';
 import { toast } from 'sonner';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
+import { VisitorPortalShell } from '@/components/auth/VisitorPortalShell';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -70,7 +70,7 @@ function maskEmail(email: string): string {
 
 export default function VisitorLoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-gradient-to-br from-teal-50 via-white to-emerald-50" />}>
+    <Suspense fallback={<div className="min-h-screen bg-[#F7F9FC]" />}>
       <VisitorLoginContent />
     </Suspense>
   );
@@ -179,28 +179,14 @@ function VisitorLoginContent() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-teal-50 via-white to-emerald-50">
-      <header className="border-b border-teal-100/80 bg-white/70 backdrop-blur-md">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
-          <Link href="/">
-            <Image src="/ConnInter.png" alt="Connitor" width={140} height={44} className="h-9 w-auto" />
-          </Link>
-          <Button asChild variant="ghost" size="sm">
-            <Link href="/">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Home
-            </Link>
-          </Button>
-        </div>
-      </header>
-
+    <VisitorPortalShell>
       <div className="mx-auto flex max-w-md flex-col gap-4 p-4 py-10">
-        <Card>
+        <Card className="border-[#001B71]/08 shadow-sm">
           <CardHeader>
             <CardTitle>Visitor sign in</CardTitle>
             <CardDescription>
               {mode === 'password'
-                ? 'Sign in with your Connitor profile (email or phone + password).'
+                ? 'Sign in with your Conninter profile (email or phone + password).'
                 : 'Legacy sign-in: email OTP after booking an appointment without a profile.'}
             </CardDescription>
           </CardHeader>
@@ -328,16 +314,16 @@ function VisitorLoginContent() {
                 ? `/visitor/register?returnTo=${encodeURIComponent(returnTo)}`
                 : '/visitor/register'
             }
-            className="text-teal-700 underline font-medium"
+            className="font-medium text-primary underline"
           >
-            Create your Connitor profile
+            Create your Conninter profile
           </Link>
           {' · '}
-          <Link href="/book-appointment" className="text-teal-700 underline font-medium">
+          <Link href="/book-appointment" className="font-medium text-primary underline">
             Book an appointment
           </Link>
         </p>
       </div>
-    </div>
+    </VisitorPortalShell>
   );
 }

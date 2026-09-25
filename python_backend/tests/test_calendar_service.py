@@ -46,14 +46,14 @@ class CalendarServiceTests(unittest.TestCase):
         self.assertIn("METHOD:CANCEL", ics)
         self.assertIn("STATUS:CANCELLED", ics)
 
-    def test_build_ics_online_includes_zoom_link(self) -> None:
+    def test_build_ics_online_includes_meeting_link(self) -> None:
         details = _sample_details(status="confirmed", sequence=1)
         details = AppointmentCalendarDetails(
-            **{**details.__dict__, "appointment_mode": "ONLINE", "zoom_join_url": "https://zoom.us/j/123"}
+            **{**details.__dict__, "appointment_mode": "ONLINE", "meeting_join_url": "https://app.example.com/meet/?t=123"}
         )
         ics = build_ics_content(details)
         self.assertIn("Online video consultation", ics)
-        self.assertIn("https://zoom.us/j/123", ics)
+        self.assertIn("https://app.example.com/meet/?t=123", ics)
 
     def test_google_calendar_add_url(self) -> None:
         url = build_google_calendar_add_url(_sample_details())

@@ -7,6 +7,7 @@ from app.config import get_settings
 from app.models import User, Visit
 from app.models.enums import AppointmentMode, Role, VisitStatus
 from app.services.gate_pass_service import GatePassService
+from app.services.livekit_service import meeting_join_url
 from app.services.notifications_service import NotificationsService
 from app.services.visitor_account_service import VisitorAccountService
 from app.utils.serializers import model_to_dict
@@ -303,7 +304,7 @@ class SecurityService:
             "checkOutTime": visit.checkOutTime.isoformat() if visit.checkOutTime else None,
             "appointmentMode": visit.appointmentMode or "IN_PERSON",
             "isOnline": visit.appointmentMode == AppointmentMode.ONLINE.value,
-            "zoomJoinUrl": visit.zoomJoinUrl if visit.appointmentMode == AppointmentMode.ONLINE.value else None,
+            "meetingJoinUrl": meeting_join_url(visit) if visit.appointmentMode == AppointmentMode.ONLINE.value else None,
             "visitorPassId": visit.visitorPassId,
             "visitorType": visit.visitorType,
             "meetingStatus": visit.meetingStatus if visit.visitorType == "SALES_REPRESENTATIVE" else None,

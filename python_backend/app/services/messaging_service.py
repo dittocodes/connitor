@@ -970,20 +970,18 @@ class EmailService:
         recipient_name: str,
         doctor_name: str,
         appointment_date: str,
-        zoom_url: str,
+        meeting_url: str,
         doctor_feedback: str | None = None,
         is_host: bool = False,
-        meeting_password: str | None = None,
     ) -> None:
         settings = get_settings()
         subject, text_body, html_body = build_online_appointment_email(
             recipient_name=recipient_name,
             doctor_name=doctor_name,
             appointment_date=appointment_date,
-            zoom_url=zoom_url,
+            meeting_url=meeting_url,
             doctor_feedback=doctor_feedback,
             is_host=is_host,
-            meeting_password=meeting_password,
             company_name=settings.email_from_name,
             product_name=settings.email_product_name,
         )
@@ -992,7 +990,7 @@ class EmailService:
             subject,
             text_body,
             html_body,
-            context="online appointment Zoom",
+            context="online appointment video consultation",
         )
 
 

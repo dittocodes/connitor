@@ -230,15 +230,9 @@ def test_approve_exhausted_pool_returns_409(db):
 def test_online_approve_does_not_consume_pass(db):
     visit = _book(db, phone="9876500007", mode="ONLINE")
     issued = _issue(db, count=50, day=visit.appointmentDate.date())
-    with patch("app.services.staff_service.ZoomService") as mock_zoom:
-        mock_zoom.return_value.create_scheduled_meeting.return_value = MagicMock(
-            meeting_id="z1",
-            join_url="https://zoom.us/j/1",
-            start_url="https://zoom.us/s/1",
-            password="p",
-        )
-        _approve(db, visit)
+    _approve(db, visit)
     db.refresh(visit)
+    assert visit.meetingProvider == "LIVEKIT"
     listed = VisitorPassService(db).list_passes(_admin(db), visit.branchId, pass_date=issued["date"])
     assert visit.visitorPassId is None
     assert listed["unused"] == 50

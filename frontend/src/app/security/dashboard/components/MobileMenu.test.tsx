@@ -59,7 +59,7 @@ describe('MobileMenu', () => {
       expect(screen.queryByTestId('mobile-menu-overlay')).not.toBeInTheDocument();
     });
 
-    it('should render TeamSwitcher-style header with ConnInter app name', () => {
+    it('should render TeamSwitcher-style header with Conninter app name', () => {
       render(
         <MobileMenu
           isOpen={true}
@@ -67,7 +67,7 @@ describe('MobileMenu', () => {
           items={items}
         />
       );
-      expect(screen.getByText('ConnInter')).toBeInTheDocument();
+      expect(screen.getByText('Conninter')).toBeInTheDocument();
     });
 
     it('should render header with default Security subtitle when no user', () => {

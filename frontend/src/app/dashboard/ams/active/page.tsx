@@ -9,6 +9,7 @@ import {
 } from '@/lib/services/attendantPassService';
 import { AmsPageShell } from '@/features/attendant-management/ui';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { DASHBOARD_REFRESH_MS } from '@/lib/dashboard-refresh';
 
 const WARDS = ['All', 'ICU', 'NICU', 'Emergency', 'General', 'Private', 'VIP'];

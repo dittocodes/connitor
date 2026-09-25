@@ -1,37 +1,37 @@
 'use client';
 
-import { DeliveryPortalGrid } from '@/components/home/DeliveryPortalGrid';
-import { HomeFeatureGrid } from '@/components/home/HomeFeatureGrid';
-import { HomeHeader } from '@/components/home/HomeHeader';
-import { HomeHero } from '@/components/home/HomeHero';
-import { RolePortalGrid } from '@/components/home/RolePortalGrid';
-import { SiteFooter } from '@/components/home/SiteFooter';
-import { VisitorFlowTimeline } from '@/components/home/VisitorFlowTimeline';
-import { VisitorJourneyPicker } from '@/components/home/VisitorJourneyPicker';
+import { useEffect, useState } from 'react';
+import Navbar from '@/components/home/conninter/Navbar';
+import HeroSection from '@/components/home/conninter/HeroSection';
+import StatsTickerStrip from '@/components/home/conninter/StatsTickerStrip';
+import HowItWorksSection from '@/components/home/conninter/HowItWorksSection';
+import HospitalsSection from '@/components/home/conninter/HospitalsSection';
+import PricingSection from '@/components/home/conninter/PricingSection';
+import StaffAccessStrip from '@/components/home/conninter/StaffAccessStrip';
+import Footer from '@/components/home/conninter/Footer';
+
+const INITIAL_BOOKINGS = 48_392;
 
 export function HomePage() {
+  const [bookingsCount, setBookingsCount] = useState(INITIAL_BOOKINGS);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setBookingsCount((prev) => prev + Math.floor(Math.random() * 3) + 1);
+    }, 3000);
+    return () => window.clearInterval(id);
+  }, []);
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-teal-50 via-white to-emerald-50">
-      <HomeHeader />
-
-      <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14 lg:py-16">
-        <HomeHero />
-        <VisitorJourneyPicker />
-        <HomeFeatureGrid />
-        <VisitorFlowTimeline />
-
-        <section className="mt-14 rounded-2xl border border-teal-100/80 bg-slate-50/80 p-6 sm:mt-16 sm:p-8">
-          <RolePortalGrid
-            compact
-            title="Hospital staff"
-            description="Sign in with your work email and password to open your role dashboard."
-          />
-        </section>
-
-        <DeliveryPortalGrid />
-      </main>
-
-      <SiteFooter />
+    <div className="min-h-screen bg-background">
+      <Navbar />
+      <HeroSection bookingsCount={bookingsCount} />
+      <StatsTickerStrip bookingsCount={bookingsCount} />
+      <HowItWorksSection />
+      <HospitalsSection />
+      <PricingSection />
+      <StaffAccessStrip />
+      <Footer />
     </div>
   );
 }

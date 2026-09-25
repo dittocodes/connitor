@@ -242,13 +242,11 @@ class Settings(BaseSettings):
     )
     cron_job_token: str | None = Field(default=None, validation_alias="CRON_JOB_TOKEN")
 
-    zoom_account_id: str | None = Field(default=None, validation_alias="ZOOM_ACCOUNT_ID")
-    zoom_client_id: str | None = Field(default=None, validation_alias="ZOOM_CLIENT_ID")
-    zoom_client_secret: str | None = Field(default=None, validation_alias="ZOOM_CLIENT_SECRET")
-    zoom_user_id: str | None = Field(default=None, validation_alias="ZOOM_USER_ID")
-    zoom_webhook_secret_token: str | None = Field(
-        default=None, validation_alias="ZOOM_WEBHOOK_SECRET_TOKEN"
-    )
+    livekit_url: str | None = Field(default=None, validation_alias="LIVEKIT_URL")
+    livekit_api_key: str | None = Field(default=None, validation_alias="LIVEKIT_API_KEY")
+    livekit_api_secret: str | None = Field(default=None, validation_alias="LIVEKIT_API_SECRET")
+    meeting_join_early_minutes: int = Field(default=15, validation_alias="MEETING_JOIN_EARLY_MINUTES")
+    meeting_join_grace_minutes: int = Field(default=60, validation_alias="MEETING_JOIN_GRACE_MINUTES")
 
     rate_limit_sms_per_hour: int = Field(default=3, validation_alias="RATE_LIMIT_SMS_PER_HOUR")
     rate_limit_skip_in_test_mode: bool = Field(
@@ -296,10 +294,9 @@ def get_settings() -> Settings:
     settings = Settings()
     if is_lambda_runtime():
         logger.info(
-            "Settings loaded for Lambda (secrets_arn=%s, zoom=%s, webhook=%s)",
+            "Settings loaded for Lambda (secrets_arn=%s, livekit=%s)",
             bool(os.environ.get("HVTS_SECRETS_ARN") or os.environ.get("AWS_SECRETS_MANAGER_SECRET_ID")),
-            is_zoom_configured(settings),
-            is_zoom_webhook_configured(settings),
+            is_livekit_configured(settings),
         )
     return settings
 
@@ -386,17 +383,8 @@ def is_aws_sns_configured(settings: Settings) -> bool:
     return bool(settings.aws_region and settings.aws_access_key_id and settings.aws_secret_access_key)
 
 
-def is_zoom_configured(settings: Settings) -> bool:
-    return bool(
-        settings.zoom_account_id
-        and settings.zoom_client_id
-        and settings.zoom_client_secret
-        and settings.zoom_user_id
-    )
-
-
-def is_zoom_webhook_configured(settings: Settings) -> bool:
-    return bool(settings.zoom_webhook_secret_token)
+def is_livekit_configured(settings: Settings) -> bool:
+    return bool(settings.livekit_url and settings.livekit_api_key and settings.livekit_api_secret)
 
 
 def check_meta_whatsapp_health(settings: Settings | None = None) -> dict[str, Any]:
@@ -496,8 +484,7 @@ def settings_summary(settings: Settings | None = None) -> dict[str, object]:
         "meta_whatsapp_valid": check_meta_whatsapp_health(s).get("valid"),
         "pywhatkit_central_phone": s.pywhatkit_central_phone,
         "whatsapp_notifications": resolves_to_whatsapp_notifications(s),
-        "zoom_configured": is_zoom_configured(s),
-        "zoom_webhook_configured": is_zoom_webhook_configured(s),
+        "livekit_configured": is_livekit_configured(s),
         "delivery_module_enabled": s.delivery_module_enabled,
         "env_file_used": _ENV_FILE.is_file() and not is_lambda_runtime(),
     }

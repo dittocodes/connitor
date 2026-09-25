@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import { Calendar, LogOut, MessageSquare, QrCode, Stethoscope } from 'lucide-react';
+import { VisitorPortalShell } from '@/components/auth/VisitorPortalShell';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -37,7 +37,7 @@ function formatDate(value: string | null): string {
 function AppointmentCard({ item }: { item: VisitorAppointment }) {
   const hasFeedback = Boolean(item.doctorFeedback);
   return (
-    <Card>
+    <Card className="border-[#001B71]/08">
       <CardHeader className="pb-2">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
@@ -78,14 +78,14 @@ function AppointmentCard({ item }: { item: VisitorAppointment }) {
         </div>
 
         {hasFeedback && (
-          <div className="rounded-lg border border-teal-100 bg-teal-50/80 p-3">
-            <p className="flex items-center gap-2 font-medium text-teal-900">
+          <div className="rounded-lg border border-[#001B71]/08 bg-[#4A90E2]/10 p-3">
+            <p className="flex items-center gap-2 font-medium text-primary">
               <MessageSquare className="h-4 w-4" />
               Message from doctor
             </p>
-            <p className="mt-1 text-teal-950/90">{item.doctorFeedback}</p>
+            <p className="mt-1 text-slate-800">{item.doctorFeedback}</p>
             {item.doctorFeedbackAt && (
-              <p className="mt-2 text-xs text-teal-800/70">{formatDate(item.doctorFeedbackAt)}</p>
+              <p className="mt-2 text-xs text-muted-foreground">{formatDate(item.doctorFeedbackAt)}</p>
             )}
           </div>
         )}
@@ -151,19 +151,14 @@ export default function VisitorDashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-teal-50 via-white to-emerald-50">
-      <header className="border-b border-teal-100/80 bg-white/70 backdrop-blur-md sticky top-0 z-10">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-4 sm:px-6">
-          <Link href="/">
-            <Image src="/ConnInter.png" alt="Connitor" width={130} height={40} className="h-8 w-auto" />
-          </Link>
-          <Button variant="ghost" size="sm" onClick={logout}>
-            <LogOut className="mr-2 h-4 w-4" />
-            Sign out
-          </Button>
-        </div>
-      </header>
-
+    <VisitorPortalShell
+      headerExtra={
+        <Button variant="ghost" size="sm" onClick={logout} className="text-muted-foreground">
+          <LogOut className="mr-2 h-4 w-4" />
+          Sign out
+        </Button>
+      }
+    >
       <main className="mx-auto max-w-4xl space-y-6 p-4 py-8 sm:p-6">
         {data?.profile && (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -180,7 +175,7 @@ export default function VisitorDashboardPage() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-              <Stethoscope className="h-6 w-6 text-teal-600" />
+              <Stethoscope className="h-6 w-6 text-primary" />
               My appointment history
             </h1>
             {data && (
@@ -217,10 +212,10 @@ export default function VisitorDashboardPage() {
         )}
 
         {data && data.appointments.length === 0 && (
-          <Card>
+          <Card className="border-[#001B71]/08">
             <CardContent className="py-10 text-center text-muted-foreground">
               No appointments yet.{' '}
-              <Link href="/book-appointment" className="text-teal-700 underline">
+              <Link href="/book-appointment" className="text-primary underline">
                 Book your first visit
               </Link>
             </CardContent>
@@ -235,6 +230,6 @@ export default function VisitorDashboardPage() {
           </div>
         )}
       </main>
-    </div>
+    </VisitorPortalShell>
   );
 }

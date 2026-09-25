@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import DashboardLayoutClient from '@/app/dashboard/DashboardLayoutClient';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { getDashboardPathForRole } from '@/lib/auth-routing';
+import { ConnitorLoader } from '@/components/ConnitorLoader';
 
 interface User {
   id: string;
@@ -43,11 +44,11 @@ export default function SecurityLayout({
   }, [user, router]);
 
   if (!user) {
-    return null;
+    return <ConnitorLoader variant="fullscreen" message="Loading…" />;
   }
 
   if (user.role !== 'SECURITY' && user.role !== 'SECURITY_SUPERVISOR') {
-    return null;
+    return <ConnitorLoader variant="fullscreen" message="Redirecting…" />;
   }
 
   return <DashboardLayoutClient user={user}>{children}</DashboardLayoutClient>;

@@ -221,9 +221,9 @@ export function VisitorDetailsCard({
         )}
 
         {visit.visitorPassId ? (
-          <div className="flex items-center justify-between text-sm bg-teal-50 border border-teal-200 rounded-lg p-3">
-            <span className="font-medium text-teal-900">Pass ID</span>
-            <span className="font-mono font-semibold tracking-wide text-teal-800">
+          <div className="flex items-center justify-between text-sm bg-[#4A90E2]/10 border border-[#001B71]/20 rounded-lg p-3">
+            <span className="font-medium text-primary">Pass ID</span>
+            <span className="font-mono font-semibold tracking-wide text-primary">
               {visit.visitorPassId}
             </span>
           </div>

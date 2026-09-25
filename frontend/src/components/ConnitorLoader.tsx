@@ -1,7 +1,7 @@
 'use client';
 
-import Image from 'next/image';
 import { cn } from '@/lib/utils';
+import { ConninterWordmark } from '@/components/brand/ConninterWordmark';
 
 type ConnitorLoaderProps = {
   /** Short status line under the brand name */
@@ -12,7 +12,8 @@ type ConnitorLoaderProps = {
 };
 
 /**
- * Branded loading indicator using the Connitor name + logo.
+ * Branded loading indicator using the Conninter wordmark.
+ * Export name kept as ConnitorLoader for existing imports.
  */
 export function ConnitorLoader({
   message = 'Loading…',
@@ -38,32 +39,26 @@ export function ConnitorLoader({
       >
         <span
           className={cn(
-            'absolute inset-0 rounded-full bg-teal-200/50 animate-ping',
+            'absolute inset-0 rounded-full bg-[#4A90E2]/30 animate-ping',
             variant === 'inline' && 'opacity-70',
           )}
           aria-hidden
         />
-        <Image
-          src="/ConnInter.png"
-          alt=""
-          width={variant === 'inline' ? 32 : 56}
-          height={variant === 'inline' ? 32 : 56}
+        <div
           className={cn(
-            'relative z-10 object-contain drop-shadow-sm animate-pulse',
-            variant === 'inline' ? 'h-8 w-8' : 'h-12 w-12',
-          )}
-          priority
-        />
-      </div>
-      <div className={cn(variant === 'inline' && 'min-w-0')}>
-        <p
-          className={cn(
-            'font-semibold tracking-tight text-teal-900',
-            variant === 'inline' ? 'text-sm' : 'text-lg',
+            'relative z-10 flex items-center justify-center rounded-full bg-[#001B71] text-white font-extrabold shadow-sm',
+            variant === 'inline' ? 'h-8 w-8 text-xs' : 'h-12 w-12 text-sm',
           )}
         >
-          Connitor
-        </p>
+          C
+        </div>
+      </div>
+      <div className={cn(variant === 'inline' && 'min-w-0')}>
+        {variant === 'inline' ? (
+          <p className="text-sm font-semibold tracking-tight text-primary">Conninter</p>
+        ) : (
+          <ConninterWordmark href={null} size="sm" />
+        )}
         {message ? (
           <p
             className={cn(
@@ -80,7 +75,7 @@ export function ConnitorLoader({
 
   if (variant === 'fullscreen') {
     return (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-white/80 backdrop-blur-[2px]">
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#F7F9FC]/90 backdrop-blur-[2px]">
         {content}
       </div>
     );

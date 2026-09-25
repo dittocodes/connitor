@@ -224,6 +224,10 @@ class Visit(Base):
     zoomJoinUrl: Mapped[str | None] = mapped_column(Text, nullable=True)
     zoomStartUrl: Mapped[str | None] = mapped_column(Text, nullable=True)
     zoomPassword: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    meetingProvider: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    meetingRoomName: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    meetingJoinUrl: Mapped[str | None] = mapped_column(Text, nullable=True)
+    meetingHostUrl: Mapped[str | None] = mapped_column(Text, nullable=True)
     smsApprovalCode: Mapped[str | None] = mapped_column(String(6), nullable=True, index=True)
     approvalLinkTokenHash: Mapped[str | None] = mapped_column(String(191), nullable=True, index=True)
     approvalLinkExpiresAt: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
@@ -364,3 +368,59 @@ class Notification(Base):
     visitId: Mapped[str | None] = mapped_column(String(36), ForeignKey("Visit.id"), nullable=True)
 
     visit = relationship("Visit", back_populates="notifications")
+
+
+class BranchVisitSlotPolicy(Base):
+    __tablename__ = "BranchVisitSlotPolicy"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    branchId: Mapped[str] = mapped_column(String(36), ForeignKey("Branch.id"), unique=True, index=True)
+    dailyQuota: Mapped[int] = mapped_column(Integer, default=50)
+    createdAt: Mapped[datetime] = mapped_column(DateTime, default=now_ist)
+    updatedAt: Mapped[datetime] = mapped_column(DateTime, default=now_ist, onupdate=now_ist)
+
+    branch = relationship("Branch")
+
+
+class VisitSlotRoutine(Base):
+    __tablename__ = "VisitSlotRoutine"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    branchId: Mapped[str] = mapped_column(String(36), ForeignKey("Branch.id"), index=True)
+    staffId: Mapped[str] = mapped_column(String(36), ForeignKey("User.id"), index=True)
+    weekdays: Mapped[str] = mapped_column(Text, default="[0,1,2,3,4,5,6]")
+    windowStart: Mapped[str] = mapped_column(String(5))
+    windowEnd: Mapped[str] = mapped_column(String(5))
+    slotCount: Mapped[int] = mapped_column(Integer)
+    isActive: Mapped[bool] = mapped_column(Boolean, default=True)
+    createdAt: Mapped[datetime] = mapped_column(DateTime, default=now_ist)
+    updatedAt: Mapped[datetime] = mapped_column(DateTime, default=now_ist, onupdate=now_ist)
+
+    branch = relationship("Branch")
+    staff = relationship("User", foreign_keys=[staffId])
+
+
+class VisitSlotAllotment(Base):
+    __tablename__ = "VisitSlotAllotment"
+    __table_args__ = (
+        UniqueConstraint(
+            "staffId",
+            "allotmentDate",
+            "windowStart",
+            name="VisitSlotAllotment_staff_date_window_key",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    branchId: Mapped[str] = mapped_column(String(36), ForeignKey("Branch.id"), index=True)
+    staffId: Mapped[str] = mapped_column(String(36), ForeignKey("User.id"), index=True)
+    allotmentDate: Mapped[date] = mapped_column(Date, index=True)
+    windowStart: Mapped[str] = mapped_column(String(5))
+    windowEnd: Mapped[str] = mapped_column(String(5))
+    slotCount: Mapped[int] = mapped_column(Integer)
+    source: Mapped[str] = mapped_column(String(20), default="MANUAL")
+    createdAt: Mapped[datetime] = mapped_column(DateTime, default=now_ist)
+    updatedAt: Mapped[datetime] = mapped_column(DateTime, default=now_ist, onupdate=now_ist)
+
+    branch = relationship("Branch")
+    staff = relationship("User", foreign_keys=[staffId])

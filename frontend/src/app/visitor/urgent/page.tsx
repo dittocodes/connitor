@@ -7,6 +7,7 @@ import { Suspense } from 'react';
 import { toast } from 'sonner';
 import { QRCodeSVG } from 'qrcode.react';
 import { Loader2 } from 'lucide-react';
+import { VisitorPortalShell } from '@/components/auth/VisitorPortalShell';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -252,14 +253,7 @@ function UrgentGateInner(): React.ReactElement {
 
 export default function VisitorUrgentPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
-      <header className="border-b bg-white/80 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
-          <Link href="/" className="text-sm font-semibold text-teal-800">
-            Connitor
-          </Link>
-        </div>
-      </header>
+    <VisitorPortalShell>
       <main className="mx-auto max-w-6xl px-4 py-8">
         <Suspense
           fallback={
@@ -269,6 +263,6 @@ export default function VisitorUrgentPage() {
           <UrgentGateInner />
         </Suspense>
       </main>
-    </div>
+    </VisitorPortalShell>
   );
 }

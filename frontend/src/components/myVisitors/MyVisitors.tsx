@@ -310,7 +310,7 @@ const ApproveDialog = ({
             Confirm approval for{' '}
             <span className="font-semibold text-primary">{visitorName}</span>.
             {visitor.appointmentMode === 'ONLINE'
-              ? ' A Zoom meeting will be created and sent to the visitor.'
+              ? ' A video consultation room will be created and the link sent to the visitor.'
               : ' Add an optional message — the visitor will see it on their dashboard.'}
           </DialogDescription>
         </DialogHeader>
@@ -610,17 +610,17 @@ const VisitorList = ({
                             </div>
                           )}
                           {visit.appointmentMode === 'ONLINE' &&
-                            visit.status === 'APPROVED' &&
-                            visit.zoomStartUrl && (
+                            (visit.status === 'APPROVED' || visit.status === 'CHECKED_IN') &&
+                            (visit.meetingHostUrl ?? visit.zoomStartUrl) && (
                               <div className="md:col-span-2">
                                 <Button size="sm" asChild>
                                   <a
-                                    href={visit.zoomStartUrl}
+                                    href={(visit.meetingHostUrl ?? visit.zoomStartUrl) as string}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                   >
                                     <Video className="mr-1 h-4 w-4" />
-                                    Start Zoom
+                                    Start consultation
                                   </a>
                                 </Button>
                               </div>
@@ -758,16 +758,16 @@ const VisitorList = ({
                     </div>
                   )}
                   {visit.appointmentMode === 'ONLINE' &&
-                    visit.status === 'APPROVED' &&
-                    visit.zoomStartUrl && (
+                    (visit.status === 'APPROVED' || visit.status === 'CHECKED_IN') &&
+                    (visit.meetingHostUrl ?? visit.zoomStartUrl) && (
                       <Button size="sm" className="w-full" asChild>
                         <a
-                          href={visit.zoomStartUrl}
+                          href={(visit.meetingHostUrl ?? visit.zoomStartUrl) as string}
                           target="_blank"
                           rel="noopener noreferrer"
                         >
                           <Video className="mr-1 h-4 w-4" />
-                          Start Zoom
+                          Start consultation
                         </a>
                       </Button>
                     )}

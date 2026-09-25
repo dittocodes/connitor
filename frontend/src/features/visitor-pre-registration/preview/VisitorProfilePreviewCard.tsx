@@ -28,7 +28,7 @@ export function VisitorProfilePreviewCard({ data, className }: VisitorProfilePre
 
   return (
     <Card className={cn('overflow-hidden border-2 shadow-lg', className)}>
-      <div className="h-16 bg-gradient-to-r from-sky-600 to-teal-600" />
+      <div className="h-16 bg-gradient-to-r from-[#001B71] to-[#4A90E2]" />
       <CardContent className="relative px-6 pb-6 pt-0">
         <Avatar className="-mt-10 h-20 w-20 border-4 border-background shadow-md">
           <AvatarImage src={avatarSrc} alt={fullName} />

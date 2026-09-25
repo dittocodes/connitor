@@ -34,7 +34,7 @@ class AppointmentCalendarDetails:
     status: CalendarStatus
     sequence: int = 0
     appointment_mode: str = "IN_PERSON"
-    zoom_join_url: str | None = None
+    meeting_join_url: str | None = None
 
 
 def _ics_escape(value: str) -> str:
@@ -76,8 +76,8 @@ def _event_description(details: AppointmentCalendarDetails) -> str:
         lines.append(f"Purpose: {details.purpose}")
     if details.appointment_mode == "ONLINE":
         lines.append("Visit type: Online video consultation.")
-        if details.zoom_join_url:
-            lines.append(f"Zoom link: {details.zoom_join_url}")
+        if details.meeting_join_url:
+            lines.append(f"Video consultation: {details.meeting_join_url}")
     if details.status == "tentative":
         lines.append("Status: Awaiting doctor approval.")
     elif details.status == "confirmed":

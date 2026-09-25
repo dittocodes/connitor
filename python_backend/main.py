@@ -125,6 +125,9 @@ async def http_exception_handler(
         body["error"] = detail
         body["message"] = "Error"
 
+    if isinstance(detail, dict):
+        body = {**detail, "statusCode": exc.status_code, "message": str(detail.get("message", "Error"))}
+
     return JSONResponse(
         status_code=exc.status_code,
         content=body,

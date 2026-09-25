@@ -24,6 +24,7 @@ export const sidebarConfig = {
     { label: 'Visitors', href: '/dashboard/visitors', icon: 'user-plus' },
     { label: 'Appointments', href: '/dashboard/appointments', icon: 'calendar' },
     { label: 'Visitor passes', href: '/dashboard/visitor-passes', icon: 'id-card' },
+    { label: 'Visit slots', href: '/dashboard/visit-slots', icon: 'calendar' },
     { label: 'Delivery', href: '/dashboard/delivery', icon: 'truck' },
     { label: 'Delivery Slots', href: '/dashboard/delivery-slots', icon: 'calendar' },
     { label: 'Vendors', href: '/dashboard/delivery/vendors', icon: 'users' },
@@ -69,6 +70,7 @@ export const sidebarConfig = {
     { label: 'Users', href: '/dashboard/users', icon: 'users' },
     { label: 'Visitors', href: '/dashboard/visitors', icon: 'user-plus' },
     { label: 'Visitor passes', href: '/dashboard/visitor-passes', icon: 'id-card' },
+    { label: 'Visit slots', href: '/dashboard/visit-slots', icon: 'calendar' },
     { label: 'Settings', href: '/dashboard/settings', icon: 'settings' },
   ],
   SECURITY: [

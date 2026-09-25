@@ -30,7 +30,7 @@ export const VISITOR_JOURNEYS: VisitorJourney[] = [
   {
     id: 'pre-register',
     label: 'Pre-register',
-    shortTitle: 'Create your Connitor profile',
+    shortTitle: 'Create your Conninter profile',
     description:
       'Build a LinkedIn-style profile once — verify your email and phone, add a live photo and ID, then use it across every hospital visit.',
     icon: UserCircle,
@@ -47,7 +47,7 @@ export const VISITOR_JOURNEYS: VisitorJourney[] = [
     label: 'Book appointment',
     shortTitle: 'Schedule a hospital visit',
     description:
-      'Choose a hospital, department, and doctor. Your Connitor profile pre-fills your details if you are signed in.',
+      'Choose a hospital, department, and doctor. Your Conninter profile pre-fills your details if you are signed in.',
     icon: CalendarCheck,
     steps: [
       'Select hospital, department, section, and doctor',
@@ -97,7 +97,7 @@ export const VISITOR_JOURNEYS: VisitorJourney[] = [
       'See if your appointment was approved, view your QR or OTP for check-in, and read messages from your doctor.',
     icon: MapPin,
     steps: [
-      'Sign in with your Connitor profile or booking email',
+      'Sign in with your Conninter profile or booking email',
       'View appointment status and doctor feedback',
       'Show your gate pass or OTP on arrival day',
     ],

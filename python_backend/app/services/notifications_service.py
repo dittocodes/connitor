@@ -9,6 +9,7 @@ from app.config import get_settings
 from app.models import Branch, Department, Notification, SubDepartment, User, Visit, Visitor
 from app.models.enums import AppointmentMode, Role
 from app.services.calendar_service import AppointmentCalendarDetails, CalendarService
+from app.services.livekit_service import meeting_host_url, meeting_join_url
 from app.services.messaging_service import EmailService, SmsService, WhatsAppService
 
 logger = logging.getLogger(__name__)
@@ -74,7 +75,7 @@ class NotificationsService:
             status=status,  # type: ignore[arg-type]
             sequence=sequence,
             appointment_mode=visit.appointmentMode or AppointmentMode.IN_PERSON.value,
-            zoom_join_url=visit.zoomJoinUrl if self._is_online(visit) else None,
+            meeting_join_url=meeting_join_url(visit) if self._is_online(visit) else None,
         )
 
     def _send_calendar_invite(
@@ -232,7 +233,7 @@ class NotificationsService:
         if self._is_online(visit):
             sms_text = (
                 f"Connitor: Online appointment request sent to Dr. {doctor.name} for {appt}. "
-                "Awaiting doctor approval. Zoom link will be sent once approved."
+                "Awaiting doctor approval. Your video consultation link will be sent once approved."
             )
         else:
             sms_text = (
@@ -494,7 +495,7 @@ class NotificationsService:
         name = self._visitor_name(visitor)
         appt = self._format_appt(visit)
         feedback = (visit.doctorFeedback or "").strip()
-        join_url = visit.zoomJoinUrl or ""
+        join_url = meeting_join_url(visit) or ""
 
         self._send_calendar_invite(visit, doctor, visitor, status="confirmed", sequence=1)
 
@@ -505,28 +506,26 @@ class NotificationsService:
                     recipient_name=name,
                     doctor_name=doctor.name,
                     appointment_date=appt,
-                    zoom_url=join_url,
+                    meeting_url=join_url,
                     doctor_feedback=feedback or None,
                     is_host=False,
-                    meeting_password=visit.zoomPassword,
                 )
             except Exception as exc:
                 logger.error("Failed to send online appointment email to %s: %s", visitor.email, exc)
 
         if join_url:
-            pwd = f" Password: {visit.zoomPassword}." if visit.zoomPassword else ""
             self.sms.send_message(
                 visitor.phone,
-                f"Connitor: Online appointment approved with Dr. {doctor.name}. Join: {join_url}.{pwd}",
+                f"Connitor: Online appointment approved with Dr. {doctor.name}. Join video consultation: {join_url}",
             )
 
     def notify_doctor_online_approval(self, visit: Visit, doctor: User, visitor: Visitor) -> None:
         name = self._visitor_name(visitor)
         appt = self._format_appt(visit)
-        start_url = visit.zoomStartUrl or visit.zoomJoinUrl or ""
+        start_url = meeting_host_url(visit) or ""
         message = (
             f"You approved the online appointment for {name} on {appt}. "
-            "Zoom meeting created and sent to the visitor."
+            "A video consultation room was created and the link sent to the visitor."
         )
         self._add_notification(doctor.id, visit.id, message)
         if doctor.email and start_url:
@@ -536,10 +535,9 @@ class NotificationsService:
                     recipient_name=doctor.name or "Doctor",
                     doctor_name=doctor.name,
                     appointment_date=appt,
-                    zoom_url=start_url,
+                    meeting_url=start_url,
                     doctor_feedback=None,
                     is_host=True,
-                    meeting_password=visit.zoomPassword,
                 )
             except Exception as exc:
                 logger.error("Failed to send online host email to %s: %s", doctor.email, exc)
@@ -548,7 +546,7 @@ class NotificationsService:
         if start_url and doctor.phone:
             self._sms_user(
                 doctor,
-                f"Connitor: Online appointment with {name} on {appt}. Start Zoom: {start_url}",
+                f"Connitor: Online appointment with {name} on {appt}. Start consultation: {start_url}",
             )
         self.db.commit()
 
@@ -560,14 +558,16 @@ class NotificationsService:
             f"Hello {name},\n\n"
             f"Your online consultation with Dr. {doctor.name} ({appt}) has started.\n\n"
             f"Started at: {started}\n\n"
-            "Use the Zoom join link from your approval email if you are not already in the meeting."
+            "Use the video consultation link from your approval email if you are not already in the room."
         )
         doctor_msg = (
             f"Your online consultation with {name} ({appt}) has started.\n\n"
             f"Started at: {started}"
         )
-        self._email_visitor(visitor, "Online Consultation Started", visitor_msg)
         self._add_notification(doctor.id, visit.id, doctor_msg)
+        # Release the Visit FK lock before slow email/SMS so a room_finished webhook can check out.
+        self.db.commit()
+        self._email_visitor(visitor, "Online Consultation Started", visitor_msg)
         self._email_user(doctor, "Online Consultation Started", doctor_msg)
         if visitor.phone:
             self.sms.send_message(

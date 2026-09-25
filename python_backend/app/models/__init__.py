@@ -1,6 +1,7 @@
 from app.models.entities import (
     Branch,
     BranchVisitorPassPolicy,
+    BranchVisitSlotPolicy,
     Department,
     DoctorAvailabilitySlot,
     HospitalChain,
@@ -11,6 +12,8 @@ from app.models.entities import (
     Visit,
     Visitor,
     VisitorPass,
+    VisitSlotAllotment,
+    VisitSlotRoutine,
     DoctorUrgentPasscode,
 )
 from app.models.enums import (
@@ -27,6 +30,7 @@ from app.models.enums import (
     VisitorDocumentType,
     VisitorPassStatus,
     VisitorPassSource,
+    VisitSlotAllotmentSource,
     DeliveryStatus,
     DeliveryType,
 )
@@ -85,6 +89,10 @@ __all__ = [
     "Visitor",
     "VisitorPass",
     "BranchVisitorPassPolicy",
+    "BranchVisitSlotPolicy",
+    "VisitSlotRoutine",
+    "VisitSlotAllotment",
+    "VisitSlotAllotmentSource",
     "VisitorPassStatus",
     "VisitorPassSource",
     "VisitorAccount",

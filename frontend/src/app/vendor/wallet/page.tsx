@@ -60,7 +60,7 @@ export default function VendorWalletPage(): React.ReactElement {
       subtitle="Delivery booking fees are debited from this balance when wallet billing is enabled."
     >
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="border-amber-100 bg-gradient-to-br from-amber-50 to-white shadow-sm">
+        <Card className="border-[#001B71]/08 bg-white shadow-sm">
           <CardHeader>
             <CardTitle>Balance</CardTitle>
           </CardHeader>
@@ -68,14 +68,14 @@ export default function VendorWalletPage(): React.ReactElement {
             <p className="text-4xl font-bold text-slate-900">₹{balance ?? '—'}</p>
             <div className="flex gap-2">
               <Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} />
-              <Button className="bg-amber-600 hover:bg-amber-700" onClick={() => void recharge()}>
+              <Button onClick={() => void recharge()}>
                 Recharge
               </Button>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-teal-100 bg-white/90">
+        <Card className="border-[#001B71]/08 bg-white/90">
           <CardHeader>
             <CardTitle>Transactions</CardTitle>
           </CardHeader>

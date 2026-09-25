@@ -8,6 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
+import { VisitorPortalShell } from '@/components/auth/VisitorPortalShell';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -92,20 +93,22 @@ function ResetPasswordForm() {
 
 export default function ResetPasswordPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Reset password</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Suspense fallback={<Loader2 className="h-6 w-6 animate-spin" />}>
-            <ResetPasswordForm />
-          </Suspense>
-          <Button variant="link" asChild className="mt-4 px-0">
-            <Link href="/visitor/login">Back to sign in</Link>
-          </Button>
-        </CardContent>
-      </Card>
-    </div>
+    <VisitorPortalShell>
+      <div className="flex items-center justify-center p-4 py-10">
+        <Card className="w-full max-w-md border-[#001B71]/08 shadow-sm">
+          <CardHeader>
+            <CardTitle>Reset password</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Suspense fallback={<Loader2 className="h-6 w-6 animate-spin" />}>
+              <ResetPasswordForm />
+            </Suspense>
+            <Button variant="link" asChild className="mt-4 px-0">
+              <Link href="/visitor/login">Back to sign in</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    </VisitorPortalShell>
   );
 }

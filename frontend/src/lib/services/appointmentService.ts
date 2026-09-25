@@ -140,7 +140,7 @@ export const AppointmentService = {
       doctorFeedback: string | null;
       doctorFeedbackAt: string | null;
       appointmentMode?: string;
-      zoomJoinUrl?: string | null;
+      meetingJoinUrl?: string | null;
     }>(`/api/public/appointments/${bookingId}/status`, { params: { phone } });
     return response.data;
   },
