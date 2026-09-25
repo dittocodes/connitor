@@ -64,14 +64,14 @@ function DoctorDetailCard({ doctor }: { doctor: PublicDoctor }) {
             {doctor.branchCity ? `, ${doctor.branchCity}` : ''}
           </p>
         )}
-        {doctor.languages?.length ? (
+        {Array.isArray(doctor.languages) && doctor.languages.length ? (
           <p className="flex items-center gap-1">
             <Languages className="h-3.5 w-3.5 shrink-0" />
             {doctor.languages.join(', ')}
           </p>
         ) : null}
       </div>
-      {doctor.consultationModes?.length ? (
+      {Array.isArray(doctor.consultationModes) && doctor.consultationModes.length ? (
         <div className="flex flex-wrap gap-1.5 pt-1">
           {doctor.consultationModes.map((mode) => (
             <Badge key={mode} variant="secondary" className="text-xs">

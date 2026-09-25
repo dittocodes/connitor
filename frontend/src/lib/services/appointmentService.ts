@@ -1,4 +1,5 @@
 import apiClient from '@/lib/api';
+import { ensureArray } from '@/lib/ensure-array';
 import { getVisitorToken } from '@/lib/services/visitorPortalService';
 
 export interface PublicHospital {
@@ -52,29 +53,29 @@ export const AppointmentService = {
   },
 
   async listPublicHospitals(): Promise<PublicHospital[]> {
-    const response = await apiClient.get<PublicHospital[]>('/api/public/appointments/hospitals');
-    return response.data;
+    const response = await apiClient.get('/api/public/appointments/hospitals');
+    return ensureArray<PublicHospital>(response.data);
   },
 
   async listPublicDepartments(branchId: string) {
     const response = await apiClient.get('/api/public/appointments/departments', {
       params: { branchId },
     });
-    return response.data;
+    return ensureArray<{ id: string; name: string }>(response.data);
   },
 
   async listPublicSubDepartments(departmentId: string) {
     const response = await apiClient.get('/api/public/appointments/sub-departments', {
       params: { departmentId },
     });
-    return response.data;
+    return ensureArray<{ id: string; name: string }>(response.data);
   },
 
   async listPublicDoctors(subDepartmentId: string): Promise<PublicDoctor[]> {
-    const response = await apiClient.get<PublicDoctor[]>('/api/public/appointments/doctors', {
+    const response = await apiClient.get('/api/public/appointments/doctors', {
       params: { subDepartmentId },
     });
-    return response.data;
+    return ensureArray<PublicDoctor>(response.data);
   },
 
   async getPublicDoctor(doctorId: string): Promise<PublicDoctor> {
@@ -85,11 +86,11 @@ export const AppointmentService = {
   },
 
   async listDoctorSlots(doctorId: string, date: string): Promise<DoctorSlot[]> {
-    const response = await apiClient.get<DoctorSlot[]>(
+    const response = await apiClient.get(
       `/api/public/appointments/doctors/${doctorId}/slots`,
       { params: { date } },
     );
-    return response.data;
+    return ensureArray<DoctorSlot>(response.data);
   },
 
   async book(data: {

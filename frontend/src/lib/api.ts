@@ -8,6 +8,7 @@ import {
 import { getBackendBaseUrl } from '@/lib/backend-url';
 import { getStoredAuthToken } from '@/lib/auth-storage';
 import { beginMutationBusy, endMutationBusy } from '@/lib/mutation-busy';
+import { isHtmlPayload } from '@/lib/ensure-array';
 
 function resolveBaseUrl(): string {
   return USE_MOCK_API ? '/' : getBackendBaseUrl();
@@ -111,6 +112,13 @@ if (typeof window !== 'undefined') {
   apiClient.interceptors.response.use(
     (response) => {
       releaseBusy(response.config);
+      if (isHtmlPayload(response.data)) {
+        return Promise.reject(
+          new Error(
+            'The server returned a web page instead of API data. Check NEXT_PUBLIC_BACKEND_API_URL or /api proxy configuration.',
+          ),
+        );
+      }
       return response;
     },
     (error) => {
