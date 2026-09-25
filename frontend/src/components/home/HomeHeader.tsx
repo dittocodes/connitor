@@ -76,7 +76,7 @@ export function HomeHeader() {
             size="sm"
             className="hidden border-amber-200 text-amber-900 md:inline-flex"
           >
-            <Link href="/auth/login?role=DISTRIBUTOR">
+            <Link href="/delivery/login">
               <Truck className="mr-2 h-4 w-4" />
               Distributor
             </Link>

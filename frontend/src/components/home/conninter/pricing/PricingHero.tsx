@@ -1,6 +1,7 @@
 'use client';
 
 import { AnimatePresence, motion } from "framer-motion";
+import { ClientButton } from '@/components/home/conninter/ClientButton';
 import type { Audience, Billing } from "./pricingData";
 
 type Props = {
@@ -58,24 +59,22 @@ export const PricingHero = ({ billing, onBillingChange, audience, onAudienceChan
               transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
             />
             <div className="relative z-10 grid h-full grid-cols-2">
-              <button
-                type="button"
+              <ClientButton
                 onClick={() => onBillingChange("monthly")}
                 className={`rounded-full text-sm transition-colors ${
                   billing === "monthly" ? "font-semibold text-[#001B71]" : "font-normal text-white/60"
                 }`}
               >
                 Monthly
-              </button>
-              <button
-                type="button"
+              </ClientButton>
+              <ClientButton
                 onClick={() => onBillingChange("annual")}
                 className={`rounded-full text-sm transition-colors ${
                   billing === "annual" ? "font-semibold text-[#001B71]" : "font-normal text-white/60"
                 }`}
               >
                 Annual
-              </button>
+              </ClientButton>
             </div>
           </div>
           <AnimatePresence>
@@ -101,16 +100,15 @@ export const PricingHero = ({ billing, onBillingChange, audience, onAudienceChan
           className="relative z-[120] mt-5 inline-flex h-10 items-center rounded-full border border-white/15 bg-[#001B71] p-1 shadow-[0_4px_20px_rgba(0,0,0,0.2)]"
         >
           {(["hospitals", "companies"] as const).map((a) => (
-            <button
+            <ClientButton
               key={a}
-              type="button"
               onClick={() => onAudienceChange(a)}
               className={`rounded-full px-5 py-2 text-sm font-medium transition-colors ${
                 audience === a ? "bg-white text-[#001B71] shadow-sm" : "text-white/55 hover:text-white/80"
               }`}
             >
               For {a === "hospitals" ? "Hospitals" : "Companies"}
-            </button>
+            </ClientButton>
           ))}
         </motion.div>
       </motion.div>

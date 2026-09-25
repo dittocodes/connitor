@@ -4,8 +4,8 @@ import Link from 'next/link';
 import { Building2, IdCard, Shield, Truck, LayoutGrid } from 'lucide-react';
 
 const STAFF_LINKS = [
-  { label: 'Staff login', href: '/auth/login', icon: Building2 },
-  { label: 'Security', href: '/auth/login?role=SECURITY', icon: Shield },
+  { label: 'Staff login', href: '/staff/login', icon: Building2 },
+  { label: 'Security', href: '/security/login', icon: Shield },
   { label: 'Attendant pass', href: '/attendant-pass', icon: IdCard },
   { label: 'Vendor', href: '/vendor/register', icon: Truck },
   { label: 'Portal hub', href: '/portal', icon: LayoutGrid },

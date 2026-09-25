@@ -38,6 +38,7 @@ export const PricingComparison = ({ audience }: Props) => {
     <div className="mx-auto max-w-[1200px] px-4 pb-4 lg:px-8">
       <motion.button
         type="button"
+        suppressHydrationWarning
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
         whileHover={reducedMotion ? undefined : { scale: 1.03 }}

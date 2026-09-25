@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Star, Bed, Calendar, ChevronRight, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
+import { ClientButton } from '@/components/home/conninter/ClientButton';
 
 interface Hospital {
   name: string;
@@ -138,9 +139,8 @@ export default function HospitalsSection() {
 
         <div className="mb-10 flex flex-wrap justify-center gap-2">
           {cities.map((c) => (
-            <button
+            <ClientButton
               key={c}
-              type="button"
               onClick={() => setActiveCity(c)}
               className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
                 activeCity === c
@@ -149,7 +149,7 @@ export default function HospitalsSection() {
               }`}
             >
               {c}
-            </button>
+            </ClientButton>
           ))}
         </div>
 
@@ -184,8 +184,7 @@ export default function HospitalsSection() {
 
               <div className="space-y-3 p-5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <button
-                    type="button"
+                  <ClientButton
                     onClick={() => setExpandedSlots(expandedSlots === h.name ? null : h.name)}
                     className="inline-flex items-center gap-2 rounded-full bg-success/10 px-3 py-1.5 text-xs font-semibold text-success transition-colors hover:bg-success/20"
                   >
@@ -194,7 +193,7 @@ export default function HospitalsSection() {
                     <ChevronRight
                       className={`h-3 w-3 transition-transform ${expandedSlots === h.name ? 'rotate-90' : ''}`}
                     />
-                  </button>
+                  </ClientButton>
                   <div className="flex gap-1">
                     <span className="rounded-full border border-success/30 px-2 py-0.5 text-[10px] font-semibold text-success">
                       ✓ EMPANELED
@@ -229,9 +228,8 @@ export default function HospitalsSection() {
                             const booked = h.bookedSlots.includes(slot);
                             const selected = selectedSlots[h.name] === slot;
                             return (
-                              <button
+                              <ClientButton
                                 key={slot}
-                                type="button"
                                 disabled={booked}
                                 onClick={() => handleSlotSelect(h.name, slot)}
                                 className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
@@ -244,7 +242,7 @@ export default function HospitalsSection() {
                               >
                                 {selected && <Check className="mr-1 inline h-3 w-3" />}
                                 {slot}
-                              </button>
+                              </ClientButton>
                             );
                           })}
                         </div>

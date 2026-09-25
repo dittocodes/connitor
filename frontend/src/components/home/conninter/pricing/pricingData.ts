@@ -1,6 +1,3 @@
-import type { LucideIcon } from "lucide-react";
-import { Building2, Rocket, Shield, Zap } from "lucide-react";
-
 export type Audience = "hospitals" | "companies";
 export type Billing = "monthly" | "annual";
 export type PlanTier = "standard" | "popular" | "enterprise" | "contact";
@@ -31,10 +28,6 @@ export interface PricingPlan {
   features: PlanFeature[];
   socialProof: string;
   cta: { variant: CtaVariant; text: string };
-  icon: LucideIcon;
-  iconBg: string;
-  iconBgPopular?: string;
-  iconColor: string;
 }
 
 export type ComparisonCell =
@@ -80,9 +73,6 @@ export const hospitalPlans: PricingPlan[] = [
     ],
     socialProof: "✓ Used by 120+ small clinics",
     cta: { variant: "outline", text: "Start Free Trial" },
-    icon: Zap,
-    iconBg: "bg-[#EEF4FF]",
-    iconColor: "text-[#4A90E2]",
   },
   {
     id: "h-professional",
@@ -106,10 +96,6 @@ export const hospitalPlans: PricingPlan[] = [
     ],
     socialProof: "✓ Chosen by 340+ hospitals",
     cta: { variant: "gradient", text: "Start Free Trial →" },
-    icon: Rocket,
-    iconBg: "bg-[#ECFDF5]",
-    iconBgPopular: "bg-[#DBEAFE]",
-    iconColor: "text-[#16A34A]",
   },
   {
     id: "h-enterprise",
@@ -133,9 +119,6 @@ export const hospitalPlans: PricingPlan[] = [
     ],
     socialProof: "✓ Trusted by 45+ hospital chains",
     cta: { variant: "outline", text: "Start Free Trial" },
-    icon: Shield,
-    iconBg: "bg-[#F3E8FF]",
-    iconColor: "text-[#7C3AED]",
   },
   {
     id: "h-custom",
@@ -161,9 +144,6 @@ export const hospitalPlans: PricingPlan[] = [
     ],
     socialProof: "✓ Powering India's top 10 pharma networks",
     cta: { variant: "outline-primary", text: "Talk to Sales →" },
-    icon: Building2,
-    iconBg: "bg-[#FFF7ED]",
-    iconColor: "text-[#EA580C]",
   },
 ];
 
@@ -189,9 +169,6 @@ export const companyPlans: PricingPlan[] = [
     ],
     socialProof: "✓ Trusted by 200+ pharma teams",
     cta: { variant: "outline", text: "Start Free Trial" },
-    icon: Zap,
-    iconBg: "bg-[#EEF4FF]",
-    iconColor: "text-[#4A90E2]",
   },
   {
     id: "c-growth",
@@ -215,10 +192,6 @@ export const companyPlans: PricingPlan[] = [
     ],
     socialProof: "✓ Chosen by 340+ scaling teams",
     cta: { variant: "gradient", text: "Start Free Trial →" },
-    icon: Rocket,
-    iconBg: "bg-[#ECFDF5]",
-    iconBgPopular: "bg-[#DBEAFE]",
-    iconColor: "text-[#16A34A]",
   },
   {
     id: "c-business",
@@ -241,9 +214,6 @@ export const companyPlans: PricingPlan[] = [
     ],
     socialProof: "✓ Trusted by 45+ enterprise accounts",
     cta: { variant: "outline", text: "Start Free Trial" },
-    icon: Shield,
-    iconBg: "bg-[#F3E8FF]",
-    iconColor: "text-[#7C3AED]",
   },
   {
     id: "c-enterprise",
@@ -268,9 +238,6 @@ export const companyPlans: PricingPlan[] = [
     ],
     socialProof: "✓ Powering India's top 10 pharma networks",
     cta: { variant: "outline-primary", text: "Talk to Sales →" },
-    icon: Building2,
-    iconBg: "bg-[#FFF7ED]",
-    iconColor: "text-[#EA580C]",
   },
 ];
 

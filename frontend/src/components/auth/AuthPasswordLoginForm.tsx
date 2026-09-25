@@ -62,12 +62,17 @@ function LoginFormSkeleton() {
   );
 }
 
-export function AuthPasswordLoginForm() {
+type AuthPasswordLoginFormProps = {
+  /** When set (e.g. from /security/login), overrides ?role= in the URL */
+  forcedRole?: string | null;
+};
+
+export function AuthPasswordLoginForm({ forcedRole }: AuthPasswordLoginFormProps = {}) {
   const [mounted, setMounted] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const roleParam = searchParams.get('role');
+  const roleParam = forcedRole ?? searchParams.get('role');
   const rolePortal = isPortalRole(roleParam) ? findRolePortal(roleParam) : undefined;
   const deliveryPortal = !rolePortal ? findDeliveryPortal(roleParam) : undefined;
   const portalLabel = rolePortal?.label ?? deliveryPortal?.label;
@@ -246,8 +251,8 @@ export function AuthPasswordLoginForm() {
                 ← Back to home
               </Link>
               {' · '}
-              <Link href="/#staff-portals" className="text-primary hover:underline font-medium">
-                All roles
+              <Link href="/portal" className="text-primary hover:underline font-medium">
+                Visitor sign in
               </Link>
             </p>
             {deliveryPortal?.id === 'DISTRIBUTOR' ? (

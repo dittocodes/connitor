@@ -7,6 +7,7 @@ import {
 } from '@/lib/demo-config';
 import { getBackendBaseUrl } from '@/lib/backend-url';
 import { getStoredAuthToken } from '@/lib/auth-storage';
+import { getVisitorToken, isVisitorPortalApiPath } from '@/lib/visitor-auth-storage';
 import { beginMutationBusy, endMutationBusy } from '@/lib/mutation-busy';
 import { isHtmlPayload } from '@/lib/ensure-array';
 
@@ -80,9 +81,19 @@ if (typeof window !== 'undefined') {
       busyConfig.baseURL = resolveBaseUrl();
       busyConfig.url = normalizeApiUrl(busyConfig.url, busyConfig.baseURL);
 
-      const token = getStoredAuthToken();
-      if (token && !busyConfig.headers.Authorization) {
-        busyConfig.headers.Authorization = `Bearer ${token}`;
+      const requestUrl = `${busyConfig.url ?? ''}`;
+      if (isVisitorPortalApiPath(requestUrl)) {
+        const visitorToken = getVisitorToken();
+        if (visitorToken) {
+          busyConfig.headers.Authorization = `Bearer ${visitorToken}`;
+        } else {
+          delete busyConfig.headers.Authorization;
+        }
+      } else {
+        const token = getStoredAuthToken();
+        if (token && !busyConfig.headers.Authorization) {
+          busyConfig.headers.Authorization = `Bearer ${token}`;
+        }
       }
 
       if (IS_DEMO_MODE && !getStoredAuthToken()) {

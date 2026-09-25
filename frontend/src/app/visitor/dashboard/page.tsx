@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import type { AxiosError } from 'axios';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import useSWR from 'swr';
@@ -127,18 +128,32 @@ export default function VisitorDashboardPage() {
   const router = useRouter();
   const [ready, setReady] = useState(false);
 
+  const redirectToLogin = useCallback(() => {
+    clearVisitorToken();
+    router.replace('/visitor/login');
+  }, [router]);
+
   useEffect(() => {
     if (!getVisitorToken()) {
-      router.replace('/visitor/login');
+      redirectToLogin();
       return;
     }
     setReady(true);
-  }, [router]);
+  }, [redirectToLogin]);
 
   const { data, error, isLoading, mutate } = useSWR(
     ready ? 'visitor-appointments' : null,
     () => VisitorPortalService.getAppointments(),
-    { refreshInterval: 5_000 },
+    {
+      refreshInterval: 5_000,
+      shouldRetryOnError: (err) => (err as AxiosError).response?.status !== 401,
+      onError: (err) => {
+        if ((err as AxiosError).response?.status === 401) {
+          setReady(false);
+          redirectToLogin();
+        }
+      },
+    },
   );
 
   const logout = () => {

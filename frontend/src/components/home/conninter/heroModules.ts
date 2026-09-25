@@ -17,6 +17,8 @@ export type HeroModule = {
   subtext: string;
   searchPlaceholder: string;
   ctaHref: string;
+  /** Hero pills (phone / quick book / WhatsApp, etc.) — sign-in before booking */
+  quickActionHref: string;
   quickActions: { icon: LucideIcon; label: string }[];
   score: {
     title: string;
@@ -66,6 +68,7 @@ export const heroModules: Record<ShowcaseModule, HeroModule> = {
       "India's most advanced platform for coordinating medical reps and hospital visitor management. Find hospitals, check real-time slot availability, and book your visit — all in one place.",
     searchPlaceholder: 'Search hospitals, specialties, or departments',
     ctaHref: '/book-appointment',
+    quickActionHref: '/portal',
     quickActions: [
       { icon: Phone, label: 'Book via Phone Call' },
       { icon: CalendarClock, label: 'Quick Book' },
@@ -125,6 +128,7 @@ export const heroModules: Record<ShowcaseModule, HeroModule> = {
       'Give vendors and distributors a single place to book dock slots, pass the security gate with a QR scan, and hand over to stores with verified sign-off — no more queues at the loading bay.',
     searchPlaceholder: 'Search hospitals, docks, or receiving slots',
     ctaHref: '/vendor/deliveries/book',
+    quickActionHref: '/portal',
     quickActions: [
       { icon: Truck, label: 'Book Delivery Slot' },
       { icon: Store, label: 'Vendor Portal' },

@@ -373,7 +373,7 @@ export default function VendorRegisterPage(): React.ReactElement {
             <p className="text-sm text-muted-foreground">{done.message}</p>
             <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
               <Button asChild>
-                <Link href="/auth/login?role=DISTRIBUTOR">Sign in</Link>
+                <Link href="/delivery/login">Sign in</Link>
               </Button>
               <Button variant="outline" asChild>
                 <Link href="/">Home</Link>
@@ -391,7 +391,7 @@ export default function VendorRegisterPage(): React.ReactElement {
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
           <ConninterWordmark size="md" />
           <Button asChild variant="ghost" size="sm" className="text-primary">
-            <Link href="/auth/login?role=DISTRIBUTOR">Already registered? Sign in</Link>
+            <Link href="/delivery/login">Already registered? Sign in</Link>
           </Button>
         </div>
       </header>
@@ -872,7 +872,7 @@ export default function VendorRegisterPage(): React.ReactElement {
           <button
             type="button"
             className="text-primary underline"
-            onClick={() => router.push('/auth/login?role=DISTRIBUTOR')}
+            onClick={() => router.push('/delivery/login')}
           >
             Distributor login
           </button>

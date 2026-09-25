@@ -1,4 +1,11 @@
 import apiClient from '@/lib/api';
+import {
+  clearVisitorToken,
+  getVisitorToken,
+  setVisitorToken,
+} from '@/lib/visitor-auth-storage';
+
+export { clearVisitorToken, getVisitorToken, setVisitorToken };
 
 export interface VisitorAppointment {
   bookingId: string;
@@ -37,21 +44,6 @@ export interface VisitorDashboardData {
   };
 }
 
-const VISITOR_TOKEN_KEY = 'visitorAuthToken';
-
-export function getVisitorToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem(VISITOR_TOKEN_KEY);
-}
-
-export function setVisitorToken(token: string): void {
-  localStorage.setItem(VISITOR_TOKEN_KEY, token);
-}
-
-export function clearVisitorToken(): void {
-  localStorage.removeItem(VISITOR_TOKEN_KEY);
-}
-
 export const VisitorPortalService = {
   async requestOtp(email: string): Promise<{ message: string; testOtp?: string }> {
     const response = await apiClient.post('/api/public/visitor-portal/request-otp', { email });
@@ -67,10 +59,7 @@ export const VisitorPortalService = {
   },
 
   async getAppointments(): Promise<VisitorDashboardData> {
-    const token = getVisitorToken();
-    const response = await apiClient.get('/api/public/visitor-portal/appointments', {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
+    const response = await apiClient.get('/api/public/visitor-portal/appointments');
     return response.data;
   },
 };

@@ -16,10 +16,8 @@ type Props = {
 };
 
 export const PricingPlanCard = ({ plan, billing, index, isLg }: Props) => {
-  const Icon = plan.icon;
   const isContact = plan.tier === "contact";
   const isPopular = plan.popular;
-  const iconBg = isPopular && plan.iconBgPopular ? plan.iconBgPopular : plan.iconBg;
 
   const prevName = plan.inheritsFrom;
 
@@ -71,15 +69,6 @@ export const PricingPlanCard = ({ plan, billing, index, isLg }: Props) => {
         )}
 
         <div className="relative">
-        <div
-          className={cn(
-            "mb-5 flex h-11 w-11 items-center justify-center rounded-xl",
-            iconBg,
-          )}
-        >
-          <Icon className={cn("h-6 w-6", plan.iconColor)} strokeWidth={2} />
-        </div>
-
         <h3 className="text-[22px] font-bold text-[#001B71]">{plan.name}</h3>
         <p className="mb-5 text-xs text-[#94A3B8]">{plan.audienceTag}</p>
 

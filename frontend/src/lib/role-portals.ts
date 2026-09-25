@@ -63,7 +63,8 @@ export const HOSPITAL_ROLE_PORTALS: RolePortal[] = [
 ];
 
 export function getLoginPathForRole(role: PortalRole): string {
-  return `/auth/login?role=${role}`;
+  if (role === 'SECURITY') return '/security/login';
+  return '/staff/login';
 }
 
 export function findRolePortal(role: string | null | undefined): RolePortal | undefined {
@@ -89,7 +90,7 @@ export const DELIVERY_PORTALS: DeliveryPortal[] = [
     id: 'DISTRIBUTOR',
     label: 'Distributor',
     description: 'Book hospital deliveries, manage drivers and vehicles, and track shipments.',
-    loginPath: '/auth/login?role=DISTRIBUTOR',
+    loginPath: '/delivery/login',
     dashboardPath: '/vendor/deliveries',
     demoEmail: 'distributor@citygen.demo',
   },

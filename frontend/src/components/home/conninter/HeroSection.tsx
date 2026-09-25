@@ -184,6 +184,10 @@ export default function HeroSection({ bookingsCount }: HeroSectionProps) {
     router.push(mod.ctaHref);
   };
 
+  const goQuickActionLogin = () => {
+    router.push(mod.quickActionHref);
+  };
+
   return (
     <section className="bg-muted/30 pb-16 pt-24 lg:pb-24 lg:pt-32">
       <div className="container mx-auto px-4 lg:px-8">
@@ -259,7 +263,7 @@ export default function HeroSection({ bookingsCount }: HeroSectionProps) {
                   <button
                     key={a.label}
                     type="button"
-                    onClick={goBook}
+                    onClick={goQuickActionLogin}
                     className="inline-flex items-center gap-2 rounded-full border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
                   >
                     <a.icon className={cn('h-4 w-4', moduleKey === 'delivery' ? 'text-teal-600' : 'text-secondary')} />
