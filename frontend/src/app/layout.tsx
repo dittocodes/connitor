@@ -1,20 +1,7 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import { Toaster } from '@/components/ui/sonner';
 import { AppProviders } from '@/components/providers/AppProviders';
-
-const inter = Inter({
-  variable: '--font-inter',
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700', '800'],
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  variable: '--font-jetbrains-mono',
-  subsets: ['latin'],
-  weight: ['400', '500', '600'],
-});
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -39,10 +26,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${inter.variable} ${jetbrainsMono.variable} antialiased`}
-        suppressHydrationWarning
-      >
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body className="font-sans antialiased" suppressHydrationWarning>
         <AppProviders>{children}</AppProviders>
         <Toaster richColors position="top-right" />
       </body>
