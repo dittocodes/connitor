@@ -124,9 +124,13 @@ class HierarchyWorkflowDemoTest(unittest.TestCase):
         # Step 2 — Doctor approves appointment
         staff_service = StaffService(self.db)
         staff_service.notifications = MagicMock()
+        def _allocate_pass(visit, assigned_by_id=None):
+            visit.visitorPassId = "VP-DEMO-1"
+            return SimpleNamespace(id="pass-demo-1")
+
         with patch.object(staff_service, "_generate_qr_base64", return_value="data:image/png;base64,abc"), patch(
             "app.services.visitor_pass_service.VisitorPassService.allocate_for_visit",
-            return_value=None,
+            side_effect=_allocate_pass,
         ):
             approve_result = staff_service.approve_visit(self.visit.id, "doc-1")
 
